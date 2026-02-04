@@ -10,11 +10,24 @@ const app = express();
 
 const __dirname = path.resolve();
 
-// Configuração do CORS - permite todas as origens em desenvolvimento
+// Configuração do CORS
+const allowedOrigins = [
+  "https://zohomiddleware-x12ad.sevalla.app",
+  "http://localhost:5173", // Desenvolvimento local
+  "http://localhost:3000", // Desenvolvimento local
+];
+
 app.use(
   cors({
-    origin: "*", // Permite todas as origens em desenvolvimento
-    credentials: false,
+    origin: function (origin, callback) {
+      // Permite requisições sem origin (mobile apps, Postman, etc) ou das origens permitidas
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Não permitido pelo CORS"));
+      }
+    },
+    credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allowedHeaders: [
       "Content-Type",
@@ -25,7 +38,8 @@ app.use(
     ],
   }),
 );
-console.log("[CORS] Configuração CORS aplicada - permitindo todas as origens");
+console.log("[CORS] Configuração CORS aplicada");
+console.log("[CORS] Origens permitidas:", allowedOrigins);
 
 app.use(express.json({ limit: "20mb" }));
 

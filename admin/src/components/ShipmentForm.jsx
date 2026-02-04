@@ -3,7 +3,6 @@ import axios from "axios";
 
 export default function ShipmentForm() {
   const [clientId, setClientId] = useState("");
-  const [orderId, setOrderId] = useState("");
   const [base64, setBase64] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -14,15 +13,16 @@ export default function ShipmentForm() {
     setMessage("");
 
     try {
-      await axios.post("http://localhost:3000/api/upload-invoice", {
+      const API_BASE_URL =
+        import.meta.env.VITE_API_URL ||
+        "https://zohomiddleware-x12ad.sevalla.app";
+      await axios.post(`${API_BASE_URL}/api/upload`, {
         clientId,
-        orderId,
         base64,
       });
 
       setMessage("✅ Arquivo enviado com sucesso");
       setClientId("");
-      setOrderId("");
       setBase64("");
     } catch (error) {
       setMessage("❌ Erro ao enviar arquivo");
@@ -48,17 +48,7 @@ export default function ShipmentForm() {
             value={clientId}
             onChange={(e) => setClientId(e.target.value)}
             className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring focus:ring-blue-300"
-            required
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium mb-1">ID do Pedido</label>
-          <input
-            type="text"
-            value={orderId}
-            onChange={(e) => setOrderId(e.target.value)}
-            className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring focus:ring-blue-300"
+            placeholder="ID do cliente no Zoho CRM"
             required
           />
         </div>
@@ -80,7 +70,7 @@ export default function ShipmentForm() {
         <button
           disabled={loading}
           type="submit"
-          className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition"
+          className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
         >
           {loading ? "Enviando ..." : "Enviar"}
         </button>

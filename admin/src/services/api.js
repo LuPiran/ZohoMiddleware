@@ -1,6 +1,7 @@
 import axios from "axios";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL || "https://zohomiddleware-x12ad.sevalla.app";
 
 const api = axios.create({
   baseURL: API_BASE_URL,
