@@ -482,6 +482,16 @@ export default function Recompra() {
     <>
       {showSplash && <SplashScreen message="Criando recompra..." />}
       <MainLayout>
+        {buscandoCliente && (
+          <div className="cpf-loading-overlay" aria-live="polite">
+            <div className="cpf-loading-glass" role="status">
+              <div className="cpf-loading-spinner" />
+              <p className="cpf-loading-text">
+                Buscando dados pelo CPF...
+              </p>
+            </div>
+          </div>
+        )}
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <h1 className="text-2xl font-bold text-tegra-text-primary mb-6">
             Nova Recompra
