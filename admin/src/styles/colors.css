@@ -1,0 +1,67 @@
+/**
+ * Paleta de Cores TegraPharma
+ * Baseada na identidade visual da marca
+ * Compatível com Tailwind CSS v4
+ */
+
+@theme {
+  /* Cores Principais da Logo */
+  --color-tegra-blue: #2e4a86;
+  --color-tegra-blue-light: #4d6fa9;
+  --color-tegra-blue-dark: #1a2f5b;
+
+  --color-tegra-teal: #21b3b3;
+  --color-tegra-teal-light: #4ecdc4;
+  --color-tegra-teal-dark: #1a8a8a;
+
+  --color-tegra-blue-green: #3da2b8;
+  --color-tegra-blue-green-light: #5db8c8;
+  --color-tegra-blue-green-dark: #2d7a8a;
+
+  /* Cores Neutras */
+  --color-tegra-gray: #666666;
+  --color-tegra-gray-light: #f5f5f5;
+  --color-tegra-gray-medium: #e0e0e0;
+  --color-tegra-gray-dark: #333333;
+
+  /* Cores de Feedback */
+  --color-tegra-success: #4caf50;
+  --color-tegra-success-light: #e8f5e9;
+  --color-tegra-error: #f44336;
+  --color-tegra-error-light: #ffebee;
+  --color-tegra-warning: #ffc107;
+  --color-tegra-warning-light: #fff8e1;
+  --color-tegra-info: #2196f3;
+  --color-tegra-info-light: #e3f2fd;
+
+  /* Cores de Background */
+  --color-tegra-bg-primary: #ffffff;
+  --color-tegra-bg-secondary: #f5f5f5;
+  --color-tegra-bg-accent: #e3f2fd;
+
+  /* Cores de Texto */
+  --color-tegra-text-primary: #333333;
+  --color-tegra-text-secondary: #666666;
+  --color-tegra-text-light: #999999;
+  --color-tegra-text-inverse: #ffffff;
+}
+
+/* Variáveis CSS para uso direto (compatibilidade) */
+:root {
+  --tegra-primary-blue: #2e4a86;
+  --tegra-primary-teal: #21b3b3;
+  --tegra-secondary-blue-green: #3da2b8;
+  --tegra-dark-gray: #666666;
+  --tegra-light-gray: #f5f5f5;
+  --tegra-medium-gray: #e0e0e0;
+  --tegra-soft-black: #333333;
+  --tegra-white: #ffffff;
+  --tegra-success: #4caf50;
+  --tegra-success-light: #e8f5e9;
+  --tegra-error: #f44336;
+  --tegra-error-light: #ffebee;
+  --tegra-warning: #ffc107;
+  --tegra-warning-light: #fff8e1;
+  --tegra-info: #2196f3;
+  --tegra-info-light: #e3f2fd;
+}
