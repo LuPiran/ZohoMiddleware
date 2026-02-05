@@ -1,4 +1,5 @@
 import axios from "axios";
+import { STORAGE_KEYS, ROUTES } from "../utils/constants";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
@@ -9,10 +10,17 @@ const api = axios.create({
   },
 });
 
+// Função auxiliar para obter o token do storage correto
+function getToken() {
+  const rememberMe = localStorage.getItem(STORAGE_KEYS.REMEMBER_ME) === "true";
+  const storage = rememberMe ? localStorage : sessionStorage;
+  return storage.getItem(STORAGE_KEYS.TOKEN);
+}
+
 // Interceptor para adicionar token JWT em todas as requisições
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("token");
+    const token = getToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -27,90 +35,31 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401 || error.response?.status === 403) {
-      // Token inválido ou expirado - limpa localStorage e redireciona
-      localStorage.removeItem("user");
-      localStorage.removeItem("token");
-      localStorage.removeItem("isAuthenticated");
-      window.location.href = "/login";
+    // Não redireciona se o erro for da rota de login (permite tratamento no componente)
+    const isLoginRoute = error.config?.url?.includes("/api/auth/login");
+
+    if (
+      (error.response?.status === 401 || error.response?.status === 403) &&
+      !isLoginRoute
+    ) {
+      // Token inválido ou expirado - limpa ambos os storages e redireciona
+      // Apenas se NÃO for uma tentativa de login
+      localStorage.removeItem(STORAGE_KEYS.USER);
+      localStorage.removeItem(STORAGE_KEYS.TOKEN);
+      localStorage.removeItem(STORAGE_KEYS.IS_AUTHENTICATED);
+      localStorage.removeItem(STORAGE_KEYS.REMEMBER_ME);
+      sessionStorage.removeItem(STORAGE_KEYS.USER);
+      sessionStorage.removeItem(STORAGE_KEYS.TOKEN);
+      sessionStorage.removeItem(STORAGE_KEYS.IS_AUTHENTICATED);
+      window.location.href = ROUTES.LOGIN;
     }
     return Promise.reject(error);
   },
 );
 
-/**
- * Serviço de autenticação
- */
-export const authService = {
-  /**
-   * Faz login com email e senha
-   * @param {string} email
-   * @param {string} senha
-   * @returns {Promise<Object>}
-   */
-  async login(email, senha) {
-    try {
-      const response = await api.post("/api/auth/login", {
-        email,
-        senha,
-      });
-      return response.data;
-    } catch (error) {
-      throw error.response?.data || error.message;
-    }
-  },
-
-  /**
-   * Verifica se um email existe
-   * @param {string} email
-   * @returns {Promise<boolean>}
-   */
-  async checkEmail(email) {
-    try {
-      const response = await api.post("/api/auth/check-email", { email });
-      return response.data.exists;
-    } catch (error) {
-      console.error("Erro ao verificar email:", error);
-      return false;
-    }
-  },
-
-  /**
-   * Salva o usuário e token no localStorage
-   * @param {Object} usuario
-   * @param {string} token - Token JWT
-   */
-  saveUser(usuario, token) {
-    localStorage.setItem("user", JSON.stringify(usuario));
-    localStorage.setItem("token", token);
-    localStorage.setItem("isAuthenticated", "true");
-  },
-
-  /**
-   * Remove o usuário e token do localStorage
-   */
-  logout() {
-    localStorage.removeItem("user");
-    localStorage.removeItem("token");
-    localStorage.removeItem("isAuthenticated");
-  },
-
-  /**
-   * Obtém o usuário do localStorage
-   * @returns {Object|null}
-   */
-  getUser() {
-    const user = localStorage.getItem("user");
-    return user ? JSON.parse(user) : null;
-  },
-
-  /**
-   * Verifica se o usuário está autenticado
-   * @returns {boolean}
-   */
-  isAuthenticated() {
-    return localStorage.getItem("isAuthenticated") === "true";
-  },
-};
+// Este arquivo contém apenas a configuração base do axios
+// Os serviços específicos estão em:
+// - services/auth.js - Serviços de autenticação
+// - services/upload.js - Serviços de upload
 
 export default api;

@@ -1,31 +1,52 @@
 import rateLimit from "express-rate-limit";
 
 /**
- * Rate limiter para login - previne brute force attacks
- * Permite 5 tentativas por IP a cada 15 minutos
+ * Rate Limiter para a rota de login
+ * - Máximo de 10 tentativas por IP a cada 15 minutos
+ * - Apenas tentativas falhadas contam (skipSuccessfulRequests: true)
+ * - Mensagem de erro clara quando o limite é excedido
  */
 export const loginRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 5, // máximo de 5 tentativas por IP
+  max: 10, // Máximo de 10 tentativas
+  skipSuccessfulRequests: true, // Apenas tentativas falhadas contam
   message: {
-    success: false,
-    error: "Muitas tentativas de login. Tente novamente em 15 minutos.",
+    error:
+      "Muitas tentativas de login. Aguarde 15 minutos antes de tentar novamente.",
+    retryAfter: "15 minutos",
   },
-  standardHeaders: true, // Retorna rate limit info nos headers
-  legacyHeaders: false,
-  skipSuccessfulRequests: false, // Conta todas as requisições, mesmo as bem-sucedidas
+  standardHeaders: true, // Retorna informações de rate limit nos headers `RateLimit-*`
+  legacyHeaders: false, // Não usa headers `X-RateLimit-*`
+  handler: (req, res) => {
+    res.status(429).json({
+      success: false,
+      error:
+        "Muitas tentativas de login. Aguarde 15 minutos antes de tentar novamente.",
+      retryAfter: "15 minutos",
+    });
+  },
 });
 
 /**
- * Rate limiter geral para API
+ * Rate Limiter geral para todas as rotas da API
+ * - Máximo de 100 requisições por IP a cada 15 minutos
+ * - Protege contra abuso geral da API
  */
 export const apiRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 100, // máximo de 100 requisições por IP
+  max: 100, // Máximo de 100 requisições
   message: {
-    success: false,
-    error: "Muitas requisições. Tente novamente mais tarde.",
+    error: "Muitas requisições. Aguarde um momento antes de tentar novamente.",
+    retryAfter: "15 minutos",
   },
-  standardHeaders: true,
-  legacyHeaders: false,
+  standardHeaders: true, // Retorna informações de rate limit nos headers `RateLimit-*`
+  legacyHeaders: false, // Não usa headers `X-RateLimit-*`
+  handler: (req, res) => {
+    res.status(429).json({
+      success: false,
+      error:
+        "Muitas requisições. Aguarde um momento antes de tentar novamente.",
+      retryAfter: "15 minutos",
+    });
+  },
 });
