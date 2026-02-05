@@ -18,6 +18,7 @@ const __dirname = path.resolve();
 const allowedOrigins = [
   "https://zohomiddleware-x12ad.sevalla.app",
   "http://localhost:5173", // Desenvolvimento local
+  "http://localhost:5174", // Desenvolvimento local
   "http://localhost:3000", // Desenvolvimento local
 ];
 
