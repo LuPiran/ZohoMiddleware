@@ -1,0 +1,437 @@
+import express from "express";
+import { chamarZohoApi } from "../services/zohoApi.js";
+import { ENV } from "../config/env.js";
+
+const router = express.Router();
+
+/**
+ * Rota para buscar cliente por CPF no módulo Contacts do Zoho
+ * GET /api/compra/cliente/:cpf
+ */
+router.get("/cliente/:cpf", async (req, res) => {
+  try {
+    const { cpf } = req.params;
+    const cpfLimpo = cpf.replace(/\D/g, "");
+
+    if (!cpfLimpo || cpfLimpo.length !== 11) {
+      return res.status(400).json({
+        success: false,
+        error: "CPF deve conter 11 dígitos",
+      });
+    }
+
+    console.log("[COMPRA API] Buscando cliente por CPF:", cpfLimpo);
+
+    const moduleName = "Contacts";
+    let clienteEncontrado = null;
+
+    // Função auxiliar para normalizar e comparar CPFs
+    const normalizarCpf = (cpf) => {
+      if (!cpf) return "";
+      return cpf.toString().replace(/\D/g, "");
+    };
+
+    // Função auxiliar para buscar cliente em um array de registros
+    const buscarClientePorCpf = (registros) => {
+      for (const cliente of registros) {
+        // Verifica se é um Paciente (Tipo_de_Lead = "Paciente")
+        const tipoLead = cliente.Tipo_de_Lead || cliente.tipo_de_lead || "";
+        if (tipoLead !== "Paciente") {
+          continue; // Pula registros que não são pacientes
+        }
+
+        // Tenta encontrar o CPF em diferentes campos possíveis
+        const cpfCliente = normalizarCpf(
+          cliente.CPF || cliente.cpf || cliente.CPF_Paciente || "",
+        );
+
+        if (cpfCliente === cpfLimpo) {
+          console.log(
+            "[COMPRA API] ✓ CPF encontrado no registro:",
+            cliente.id,
+            "| CPF:",
+            cliente.CPF || cliente.cpf || cliente.CPF_Paciente,
+            "| CPF normalizado:",
+            cpfCliente,
+            "| CPF buscado:",
+            cpfLimpo,
+            "| Tipo_de_Lead:",
+            tipoLead,
+          );
+          return cliente;
+        }
+      }
+      return null;
+    };
+
+    // Estratégia 1: Tentar busca com critério otimizado (mais eficiente)
+    // Usa fields para retornar apenas campos necessários
+    // Filtra por CPF E Tipo_de_Lead = "Paciente"
+    try {
+      console.log("[COMPRA API] Tentativa 1: Busca com critério otimizado");
+      const criteria = `(CPF:equals:${cpfLimpo}) AND (Tipo_de_Lead:equals:Paciente)`;
+      // Campos essenciais para busca rápida
+      const fields =
+        "id,CPF,First_Name,Last_Name,Email,Mobile,Phone,Date_of_Birth,RG,Other_Street,Outro_Bairro,Other_City,Other_State,Other_Country,Outra_Correspond_ncia,Tipo_de_Lead";
+      const endpoint = `/${moduleName}?criteria=${encodeURIComponent(criteria)}&fields=${encodeURIComponent(fields)}`;
+
+      console.log("[COMPRA API] Critério:", criteria);
+      console.log("[COMPRA API] Endpoint:", endpoint);
+
+      const response = await chamarZohoApi("GET", endpoint);
+
+      if (response.data && response.data.length > 0) {
+        clienteEncontrado = buscarClientePorCpf(response.data);
+        if (clienteEncontrado) {
+          console.log(
+            "[COMPRA API] ✓ Cliente encontrado via critério:",
+            clienteEncontrado.id,
+          );
+          return res.json({
+            success: true,
+            data: clienteEncontrado,
+          });
+        }
+      }
+    } catch (error) {
+      console.log("[COMPRA API] Busca com critério falhou:", error.message);
+    }
+
+    console.log(
+      "[COMPRA API] Critério não funcionou, iniciando busca paralela otimizada",
+    );
+
+    // Estratégia 2: Busca paralela otimizada
+    // Busca múltiplas páginas simultaneamente com campos limitados
+    console.log(
+      "[COMPRA API] Tentativa 2: Busca paralela com campos limitados",
+    );
+
+    const perPage = 2000;
+    const paginasParalelas = 50; // Busca 50 páginas em paralelo por vez (otimizado para máxima velocidade)
+    let page = 1;
+    let hasMore = true;
+    let totalPaginasProcessadas = 0;
+    const maxPaginas = 500; // Ajustado para 498 páginas + margem de segurança
+
+    // Campos mínimos para busca rápida (id, CPF e Tipo_de_Lead para filtrar)
+    const camposMinimos = "id,CPF,Tipo_de_Lead";
+
+    while (hasMore && !clienteEncontrado && page <= maxPaginas) {
+      try {
+        // Prepara array de páginas para buscar em paralelo
+        const paginasParaBuscar = [];
+        for (let i = 0; i < paginasParalelas && page + i <= maxPaginas; i++) {
+          paginasParaBuscar.push(page + i);
+        }
+
+        console.log(
+          `[COMPRA API] Buscando páginas ${paginasParaBuscar[0]}-${paginasParaBuscar[paginasParaBuscar.length - 1]} em paralelo (${paginasParaBuscar.length} páginas)...`,
+        );
+
+        // Busca paralela com campos limitados
+        // Tenta primeiro com campos limitados, se falhar tenta sem campos
+        const promises = paginasParaBuscar.map((p) => {
+          const endpoint = `/${moduleName}?page=${p}&per_page=${perPage}&fields=${encodeURIComponent(camposMinimos)}`;
+          return chamarZohoApi("GET", endpoint).catch((err) => {
+            console.log(
+              `[COMPRA API] Erro na página ${p} com campos limitados, tentando sem campos:`,
+              err.message,
+            );
+            // Se falhar com campos limitados, tenta sem campos
+            const endpointSemCampos = `/${moduleName}?page=${p}&per_page=${perPage}`;
+            return chamarZohoApi("GET", endpointSemCampos).catch((err2) => {
+              console.error(`[COMPRA API] Erro na página ${p}:`, err2.message);
+              return { data: [], info: {} };
+            });
+          });
+        });
+
+        const responses = await Promise.all(promises);
+
+        // Processa todas as respostas em paralelo
+        let encontrouNaIteracao = false;
+        let maisRegistrosEncontrado = false;
+
+        for (let i = 0; i < responses.length; i++) {
+          const response = responses[i];
+          const paginaAtual = paginasParaBuscar[i];
+
+          if (response.data && response.data.length > 0) {
+            console.log(
+              `[COMPRA API] Processando página ${paginaAtual}: ${response.data.length} registros`,
+            );
+
+            // Busca apenas pelo CPF (campos limitados)
+            clienteEncontrado = buscarClientePorCpf(response.data);
+
+            if (clienteEncontrado) {
+              console.log(
+                "[COMPRA API] ✓ Cliente encontrado na página",
+                paginaAtual,
+                ":",
+                clienteEncontrado.id,
+              );
+              encontrouNaIteracao = true;
+
+              // Busca dados completos do cliente encontrado
+              try {
+                console.log(
+                  "[COMPRA API] Buscando dados completos do cliente...",
+                );
+                const fieldsCompletos =
+                  "id,CPF,First_Name,Last_Name,Email,Mobile,Phone,Date_of_Birth,RG,Other_Street,Outro_Bairro,Other_City,Other_State,Other_Country,Outra_Correspond_ncia,Tipo_de_Lead";
+                const fullEndpoint = `/${moduleName}/${clienteEncontrado.id}?fields=${encodeURIComponent(fieldsCompletos)}`;
+                const fullResponse = await chamarZohoApi("GET", fullEndpoint);
+
+                if (fullResponse.data && fullResponse.data.length > 0) {
+                  clienteEncontrado = fullResponse.data[0];
+                  console.log("[COMPRA API] ✓ Dados completos obtidos");
+                }
+              } catch (error) {
+                console.log(
+                  "[COMPRA API] ⚠️ Não foi possível buscar dados completos, usando dados parciais:",
+                  error.message,
+                );
+                // Continua com dados parciais (pelo menos temos id e CPF)
+              }
+
+              break; // Sai do loop quando encontra
+            }
+
+            totalPaginasProcessadas++;
+
+            // Verifica se há mais páginas (verifica todas as respostas)
+            const info = response.info || {};
+            if (info.more_records === true) {
+              maisRegistrosEncontrado = true;
+            } else if (info.more_records === false) {
+              console.log(
+                `[COMPRA API] Página ${paginaAtual} indica que não há mais registros`,
+              );
+            }
+          } else {
+            console.log(
+              `[COMPRA API] Página ${paginaAtual} retornou sem dados`,
+            );
+          }
+        }
+
+        // Atualiza hasMore baseado em todas as respostas
+        hasMore = maisRegistrosEncontrado;
+
+        // Se encontrou, sai do loop principal
+        if (encontrouNaIteracao) {
+          break;
+        }
+
+        if (clienteEncontrado) {
+          break; // Sai do loop principal quando encontra
+        }
+
+        // Avança para o próximo grupo de páginas
+        page += paginasParalelas;
+
+        if (!hasMore) {
+          break;
+        }
+      } catch (error) {
+        console.error(
+          `[COMPRA API] Erro ao buscar páginas em paralelo:`,
+          error.message,
+        );
+        // Continua para próximo grupo mesmo em caso de erro
+        page += paginasParalelas;
+        if (page > maxPaginas) {
+          hasMore = false;
+        }
+      }
+    }
+
+    if (page > maxPaginas && !clienteEncontrado) {
+      console.log(
+        "[COMPRA API] ⚠️ Limite de páginas atingido sem encontrar o cliente",
+      );
+    }
+
+    if (clienteEncontrado) {
+      res.json({
+        success: true,
+        data: clienteEncontrado,
+      });
+    } else {
+      console.log("[COMPRA API] ✗ Cliente não encontrado após busca completa");
+      res.status(404).json({
+        success: false,
+        error: "Cliente não encontrado com o CPF informado",
+      });
+    }
+  } catch (error) {
+    console.error("[COMPRA API] ✗ Erro ao buscar cliente:", error);
+    res.status(500).json({
+      success: false,
+      error:
+        error.response?.data?.message ||
+        error.message ||
+        "Erro ao buscar cliente",
+      details: error.response?.data,
+    });
+  }
+});
+
+/**
+ * Rota para criar uma nova compra no módulo Portal_onix do Zoho
+ * POST /api/compra
+ * Body: dados da compra
+ */
+router.post("/", async (req, res) => {
+  try {
+    const {
+      nomePaciente,
+      sobrenomePaciente,
+      cpfPaciente,
+      dataNascimento,
+      emailPaciente,
+      rgPaciente,
+      celularPaciente,
+      telefonePaciente,
+      rua,
+      numero,
+      bairro,
+      cidade,
+      estado,
+      cep,
+      pais,
+      complemento,
+      produtos,
+      consultorTegra,
+      tipoSolicitacao,
+    } = req.body;
+
+    console.log("[COMPRA API] Criando nova compra no Zoho");
+    console.log("[COMPRA API] Dados recebidos:", {
+      nomePaciente,
+      sobrenomePaciente,
+      cpfPaciente,
+      emailPaciente,
+      produtos: produtos?.length || 0,
+    });
+    console.log(
+      "[COMPRA API] Produtos recebidos do frontend:",
+      JSON.stringify(produtos, null, 2),
+    );
+
+    // Validação básica
+    if (!nomePaciente || !cpfPaciente || !emailPaciente) {
+      return res.status(400).json({
+        success: false,
+        error: "Nome, CPF e Email são obrigatórios",
+      });
+    }
+
+    if (!produtos || produtos.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: "É necessário adicionar pelo menos um produto",
+      });
+    }
+
+    // Combina Rua + Número
+    const ruaCompleta = numero ? `${rua}, ${numero}` : rua;
+
+    // Formata a data de nascimento para o formato esperado pelo Zoho (YYYY-MM-DD)
+    let dataNascimentoFormatada = null;
+    if (dataNascimento) {
+      // Se já estiver no formato YYYY-MM-DD, usa direto
+      if (dataNascimento.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        dataNascimentoFormatada = dataNascimento;
+      } else {
+        // Tenta converter de DD/MM/YYYY para YYYY-MM-DD
+        const partes = dataNascimento.split("/");
+        if (partes.length === 3) {
+          dataNascimentoFormatada = `${partes[2]}-${partes[1]}-${partes[0]}`;
+        } else {
+          dataNascimentoFormatada = dataNascimento;
+        }
+      }
+    }
+
+    // Prepara o subformulário de produtos
+    // O campo Produto no Zoho é um campo de linha única (texto), então enviamos o nome
+    const produtosSubform = produtos
+      .filter((produto) => produto.nome && produto.nome.trim()) // Filtra apenas produtos com nome válido
+      .map((produto) => ({
+        Produto: produto.nome, // Nome do produto (campo de linha única)
+        Quantidade: produto.quantidade || "1",
+      }));
+
+    console.log(
+      "[COMPRA API] Produtos subform (enviando nomes para Zoho):",
+      JSON.stringify(produtosSubform, null, 2),
+    );
+
+    // Prepara os dados para o Zoho
+    const dadosZoho = {
+      data: [
+        {
+          Name: nomePaciente || "",
+          Sobrenome: sobrenomePaciente || "",
+          CPF: cpfPaciente?.replace(/\D/g, "") || "",
+          Data_de_Nascimento: dataNascimentoFormatada,
+          Email: emailPaciente || "",
+          RG: rgPaciente || "",
+          Celular: celularPaciente?.replace(/\D/g, "") || "",
+          Telefone: telefonePaciente?.replace(/\D/g, "") || "",
+          Rua: ruaCompleta || "",
+          Bairro: bairro || "",
+          Cidade: cidade || "",
+          Estado: estado || "",
+          CEP: cep?.replace(/\D/g, "") || "",
+          Pa_s: pais || "Brasil",
+          Complemento: complemento || "",
+          Tipo_Cliente: "Pessoa Fisica",
+          Tipo_de_solicita_o: tipoSolicitacao || "Pedido", // Usa o valor do formulário ou "Pedido" como padrão
+          Consultor_Tegra: consultorTegra || "",
+          Produtos_Portal_Onix: produtosSubform,
+        },
+      ],
+    };
+
+    console.log(
+      "[COMPRA API] Dados formatados para Zoho:",
+      JSON.stringify(dadosZoho, null, 2),
+    );
+
+    // Chama a API do Zoho para criar o registro
+    const moduleName = "Portal_onix";
+    const endpoint = `/${moduleName}`;
+    const response = await chamarZohoApi("POST", endpoint, dadosZoho);
+
+    console.log("[COMPRA API] ✓ Compra criada com sucesso no Zoho");
+    console.log(
+      "[COMPRA API] ID do registro:",
+      response.data?.[0]?.details?.id,
+    );
+
+    res.json({
+      success: true,
+      message: "Compra criada com sucesso",
+      data: {
+        id: response.data?.[0]?.details?.id,
+        ...response.data?.[0]?.details,
+      },
+    });
+  } catch (error) {
+    console.error("[COMPRA API] ✗ Erro ao criar compra:", error);
+    res.status(500).json({
+      success: false,
+      error:
+        error.response?.data?.message ||
+        error.message ||
+        "Erro ao criar compra no Zoho",
+      details: error.response?.data,
+    });
+  }
+});
+
+export default router;

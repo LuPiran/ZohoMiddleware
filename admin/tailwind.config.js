@@ -48,6 +48,12 @@ export default {
             DEFAULT: "#2196F3",
             light: "#E3F2FD",
           },
+          // Laranja para tabelas e elementos especiais
+          orange: {
+            DEFAULT: "#FF9800",
+            light: "#FFE0B2",
+            dark: "#F57C00",
+          },
           // Backgrounds
           bg: {
             primary: "#FFFFFF",

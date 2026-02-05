@@ -11,21 +11,32 @@ export default function Header() {
   const navigate = useNavigate();
   const user = authService.getUser();
   const [showSplash, setShowSplash] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   function handleLogout() {
+    // Previne múltiplos cliques e loops
+    if (showSplash || isLoggingOut) return;
+
+    setIsLoggingOut(true);
     // Mostra splash screen
     setShowSplash(true);
 
     // Aguarda um pouco para mostrar o splash, depois desloga
     setTimeout(() => {
-      // Marca que houve logout bem-sucedido (usa sessionStorage para garantir que funcione)
-      sessionStorage.setItem(STORAGE_KEYS.LOGOUT_SUCCESS, "true");
+      try {
+        // Marca que houve logout bem-sucedido (usa sessionStorage para garantir que funcione)
+        sessionStorage.setItem(STORAGE_KEYS.LOGOUT_SUCCESS, "true");
 
-      // Desloga
-      authService.logout();
+        // Desloga (limpa ambos os storages)
+        authService.logout();
 
-      // Navega para login
-      navigate(ROUTES.LOGIN);
+        // Navega para login usando replace para evitar histórico duplicado
+        navigate(ROUTES.LOGIN, { replace: true });
+      } catch (error) {
+        console.error("Erro ao fazer logout:", error);
+        // Em caso de erro, ainda navega para login
+        navigate(ROUTES.LOGIN, { replace: true });
+      }
     }, 800); // 0.8 segundos de splash
   }
 

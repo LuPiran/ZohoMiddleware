@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { authService } from "../../services/auth";
 import Input from "../../components/ui/Input";
@@ -19,22 +19,48 @@ export default function Login() {
   const [showSplash, setShowSplash] = useState(false);
   const navigate = useNavigate();
   const { showToast } = useToast();
+  const logoutToastShownRef = useRef(false); // Usa ref para evitar re-renderizações
 
-  // Verifica se houve logout bem-sucedido ao montar o componente
+  // Verifica se houve logout bem-sucedido ou conta inativa ao montar o componente
   useEffect(() => {
     // Verifica no sessionStorage (onde a flag é salva durante o logout)
     const logoutSuccess = sessionStorage.getItem(STORAGE_KEYS.LOGOUT_SUCCESS);
+    const accountInactive = sessionStorage.getItem(
+      STORAGE_KEYS.ACCOUNT_INACTIVE,
+    );
 
-    if (logoutSuccess === "true") {
-      // Remove a flag
+    if (logoutSuccess === "true" && !logoutToastShownRef.current) {
+      // Remove a flag imediatamente para evitar loops
       sessionStorage.removeItem(STORAGE_KEYS.LOGOUT_SUCCESS);
+      logoutToastShownRef.current = true;
 
       // Mostra toast de logout bem-sucedido após um pequeno delay
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         showToast("✅ Deslogado com sucesso", "success", 2500);
       }, 300);
+
+      // Limpa o timer se o componente desmontar
+      return () => clearTimeout(timer);
     }
-  }, [showToast]);
+
+    // Verifica se a conta está inativa
+    if (accountInactive === "true") {
+      // Remove a flag imediatamente para evitar loops
+      sessionStorage.removeItem(STORAGE_KEYS.ACCOUNT_INACTIVE);
+
+      // Mostra toast de conta inativa após um pequeno delay
+      const timer = setTimeout(() => {
+        showToast(
+          "⚠️ Sua conta está inativa, entre em contato com o suporte",
+          "warning",
+          4000,
+        );
+      }, 300);
+
+      // Limpa o timer se o componente desmontar
+      return () => clearTimeout(timer);
+    }
+  }, [showToast]); // Adiciona showToast nas dependências
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -96,6 +122,30 @@ export default function Login() {
           err.response?.data?.error ||
           "Muitas tentativas de login. Aguarde 15 minutos antes de tentar novamente.";
         showToast(`⏱️ ${rateLimitMessage}`, "warning");
+        return;
+      }
+
+      // Verifica se é erro de conta inativa (403 - Forbidden)
+      if (
+        statusCode === 403 ||
+        errorMessage.includes("inativo") ||
+        errorMessage.includes("inativa") ||
+        errorMessage.includes("Usuário inativo")
+      ) {
+        // Salva flag de conta inativa no sessionStorage para mostrar toast ao voltar para login
+        sessionStorage.setItem(STORAGE_KEYS.ACCOUNT_INACTIVE, "true");
+
+        // Limpa os campos
+        setEmail("");
+        setSenha("");
+        setShowPassword(false);
+
+        // Mostra toast de conta inativa imediatamente
+        showToast(
+          "⚠️ Sua conta está inativa, entre em contato com o suporte",
+          "warning",
+          4000,
+        );
         return;
       }
 

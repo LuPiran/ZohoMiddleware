@@ -61,9 +61,44 @@ router.post(
         });
       }
 
+      // Verifica se o usuário está ativo
+      const campoStatus = process.env.ZOHO_STATUS_FIELD || "Ativo";
+      const statusUsuario =
+        usuario[campoStatus] !== undefined
+          ? usuario[campoStatus]
+          : usuario.Status !== undefined
+            ? usuario.Status
+            : usuario.status !== undefined
+              ? usuario.status
+              : true; // Padrão: ativo se não encontrar o campo
+
+      // Converte para boolean se necessário
+      let isAtivo = false;
+      if (typeof statusUsuario === "boolean") {
+        isAtivo = statusUsuario;
+      } else if (typeof statusUsuario === "string") {
+        const statusLower = statusUsuario.toLowerCase();
+        isAtivo =
+          statusLower === "true" ||
+          statusLower === "ativo" ||
+          statusLower === "active" ||
+          statusLower === "1";
+      }
+
+      // Se o usuário estiver inativo, bloqueia o login
+      if (!isAtivo) {
+        logSecurityEvent(email, clientIp, false);
+        console.log("[AUTH ROUTE] ✗ Login bloqueado: usuário inativo");
+        return res.status(403).json({
+          success: false,
+          error: "Usuário inativo. Entre em contato com o administrador.",
+        });
+      }
+
       logSecurityEvent(email, clientIp, true);
       console.log("[AUTH ROUTE] ✓ Login realizado com sucesso");
       console.log("[AUTH ROUTE] Usuário ID:", usuario.id);
+      console.log("[AUTH ROUTE] Status do usuário: ativo");
 
       // Gera token JWT
       const token = generateToken(usuario);

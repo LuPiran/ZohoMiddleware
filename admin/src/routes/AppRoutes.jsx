@@ -6,23 +6,30 @@ import Recompra from "../pages/Recompra/Recompra";
 import Compra from "../pages/Compra/Compra";
 import Ocorrencia from "../pages/Ocorrencia/Ocorrencia";
 import ProtectedRoute from "../components/auth/ProtectedRoute";
+import AdminRoute from "../components/auth/AdminRoute";
 import { authService } from "../services/auth";
 import { ROUTES } from "../utils/constants";
+
+/**
+ * Componente wrapper para a rota de login
+ * Evita loops infinitos verificando autenticação apenas uma vez
+ */
+function LoginRoute() {
+  // Verifica autenticação apenas uma vez ao montar, sem useEffect
+  const isAuthenticated = authService.isAuthenticated();
+
+  if (isAuthenticated) {
+    return <Navigate to={ROUTES.DASHBOARD} replace />;
+  }
+
+  return <Login />;
+}
 
 export default function AppRoutes() {
   return (
     <Routes>
       {/* Rota raiz "/" é a página de login */}
-      <Route
-        path={ROUTES.LOGIN}
-        element={
-          authService.isAuthenticated() ? (
-            <Navigate to={ROUTES.DASHBOARD} replace />
-          ) : (
-            <Login />
-          )
-        }
-      />
+      <Route path={ROUTES.LOGIN} element={<LoginRoute />} />
       {/* Rotas protegidas */}
       <Route
         path={ROUTES.DASHBOARD}
@@ -35,9 +42,9 @@ export default function AppRoutes() {
       <Route
         path={ROUTES.USUARIOS}
         element={
-          <ProtectedRoute>
+          <AdminRoute>
             <Users />
-          </ProtectedRoute>
+          </AdminRoute>
         }
       />
       <Route

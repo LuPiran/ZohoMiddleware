@@ -14,6 +14,8 @@ export const ENV = {
   ZOHO_EMAIL_FIELD: process.env.ZOHO_EMAIL_FIELD,
   ZOHO_SENHA_FIELD: process.env.ZOHO_SENHA_FIELD,
   ZOHO_NOME_FIELD: process.env.ZOHO_NOME_FIELD,
+  ZOHO_NAME_FIELD: process.env.ZOHO_NAME_FIELD || process.env.ZOHO_NOME_FIELD,
+  ZOHO_STATUS_FIELD: process.env.ZOHO_STATUS_FIELD,
   ZOHO_FOTO_FIELD: process.env.ZOHO_FOTO_FIELD,
   JWT_SECRET: process.env.JWT_SECRET,
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN,

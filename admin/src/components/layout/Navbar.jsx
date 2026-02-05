@@ -7,38 +7,46 @@ import {
   MdReport,
 } from "react-icons/md";
 import { ROUTES } from "../../utils/constants";
+import { hasAdminPanelPermission } from "../../utils/permissions";
 
 /**
  * Componente de Navegação
  */
 export default function Navbar() {
+  const isAdmin = hasAdminPanelPermission();
+
   const navItems = [
     {
       path: ROUTES.DASHBOARD,
       label: "Dashboard",
       icon: <MdDashboard className="text-xl" />,
+      show: true, // Sempre visível
     },
     {
       path: ROUTES.USUARIOS,
       label: "Usuários",
       icon: <MdPeople className="text-xl" />,
+      show: isAdmin, // Apenas para Admin Painel
     },
     {
       path: ROUTES.RECOMPRA,
       label: "Recompra",
       icon: <MdShoppingCart className="text-xl" />,
+      show: true, // Sempre visível
     },
     {
       path: ROUTES.COMPRA,
       label: "Compra",
       icon: <MdAssignment className="text-xl" />,
+      show: true, // Sempre visível
     },
     {
       path: ROUTES.OCORRENCIA,
       label: "Ocorrência",
       icon: <MdReport className="text-xl" />,
+      show: true, // Sempre visível
     },
-  ];
+  ].filter((item) => item.show); // Filtra apenas itens visíveis
 
   return (
     <nav className="bg-tegra-bg-primary border-b border-tegra-gray-medium">

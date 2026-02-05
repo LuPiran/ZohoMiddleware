@@ -41,3 +41,83 @@ input[type="checkbox"]:checked {
   background-position: center;
   background-repeat: no-repeat;
 }
+
+/* Estilo customizado para scrollbar roxa nos selects */
+select::-webkit-scrollbar {
+  width: 8px;
+}
+
+select::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+select::-webkit-scrollbar-thumb {
+  background-color: #9c27b0;
+  border-radius: 4px;
+}
+
+select::-webkit-scrollbar-thumb:hover {
+  background-color: #7b1fa2;
+}
+
+/* Para Firefox */
+select {
+  scrollbar-width: thin;
+  scrollbar-color: #9c27b0 transparent;
+}
+
+/* Estilo customizado para scrollbar roxa em dropdowns customizados */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #9c27b0;
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #7b1fa2;
+}
+
+/* Estilos para react-select - scrollbar roxa */
+.tegra-select__menu-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.tegra-select__menu-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.tegra-select__menu-list::-webkit-scrollbar-thumb {
+  background-color: #9c27b0;
+  border-radius: 4px;
+}
+
+.tegra-select__menu-list::-webkit-scrollbar-thumb:hover {
+  background-color: #7b1fa2;
+}
+
+/* Para Firefox */
+.tegra-select__menu-list {
+  scrollbar-width: thin;
+  scrollbar-color: #9c27b0 transparent;
+}
+
+/* Previne overflow quando o menu do react-select está aberto */
+body:has(.tegra-select__menu-portal) {
+  overflow-x: hidden;
+}
+
+/* Garante que o menu do react-select não cause scroll na página e tenha z-index alto */
+.tegra-select__menu-portal {
+  z-index: 9999 !important;
+}
+
+.tegra-select__menu {
+  z-index: 9999 !important;
+}
