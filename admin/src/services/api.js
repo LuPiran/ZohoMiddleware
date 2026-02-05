@@ -38,6 +38,18 @@ api.interceptors.response.use(
   (error) => {
     // Não redireciona se o erro for da rota de login (permite tratamento no componente)
     const isLoginRoute = error.config?.url?.includes("/api/auth/login");
+    const isInactiveAccount =
+      error.response?.status === 403 &&
+      isLoginRoute &&
+      (error.response?.data?.error?.includes("inativo") ||
+        error.response?.data?.error?.includes("inativa"));
+
+    // Para erro 403 de conta inativa, marca como silencioso para evitar logs
+    if (isInactiveAccount) {
+      // Adiciona flag para indicar que é um erro tratado e não deve ser logado
+      error.silent = true;
+      error._suppressConsoleLog = true;
+    }
 
     if (
       (error.response?.status === 401 || error.response?.status === 403) &&

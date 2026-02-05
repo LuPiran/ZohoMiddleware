@@ -4,6 +4,10 @@ import cors from "cors";
 import { ENV } from "./config/env.js";
 import uploadRoutes from "./routes/upload.route.js";
 import authRoutes from "./routes/auth.route.js";
+import usersRoutes from "./routes/users.route.js";
+import cepRoutes from "./routes/cep.route.js";
+import compraRoutes from "./routes/compra.route.js";
+import productsRoutes from "./routes/products.route.js";
 import { apiRateLimiter } from "./middleware/rateLimiter.js";
 
 const app = express();
@@ -46,11 +50,16 @@ app.use(express.json({ limit: "20mb" }));
 // Trust proxy para obter IP real do cliente (importante para rate limiting)
 app.set("trust proxy", 1);
 
-// Aplica rate limiting geral na API
+// Aplica rate limiting geral na API (exceto rotas específicas que têm seu próprio limiter)
 app.use("/api", apiRateLimiter);
 
 app.use("/api", uploadRoutes);
 app.use("/api/auth", authRoutes);
+// A rota de usuários já tem rate limiting aplicado no nível da rota se necessário
+app.use("/api/users", usersRoutes);
+app.use("/api/cep", cepRoutes);
+app.use("/api/compra", compraRoutes);
+app.use("/api/products", productsRoutes);
 
 //??Prepare a nossa aplicação para implementação
 if (ENV.NODE_ENV === "production") {

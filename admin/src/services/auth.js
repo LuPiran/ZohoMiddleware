@@ -25,6 +25,7 @@ export const authService = {
         message: error.message,
         response: error.response,
         status: error.response?.status,
+        silent: error.silent, // Preserva flag de erro silencioso
       };
       throw errorData;
     }
@@ -52,9 +53,21 @@ export const authService = {
    * @returns {Storage} localStorage ou sessionStorage
    */
   getStorage() {
+    // Verifica se REMEMBER_ME existe E se há dados de autenticação válidos
     const rememberMe =
       localStorage.getItem(STORAGE_KEYS.REMEMBER_ME) === "true";
-    return rememberMe ? localStorage : sessionStorage;
+    const hasLocalAuth =
+      localStorage.getItem(STORAGE_KEYS.IS_AUTHENTICATED) === "true";
+    const hasSessionAuth =
+      sessionStorage.getItem(STORAGE_KEYS.IS_AUTHENTICATED) === "true";
+
+    // Se REMEMBER_ME está ativo E há autenticação no localStorage, usa localStorage
+    if (rememberMe && hasLocalAuth) {
+      return localStorage;
+    }
+
+    // Caso contrário, usa sessionStorage (ou localStorage se não houver sessionStorage)
+    return hasSessionAuth ? sessionStorage : localStorage;
   },
 
   /**
@@ -113,7 +126,21 @@ export const authService = {
    * @returns {boolean}
    */
   isAuthenticated() {
-    const storage = this.getStorage();
-    return storage.getItem(STORAGE_KEYS.IS_AUTHENTICATED) === "true";
+    // Verifica em ambos os storages para garantir que não há dados residuais
+    const localStorageAuth =
+      localStorage.getItem(STORAGE_KEYS.IS_AUTHENTICATED) === "true";
+    const sessionStorageAuth =
+      sessionStorage.getItem(STORAGE_KEYS.IS_AUTHENTICATED) === "true";
+
+    // Também verifica se existe token e usuário
+    const hasToken =
+      localStorage.getItem(STORAGE_KEYS.TOKEN) ||
+      sessionStorage.getItem(STORAGE_KEYS.TOKEN);
+    const hasUser =
+      localStorage.getItem(STORAGE_KEYS.USER) ||
+      sessionStorage.getItem(STORAGE_KEYS.USER);
+
+    // Retorna true apenas se tiver autenticação E token E usuário
+    return (localStorageAuth || sessionStorageAuth) && hasToken && hasUser;
   },
 };

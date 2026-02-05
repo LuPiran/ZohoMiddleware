@@ -19,6 +19,16 @@ export const API_ENDPOINTS = {
   UPLOAD: {
     INVOICE: "/api/upload",
   },
+  USERS: {
+    LIST: "/api/users",
+    TOGGLE_STATUS: "/api/users/:id/toggle-status",
+  },
+  COMPRA: {
+    CRIAR: "/api/compra",
+  },
+  PRODUCTS: {
+    LIST: "/api/products",
+  },
 };
 
 export const STORAGE_KEYS = {
@@ -27,4 +37,5 @@ export const STORAGE_KEYS = {
   IS_AUTHENTICATED: "isAuthenticated",
   REMEMBER_ME: "rememberMe",
   LOGOUT_SUCCESS: "logoutSuccess",
+  ACCOUNT_INACTIVE: "accountInactive",
 };
