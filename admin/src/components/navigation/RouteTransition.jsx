@@ -1,56 +1,91 @@
-import { useEffect, useState, useRef } from "react";
-import { useLocation } from "react-router-dom";
-import SplashScreen from "../feedback/auth/SplashScreen";
-import { useLoading } from "../../contexts/LoadingContext";
+import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
+import logo from '../../assets/LogoTegra.png';
 
-/**
- * Componente para mostrar splash screen durante transições de rota
- */
 export default function RouteTransition({ children }) {
   const location = useLocation();
-  const { isLoading } = useLoading();
   const [isTransitioning, setIsTransitioning] = useState(false);
-  const prevLocationRef = useRef(location.pathname);
-  const isFirstRender = useRef(true);
+  const [isExiting, setIsExiting] = useState(false);
+  const [displayChildren, setDisplayChildren] = useState(children);
+  const [previousPath, setPreviousPath] = useState(location.pathname);
 
   useEffect(() => {
-    // Ignora a primeira renderização
-    if (isFirstRender.current) {
-      isFirstRender.current = false;
-      prevLocationRef.current = location.pathname;
-      return;
-    }
+    // Detecta mudança de rota (exceto no primeiro render)
+    if (previousPath !== null && previousPath !== location.pathname) {
+      // Verifica se é uma transição de login (não mostra loading nesse caso)
+      const skipLoading = sessionStorage.getItem('SKIP_ROUTE_LOADING');
+      
+      if (skipLoading === 'true') {
+        // Limpa o flag e apenas troca o conteúdo sem animação de loading
+        sessionStorage.removeItem('SKIP_ROUTE_LOADING');
+        setDisplayChildren(children);
+        setPreviousPath(location.pathname);
+      } else {
+        // Mostra animação normal de loading
+        setIsTransitioning(true);
+        setIsExiting(false);
+        
+        // Delay de 1 segundo antes de trocar o conteúdo
+        const contentTimer = setTimeout(() => {
+          setDisplayChildren(children);
+          // Inicia animação de saída após trocar conteúdo
+          setTimeout(() => {
+            setIsExiting(true);
+          }, 100);
+        }, 1000);
 
-    // Se a rota mudou, mostra splash screen
-    if (location.pathname !== prevLocationRef.current) {
-      setIsTransitioning(true);
-      prevLocationRef.current = location.pathname;
-    }
-  }, [location.pathname]);
+        // Finaliza a transição após animação de saída
+        const transitionTimer = setTimeout(() => {
+          setIsTransitioning(false);
+          setIsExiting(false);
+          setPreviousPath(location.pathname);
+        }, 1400);
 
-  // Esconde a splash quando não está mais carregando E não está em transição
-  useEffect(() => {
-    // Se não está carregando e está em transição, espera 1.5 segundos e esconde
-    if (!isLoading && isTransitioning) {
-      const timer = setTimeout(() => {
-        setIsTransitioning(false);
-      }, 1500); // 1.5 segundos de splash
-      return () => clearTimeout(timer);
+        return () => {
+          clearTimeout(contentTimer);
+          clearTimeout(transitionTimer);
+        };
+      }
+    } else if (previousPath === null) {
+      // Primeiro render - só atualiza previousPath
+      setDisplayChildren(children);
+      setPreviousPath(location.pathname);
     }
-
-    // Se não está carregando e não está em transição, garante que está desativado
-    if (!isLoading && !isTransitioning) {
-      setIsTransitioning(false);
-    }
-  }, [isLoading, isTransitioning]);
-
-  // Mostra splash se estiver em transição OU carregando dados
-  const showSplash = isTransitioning || isLoading;
+  }, [location.pathname, children]);
 
   return (
     <>
-      {showSplash && <SplashScreen message="Carregando..." />}
-      {children}
+      {displayChildren}
+      {isTransitioning && (
+        <div className={`route-transition-overlay ${isExiting ? 'route-transition-exit' : ''}`}>
+          <div className="route-transition-glass"></div>
+          <div className="route-transition-content">
+            <div className="route-loader-container">
+              <img src={logo} alt="TegraPharma" className="route-logo" />
+              <svg className="route-spinner" viewBox="0 0 120 120">
+                <defs>
+                  <linearGradient id="spinnerGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" style={{ stopColor: '#2e4a86', stopOpacity: 1 }} />
+                    <stop offset="50%" style={{ stopColor: '#21b3b3', stopOpacity: 1 }} />
+                    <stop offset="100%" style={{ stopColor: '#2e4a86', stopOpacity: 0.3 }} />
+                  </linearGradient>
+                </defs>
+                <circle
+                  className="route-spinner-circle"
+                  cx="60"
+                  cy="60"
+                  r="54"
+                  fill="none"
+                  stroke="url(#spinnerGradient)"
+                  strokeWidth="4"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </div>
+            <p className="route-loading-text">Carregando</p>
+          </div>
+        </div>
+      )}
     </>
   );
 }

@@ -8,7 +8,8 @@
   },
   "scripts": {
     "build": "npm install --prefix backend && npm install --prefix admin && npm run build --prefix admin",
-    "start": "npm run start --prefix backend"
+    "start": "npm run start --prefix backend",
+    "dev": "concurrently -n backend,admin -c green,blue \"npm run dev --prefix backend\" \"npm run dev --prefix admin\""
   },
   "repository": {
     "type": "git",
@@ -21,5 +22,8 @@
   "bugs": {
     "url": "https://github.com/LuPiran/ZohoMiddleware/issues"
   },
-  "homepage": "https://github.com/LuPiran/ZohoMiddleware#readme"
+  "homepage": "https://github.com/LuPiran/ZohoMiddleware#readme",
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
 }

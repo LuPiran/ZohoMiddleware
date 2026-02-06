@@ -106,12 +106,7 @@ export default function Navbar() {
       {/* Overlay transparente com blur quando menu está aberto (mobile/tablet) */}
       {isMenuOpen && (
         <div
-          className="fixed inset-0 z-[55] lg:hidden transition-opacity duration-300"
-          style={{
-            backdropFilter: 'blur(3px)',
-            WebkitBackdropFilter: 'blur(3px)',
-            backgroundColor: 'rgba(0, 0, 0, 0)',
-          }}
+          className="mobile-menu-overlay fixed inset-0 z-[55] lg:hidden transition-opacity duration-300"
           onClick={(e) => {
             // Só fecha se clicar diretamente no overlay, não em elementos filhos
             if (e.target === e.currentTarget) {
@@ -124,7 +119,7 @@ export default function Navbar() {
 
       {/* Menu mobile/tablet (drawer da esquerda) - sempre renderizado */}
       <nav
-        className={`fixed top-0 left-0 h-full w-64 sm:w-80 bg-tegra-bg-primary shadow-2xl z-[60] transform transition-transform duration-300 ease-in-out lg:hidden ${
+        className={`mobile-menu-drawer fixed top-0 left-0 h-full w-64 sm:w-80 shadow-2xl z-[60] transform transition-transform duration-300 ease-in-out lg:hidden ${
           isMenuOpen ? "translate-x-0" : "-translate-x-full"
         }`}
         role="navigation"
@@ -136,7 +131,7 @@ export default function Navbar() {
         }}
       >
         {/* Cabeçalho do drawer */}
-        <div className="flex items-center justify-between p-4 border-b border-tegra-gray-medium">
+        <div className="mobile-menu-header flex items-center justify-between p-4 border-b border-tegra-gray-medium">
           <h2 className="text-lg font-semibold text-tegra-text-primary">
             Menu
           </h2>
@@ -157,9 +152,9 @@ export default function Navbar() {
               to={item.path}
               onClick={closeMenu}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-3 mx-2 my-1 text-sm font-medium transition-colors rounded-lg ${
+                `mobile-menu-item flex items-center gap-3 px-4 py-3 mx-2 my-1 text-sm font-medium transition-colors rounded-lg ${
                   isActive
-                    ? "text-tegra-blue-dark bg-tegra-blue-light"
+                    ? "mobile-menu-item--active"
                     : "text-tegra-text-secondary hover:text-tegra-blue-dark hover:bg-tegra-gray-light"
                 }`
               }

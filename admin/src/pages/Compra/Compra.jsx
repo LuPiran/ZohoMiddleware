@@ -593,7 +593,23 @@ export default function Compra() {
     <>
       {showSplash && <SplashScreen message="Criando compra..." />}
       <MainLayout>
-        <div className="max-w-5xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
+        <div 
+          className="fixed inset-0 z-0"
+          style={{
+            backgroundImage: 'url(/painel_consultor_compra.png)',
+            backgroundSize: 'cover',
+            backgroundPosition: '40% center',
+            backgroundRepeat: 'no-repeat',
+            filter: 'blur(3px)'
+          }}
+        />
+        <div 
+          className="fixed inset-0 z-0"
+          style={{
+            background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.85) 0%, rgba(248, 250, 252, 0.8) 50%, rgba(255, 255, 255, 0.85) 100%)'
+          }}
+        />
+        <div className="relative z-10 max-w-5xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
           <h1 className="text-xl sm:text-2xl font-bold text-tegra-text-primary mb-4 sm:mb-6">
             Nova Compra
           </h1>

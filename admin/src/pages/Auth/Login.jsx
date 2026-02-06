@@ -5,10 +5,9 @@ import Input from "../../components/ui/Input";
 import Button from "../../components/ui/Button";
 import Checkbox from "../../components/ui/Checkbox";
 import { ROUTES, STORAGE_KEYS } from "../../utils/constants";
-import logo from "../../assets/LogoTegra.png";
 import { MdEmail, MdLock, MdVisibility, MdVisibilityOff } from "react-icons/md";
 import { useToast } from "../../components/feedback/auth/ToastContainer";
-import SplashScreen from "../../components/feedback/auth/SplashScreen";
+import logoTegra from "../../assets/LogoTegra.png";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -16,7 +15,7 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [showSplash, setShowSplash] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const navigate = useNavigate();
   const { showToast } = useToast();
   const logoutToastShownRef = useRef(false); // Usa ref para evitar re-renderizações
@@ -71,8 +70,6 @@ export default function Login() {
       return;
     }
 
-    // Mostra splash screen imediatamente ao clicar em entrar
-    setShowSplash(true);
     setLoading(true);
 
     try {
@@ -84,17 +81,22 @@ export default function Login() {
         // Credenciais corretas - salva usuário e token com preferência de "Manter conectado"
         authService.saveUser(response.usuario, response.token, rememberMe);
 
-        // Mostra toast de sucesso
-        showToast("✅ Login realizado com sucesso", "success", 2500);
+        // Marca login concluído para exibir popup no dashboard
+        sessionStorage.setItem(STORAGE_KEYS.LOGIN_SUCCESS, "true");
+        // Flag para pular a tela de loading na transição de rota
+        sessionStorage.setItem("SKIP_ROUTE_LOADING", "true");
 
-        // Aguarda um pouco para mostrar o toast antes de redirecionar
+        // Aguarda um pouco antes de redirecionar
         setTimeout(() => {
-          setShowSplash(false);
-          navigate(ROUTES.DASHBOARD);
-        }, 2500);
+          requestAnimationFrame(() => {
+            setIsTransitioning(true);
+          });
+          setTimeout(() => {
+            navigate(ROUTES.DASHBOARD);
+          }, 2000);
+        }, 300);
       } else {
         // Credenciais incorretas - volta para tela de login
-        setShowSplash(false);
         setLoading(false);
 
         // Limpa os campos
@@ -109,7 +111,6 @@ export default function Login() {
       }
     } catch (err) {
       // Erro na requisição - volta para tela de login
-      setShowSplash(false);
       setLoading(false);
 
       const errorMessage = err.error || err.message || err.toString();
@@ -175,73 +176,131 @@ export default function Login() {
 
   return (
     <>
-      {showSplash && <SplashScreen message="Entrando..." />}
+      <div className="min-h-screen flex items-center justify-center p-4 sm:p-6 relative">
+        <div className={`login-transition ${isTransitioning ? "is-active" : ""}`} />
+        <div className={`login-transition-glass ${isTransitioning ? "is-active" : ""}`} />
+        <div className={`login-transition-grain ${isTransitioning ? "is-active" : ""}`} />
+        <div className="absolute inset-0 login-page-bg" />
 
-      <div className="min-h-screen bg-gradient-to-br from-tegra-bg-accent to-tegra-teal-light flex items-center justify-center p-3 sm:p-4">
-        <div className="bg-tegra-bg-primary shadow-2xl rounded-xl sm:rounded-2xl p-5 sm:p-6 md:p-8 w-full max-w-md">
-          <div className="text-center mb-6 sm:mb-8">
-            <img
-              src={logo}
-              alt="Logo TegraPharma"
-              className="mx-auto mb-3 sm:mb-4 max-h-16 sm:max-h-20 object-contain"
-            />
-            <p className="text-sm sm:text-base text-tegra-text-secondary">
-              Faça login para continuar
-            </p>
+        <div className="relative w-full max-w-5xl">
+          <div className="login-panel grid grid-cols-1 lg:grid-cols-2">
+            <div className="login-media hidden lg:block">
+              <img
+                src="/Fundo_Pagina_Login.png"
+                alt="Imagem de fundo TegraPharma"
+                className="login-media-img"
+              />
+              <div className="login-media-overlay" />
+
+              <div className="login-media-content p-8 sm:p-10 md:p-12 text-white">
+                <div>
+                  <img
+                    src="/LogoTegra.png"
+                    alt="Logo TegraPharma"
+                    className="h-[130px] w-auto object-contain drop-shadow-lg"
+                  />
+                  <h1 className="mt-8 text-3xl sm:text-4xl font-bold leading-tight">
+                    Bem-vindo ao painel do consultor!
+                  </h1>
+                </div>
+
+                <div className="mt-12 pt-6 border-t border-white/25">
+                  <p className="text-sm text-white/85 font-medium">
+                    🔒 Acesso seguro e confiável
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="login-form-panel p-8 sm:p-10 md:p-12">
+              <div className="lg:hidden flex flex-col items-center justify-center mb-8">
+                <img
+                  src={logoTegra}
+                  alt="Logo TegraPharma"
+                  className="h-16 w-auto object-contain"
+                />
+              </div>
+
+              <div className="mb-8 text-center lg:text-left">
+                <h2 className="text-2xl sm:text-3xl font-bold text-tegra-text-primary">
+                  Acesse sua conta
+                </h2>
+                <p className="mt-2 text-base text-tegra-text-secondary">
+                  Use suas credenciais para continuar
+                </p>
+              </div>
+
+              <form
+                onSubmit={handleSubmit}
+                className="space-y-5"
+                noValidate
+              >
+                <div>
+                  <Input
+                    id="email"
+                    label="Email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="seu@email.com"
+                    disabled={loading}
+                    icon={<MdEmail className="text-xl" />}
+                  />
+                </div>
+
+                <div>
+                  <Input
+                    id="senha"
+                    label="Senha"
+                    type={showPassword ? "text" : "password"}
+                    value={senha}
+                    onChange={(e) => setSenha(e.target.value)}
+                    placeholder="••••••••"
+                    disabled={loading}
+                    icon={<MdLock className="text-xl" />}
+                    iconRight={
+                      showPassword ? (
+                        <MdVisibilityOff className="text-xl" />
+                      ) : (
+                        <MdVisibility className="text-xl" />
+                      )
+                    }
+                    onIconClick={() => setShowPassword(!showPassword)}
+                  />
+                </div>
+
+                <div className="pt-2">
+                  <Checkbox
+                    id="rememberMe"
+                    label="Manter-me conectado"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    disabled={loading}
+                  />
+                </div>
+
+                <div className="w-full">
+                  <Button
+                    type="submit"
+                    disabled={loading}
+                    loading={loading}
+                    loadingVariant="bar"
+                    className="w-full mt-7 py-3 text-base font-semibold login-primary-btn"
+                  >
+                    Entrar
+                  </Button>
+                </div>
+              </form>
+
+              <p className="mt-8 text-center text-xs text-tegra-text-secondary">
+                Suporte: <span className="font-semibold">suporte@tegrapharma.com</span>
+              </p>
+            </div>
           </div>
 
-          <form
-            onSubmit={handleSubmit}
-            className="space-y-4 sm:space-y-6"
-            noValidate
-          >
-            <Input
-              id="email"
-              label="Email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="seu@email.com"
-              disabled={loading}
-              icon={<MdEmail className="text-xl" />}
-            />
-
-            <Input
-              id="senha"
-              label="Senha"
-              type={showPassword ? "text" : "password"}
-              value={senha}
-              onChange={(e) => setSenha(e.target.value)}
-              placeholder="••••••••"
-              disabled={loading}
-              icon={<MdLock className="text-xl" />}
-              iconRight={
-                showPassword ? (
-                  <MdVisibilityOff className="text-xl" />
-                ) : (
-                  <MdVisibility className="text-xl" />
-                )
-              }
-              onIconClick={() => setShowPassword(!showPassword)}
-            />
-
-            <Checkbox
-              id="rememberMe"
-              label="Manter conectado"
-              checked={rememberMe}
-              onChange={(e) => setRememberMe(e.target.checked)}
-              disabled={loading}
-            />
-
-            <Button
-              type="submit"
-              disabled={loading}
-              loading={loading}
-              className="w-full"
-            >
-              Entrar
-            </Button>
-          </form>
+          <p className="mt-6 text-center text-sm text-white/80 font-medium">
+            © 2026 TegraPharma. Todos os direitos reservados.
+          </p>
         </div>
       </div>
     </>

@@ -8,6 +8,7 @@ export default function Button({
   size = "md",
   disabled = false,
   loading = false,
+  loadingVariant = "spinner",
   onClick,
   className = "",
   ...props
@@ -35,10 +36,15 @@ export default function Button({
       type={type}
       disabled={disabled || loading}
       onClick={onClick}
-      className={`${baseClasses} ${variants[variant]} ${sizes[size]} ${className}`}
+      className={`${baseClasses} ${variants[variant]} ${sizes[size]} ${loading ? "is-loading" : ""} ${loadingVariant === "bar" ? "relative overflow-hidden" : ""} ${className}`}
       {...props}
     >
-      {loading ? (
+      {loading && loadingVariant === "bar" ? (
+        <span className="btn-loading-only">
+          <span className="sr-only">{children}</span>
+          <span className="btn-loading-bar" />
+        </span>
+      ) : loading ? (
         <span className="flex items-center justify-center">
           <svg
             className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"

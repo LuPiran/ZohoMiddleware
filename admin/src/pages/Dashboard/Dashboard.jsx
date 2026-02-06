@@ -1,15 +1,16 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { authService } from "../../services/auth";
 import { useLoading } from "../../contexts/LoadingContext";
 import MainLayout from "../../components/layout/MainLayout";
-import { ROUTES } from "../../utils/constants";
+import { ROUTES, STORAGE_KEYS } from "../../utils/constants";
 import { MdShoppingCart, MdRefresh, MdReport } from "react-icons/md";
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const user = authService.getUser();
   const { setLoading } = useLoading();
+  const [showLoginToast, setShowLoginToast] = useState(false);
 
   useEffect(() => {
     if (!authService.isAuthenticated()) {
@@ -20,6 +21,18 @@ export default function Dashboard() {
     // Desativa loading imediatamente para Dashboard (dados são mocados)
     setLoading(false);
   }, [navigate, setLoading]);
+
+  useEffect(() => {
+    const loginSuccess = sessionStorage.getItem(STORAGE_KEYS.LOGIN_SUCCESS);
+    if (loginSuccess === "true") {
+      sessionStorage.removeItem(STORAGE_KEYS.LOGIN_SUCCESS);
+      setShowLoginToast(true);
+      const timer = setTimeout(() => {
+        setShowLoginToast(false);
+      }, 2600);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   // Dados mocados para o mês atual
   const dashboardData = useMemo(() => {
@@ -71,12 +84,28 @@ export default function Dashboard() {
 
   return (
     <MainLayout>
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
+      {showLoginToast && (
+        <div className="login-success-toast" role="status" aria-live="polite">
+          <div className="login-success-toast__icon">✓</div>
+          <div className="login-success-toast__content">
+            <div className="login-success-toast__title">Login concluído</div>
+            <div className="login-success-toast__text">
+              Seja bem-vindo de volta!
+            </div>
+          </div>
+        </div>
+      )}
+      <div className="dashboard-page max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-5 sm:py-7 md:py-8">
         {/* Mensagem de boas-vindas */}
         <div className="mb-4 sm:mb-6 md:mb-8">
-          <h1 className="text-xl sm:text-2xl font-bold text-tegra-text-primary">
-            Bem-vindo de volta, {nomeUsuario} 👋
-          </h1>
+          <div className="dashboard-title">
+            <h1 className="text-xl sm:text-2xl font-bold text-tegra-text-primary">
+              Bem-vindo de volta, {nomeUsuario} 👋
+            </h1>
+          </div>
+          <p className="dashboard-subtitle mt-1">
+            Aqui está um resumo rápido do seu desempenho neste mês.
+          </p>
         </div>
 
         {/* Cards de estatísticas */}
@@ -84,10 +113,10 @@ export default function Dashboard() {
           {statsCards.map((card) => (
             <div
               key={card.id}
-              className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6 flex items-center gap-3 sm:gap-4 hover:shadow-lg transition-shadow"
+              className="dashboard-card p-4 sm:p-5 md:p-6 flex items-center gap-3 sm:gap-4"
             >
               {/* Ícone */}
-              <div className={`flex-shrink-0 ${card.color}`}>
+              <div className="dashboard-card__icon">
                 <div className="text-2xl sm:text-3xl md:text-4xl">
                   {card.icon}
                 </div>
@@ -111,7 +140,7 @@ export default function Dashboard() {
           <h2 className="text-lg sm:text-xl font-bold text-tegra-text-primary mb-3 sm:mb-4">
             Dashboard
           </h2>
-          <div className="bg-tegra-bg-primary rounded-lg shadow p-4 sm:p-5 md:p-6">
+          <div className="dashboard-panel p-4 sm:p-5 md:p-6">
             <p className="text-sm sm:text-base text-tegra-text-secondary">
               Conteúdo adicional do Dashboard será exibido aqui.
             </p>

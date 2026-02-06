@@ -43,4 +43,5 @@ export const STORAGE_KEYS = {
   REMEMBER_ME: "rememberMe",
   LOGOUT_SUCCESS: "logoutSuccess",
   ACCOUNT_INACTIVE: "accountInactive",
+  LOGIN_SUCCESS: "loginSuccess",
 };

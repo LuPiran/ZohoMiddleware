@@ -60,7 +60,7 @@ export default function Header() {
     <>
       {showSplash && <SplashScreen message="Saindo..." />}
 
-      <header className="bg-tegra-bg-primary shadow-sm border-b border-tegra-gray-medium relative z-[35]">
+      <header className="app-header relative z-[35]">
         <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-3 sm:py-4 flex justify-between items-center">
           {/* Mobile/Tablet: Hambúrguer + Logo */}
           <div className="flex items-center gap-3 sm:gap-4 lg:hidden">
@@ -79,7 +79,7 @@ export default function Header() {
             <img
               src={logo}
               alt="Logo TegraPharma"
-              className="h-8 sm:h-10 w-auto object-contain"
+              className="header-logo h-8 sm:h-10 w-auto object-contain"
             />
           </div>
 
@@ -88,7 +88,7 @@ export default function Header() {
             <img
               src={logo}
               alt="Logo TegraPharma"
-              className="h-10 w-auto object-contain"
+              className="header-logo h-10 w-auto object-contain"
             />
           </div>
 
@@ -100,7 +100,7 @@ export default function Header() {
           {/* Desktop: Avatar + Nome + Logout */}
           <div className="hidden lg:flex items-center gap-4">
             {user && (
-              <div className="flex items-center gap-3">
+              <div className="header-user flex items-center gap-3">
                 {/* Avatar */}
                 <Avatar user={user} size="md" />
 
@@ -119,7 +119,7 @@ export default function Header() {
             )}
             <button
               onClick={handleLogout}
-              className="p-2 text-tegra-error hover:text-red-700 hover:bg-tegra-error-light rounded-lg transition flex items-center justify-center cursor-pointer"
+              className="header-logout p-2 text-tegra-error hover:text-red-700 hover:bg-tegra-error-light rounded-lg transition flex items-center justify-center cursor-pointer"
               title="Sair"
               aria-label="Sair"
             >
