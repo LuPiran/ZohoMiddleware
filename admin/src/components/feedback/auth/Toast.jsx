@@ -47,15 +47,15 @@ export default function Toast({
   };
 
   const variants = {
-    success: "bg-tegra-success-light border-tegra-success text-tegra-success",
-    error: "bg-tegra-error-light border-tegra-error text-tegra-error",
-    warning: "bg-tegra-warning-light border-tegra-warning text-tegra-warning",
-    info: "bg-tegra-info-light border-tegra-info text-tegra-info",
+    success: "toast-glass toast-glass--success",
+    error: "toast-glass toast-glass--error",
+    warning: "toast-glass toast-glass--warning",
+    info: "toast-glass toast-glass--info",
   };
 
   return (
     <div
-      className={`flex items-center gap-3 border-l-4 px-4 py-3 rounded-lg shadow-lg min-w-[300px] max-w-md ${
+      className={`toast-base flex items-center gap-3 px-4 py-3 rounded-xl min-w-[300px] max-w-md ${
         isClosing ? "animate-slide-up" : "animate-slide-down"
       } ${variants[type]}`}
       role="alert"

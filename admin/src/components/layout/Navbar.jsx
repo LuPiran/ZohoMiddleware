@@ -50,14 +50,14 @@ export default function Navbar() {
 
   return (
     <nav className="bg-tegra-bg-primary border-b border-tegra-gray-medium">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex space-x-1">
+      <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8">
+        <div className="flex space-x-1 overflow-x-auto no-scrollbar whitespace-nowrap py-1">
           {navItems.map((item) => (
             <NavLink
               key={item.path}
               to={item.path}
               className={({ isActive }) =>
-                `flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 ${
+                `flex items-center gap-2 px-3 sm:px-4 py-2.5 text-sm font-medium transition-colors border-b-2 ${
                   isActive
                     ? "text-tegra-blue-dark border-tegra-blue-dark"
                     : "text-tegra-text-secondary border-transparent hover:text-tegra-blue-dark hover:border-tegra-blue-dark"

@@ -59,25 +59,25 @@ export default function Header() {
       {showSplash && <SplashScreen message="Saindo..." />}
 
       <header className="bg-tegra-bg-primary shadow-sm border-b border-tegra-gray-medium">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
           <img
             src={logo}
             alt="Logo TegraPharma"
-            className="h-10 w-auto object-contain"
+            className="h-9 sm:h-10 w-auto object-contain"
           />
-          <div className="flex items-center gap-4">
+          <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
             {user && (
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 min-w-0">
                 {/* Avatar */}
                 <Avatar user={user} size="md" />
 
                 {/* Nome e Email */}
-                <div className="flex flex-col">
-                  <span className="text-sm font-medium text-tegra-text-primary">
+                <div className="flex flex-col min-w-0">
+                  <span className="text-sm font-medium text-tegra-text-primary truncate">
                     {displayName}
                   </span>
                   {emailUsuario && (
-                    <span className="text-xs text-tegra-text-secondary">
+                    <span className="text-xs text-tegra-text-secondary truncate">
                       {emailUsuario}
                     </span>
                   )}

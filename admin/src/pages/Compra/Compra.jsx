@@ -395,14 +395,15 @@ export default function Compra() {
     <>
       {showSplash && <SplashScreen message="Criando compra..." />}
       <MainLayout>
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <h1 className="text-2xl font-bold text-tegra-text-primary mb-6">
-            Nova Compra
-          </h1>
+        <div className="compra-page-bg">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <h1 className="text-2xl font-bold text-tegra-text-primary mb-6">
+              Nova Compra
+            </h1>
 
-          <form className="space-y-8" onSubmit={handleSubmit}>
+            <form className="space-y-8 compra-form-bg" onSubmit={handleSubmit}>
             {/* Seção: Dados do Paciente */}
-            <div className="bg-tegra-bg-primary rounded-lg shadow-md p-6">
+            <div className="compra-card rounded-lg shadow-md p-6">
               <h2 className="text-lg font-semibold text-tegra-text-primary mb-4">
                 Dados do Paciente
               </h2>
@@ -475,7 +476,7 @@ export default function Compra() {
             </div>
 
             {/* Seção: Busca CEP */}
-            <div className="bg-tegra-bg-primary rounded-lg shadow-md p-6">
+            <div className="compra-card rounded-lg shadow-md p-6">
               <h2 className="text-lg font-semibold text-tegra-text-primary mb-4">
                 Buscar CEP
               </h2>
@@ -512,7 +513,7 @@ export default function Compra() {
             </div>
 
             {/* Seção: Endereço */}
-            <div className="bg-tegra-bg-primary rounded-lg shadow-md p-6">
+            <div className="compra-card rounded-lg shadow-md p-6">
               <h2 className="text-lg font-semibold text-tegra-text-primary mb-4 flex items-center gap-2">
                 <MdLocationOn className="text-xl" />
                 Endereço
@@ -575,7 +576,7 @@ export default function Compra() {
 
             {/* Campo oculto: Tipo de Solicitação (apenas para usuários que NÃO são Admin Portal) */}
             {!isAdminPortal() && (
-              <div className="bg-tegra-bg-primary rounded-lg shadow-md p-6">
+              <div className="compra-card rounded-lg shadow-md p-6">
                 <Input
                   label="Tipo de Solicitação"
                   type="text"
@@ -587,7 +588,7 @@ export default function Compra() {
             )}
 
             {/* Seção: Produtos */}
-            <div className="bg-tegra-bg-primary rounded-lg shadow-md p-6">
+            <div className="compra-card rounded-lg shadow-md p-6">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-lg font-semibold text-tegra-text-primary">
                   Produtos
@@ -731,7 +732,8 @@ export default function Compra() {
                 Salvar Compra
               </Button>
             </div>
-          </form>
+            </form>
+          </div>
         </div>
       </MainLayout>
     </>

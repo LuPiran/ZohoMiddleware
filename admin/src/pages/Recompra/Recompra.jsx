@@ -492,14 +492,15 @@ export default function Recompra() {
             </div>
           </div>
         )}
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="recompra-page-bg">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <h1 className="text-2xl font-bold text-tegra-text-primary mb-6">
             Nova Recompra
           </h1>
 
-          <form className="space-y-8" onSubmit={handleSubmit}>
+          <form className="space-y-8 recompra-form-bg" onSubmit={handleSubmit}>
             {/* Seção: Buscar Cliente por CPF */}
-            <div className="bg-tegra-bg-primary rounded-lg shadow-md p-6">
+            <div className="recompra-card rounded-lg shadow-md p-6">
               <h2 className="text-lg font-semibold text-tegra-text-primary mb-4">
                 Buscar cliente por CPF
               </h2>
@@ -563,7 +564,7 @@ export default function Recompra() {
             </div>
 
             {/* Seção: Dados do Paciente */}
-            <div className="bg-tegra-bg-primary rounded-lg shadow-md p-6">
+            <div className="recompra-card rounded-lg shadow-md p-6">
               <h2 className="text-lg font-semibold text-tegra-text-primary mb-4">
                 Dados do Paciente
               </h2>
@@ -636,7 +637,7 @@ export default function Recompra() {
             </div>
 
             {/* Seção: Busca CEP */}
-            <div className="bg-tegra-bg-primary rounded-lg shadow-md p-6">
+            <div className="recompra-card rounded-lg shadow-md p-6">
               <h2 className="text-lg font-semibold text-tegra-text-primary mb-4">
                 Buscar CEP
               </h2>
@@ -673,7 +674,7 @@ export default function Recompra() {
             </div>
 
             {/* Seção: Endereço */}
-            <div className="bg-tegra-bg-primary rounded-lg shadow-md p-6">
+            <div className="recompra-card rounded-lg shadow-md p-6">
               <h2 className="text-lg font-semibold text-tegra-text-primary mb-4 flex items-center gap-2">
                 <MdLocationOn className="text-xl" />
                 Endereço
@@ -735,7 +736,7 @@ export default function Recompra() {
             </div>
 
             {/* Seção: Produtos */}
-            <div className="bg-tegra-bg-primary rounded-lg shadow-md p-6">
+            <div className="recompra-card rounded-lg shadow-md p-6">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-lg font-semibold text-tegra-text-primary">
                   Produtos
@@ -880,6 +881,7 @@ export default function Recompra() {
               </Button>
             </div>
           </form>
+          </div>
         </div>
       </MainLayout>
     </>

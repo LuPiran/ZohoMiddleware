@@ -38,4 +38,9 @@ export const STORAGE_KEYS = {
   REMEMBER_ME: "rememberMe",
   LOGOUT_SUCCESS: "logoutSuccess",
   ACCOUNT_INACTIVE: "accountInactive",
+  LOGIN_TRANSITION: "loginTransition",
+};
+
+export const SUPPORT = {
+  EMAIL: "suporte.ti@tegrapharma.com",
 };
