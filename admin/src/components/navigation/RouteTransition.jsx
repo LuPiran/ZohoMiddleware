@@ -114,7 +114,7 @@ export default function RouteTransition({ children }) {
 
   // Esconde a splash quando não está mais carregando E não está em transição
   useEffect(() => {
-    // Se não está carregando e está em transição, espera um pouco e esconde
+    // Se não está carregando e está em transição, espera 1.5 segundos e esconde
     if (!isLoading && isTransitioning) {
       const elapsed = Date.now() - transitionStartRef.current;
       const remaining = Math.max(1000 - elapsed, 0);

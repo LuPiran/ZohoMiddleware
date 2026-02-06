@@ -13,21 +13,21 @@ export default function Button({
   ...props
 }) {
   const baseClasses =
-    "font-medium rounded-lg transition focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed";
+    "font-medium rounded-lg transition focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer";
 
   const variants = {
     primary:
       "bg-tegra-blue text-white hover:bg-tegra-blue-dark focus:ring-tegra-blue",
     secondary:
-      "bg-tegra-gray-medium text-tegra-text-primary hover:bg-tegra-gray-light focus:ring-tegra-gray",
+      "bg-white text-tegra-blue-dark border-2 border-tegra-blue-dark hover:bg-tegra-blue-light hover:text-white focus:ring-tegra-blue",
     danger: "bg-tegra-error text-white hover:bg-red-700 focus:ring-tegra-error",
     teal: "bg-tegra-teal text-white hover:bg-tegra-teal-dark focus:ring-tegra-teal",
   };
 
   const sizes = {
-    sm: "px-3 py-1.5 text-sm",
-    md: "px-4 py-2 text-base",
-    lg: "px-6 py-3 text-lg",
+    sm: "px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm",
+    md: "px-3 sm:px-4 py-1.5 sm:py-2 text-sm sm:text-base",
+    lg: "px-4 sm:px-6 py-2 sm:py-3 text-base sm:text-lg",
   };
 
   return (

@@ -1,6 +1,7 @@
 import express from "express";
 import { chamarZohoApi } from "../services/zohoApi.js";
 import { ENV } from "../config/env.js";
+import { anexarArquivosNoRegistro } from "../services/zohoAttachment.js";
 
 const router = express.Router();
 
@@ -72,7 +73,7 @@ router.get("/cliente/:cpf", async (req, res) => {
       const criteria = `(CPF:equals:${cpfLimpo}) AND (Tipo_de_Lead:equals:Paciente)`;
       // Campos essenciais para busca rápida
       const fields =
-        "id,CPF,First_Name,Last_Name,Email,Mobile,Phone,Date_of_Birth,RG,Other_Street,Outro_Bairro,Other_City,Other_State,Other_Country,Outra_Correspond_ncia,Tipo_de_Lead";
+        "id,CPF,First_Name,Last_Name,Email,Mobile,Phone,Date_of_Birth,RG,Other_Street,Outro_Bairro,Other_City,Other_State,Other_Country,Other_Zip,Outra_Correspond_ncia,Tipo_de_Lead";
       const endpoint = `/${moduleName}?criteria=${encodeURIComponent(criteria)}&fields=${encodeURIComponent(fields)}`;
 
       console.log("[COMPRA API] Critério:", criteria);
@@ -180,7 +181,7 @@ router.get("/cliente/:cpf", async (req, res) => {
                   "[COMPRA API] Buscando dados completos do cliente...",
                 );
                 const fieldsCompletos =
-                  "id,CPF,First_Name,Last_Name,Email,Mobile,Phone,Date_of_Birth,RG,Other_Street,Outro_Bairro,Other_City,Other_State,Other_Country,Outra_Correspond_ncia,Tipo_de_Lead";
+                  "id,CPF,First_Name,Last_Name,Email,Mobile,Phone,Date_of_Birth,RG,Other_Street,Outro_Bairro,Other_City,Other_State,Other_Country,Other_Zip,Outra_Correspond_ncia,Tipo_de_Lead";
                 const fullEndpoint = `/${moduleName}/${clienteEncontrado.id}?fields=${encodeURIComponent(fieldsCompletos)}`;
                 const fullResponse = await chamarZohoApi("GET", fullEndpoint);
 
@@ -306,6 +307,35 @@ router.post("/", async (req, res) => {
       produtos,
       consultorTegra,
       tipoSolicitacao,
+      // Campos do representante legal
+      temRepresentanteLegal,
+      nomeRepresentante,
+      rgRepresentante,
+      cpfRepresentante,
+      emailRepresentante,
+      celularRepresentante,
+      dataNascimentoRepresentante,
+      // Campos do novo médico prescritor
+      temNovoMedicoPrescritor,
+      nomeMedico,
+      crmMedico,
+      ufCrm,
+      celularMedico,
+      emailMedico,
+      especialidadeMedico,
+      // Campos de negociação
+      negociacaoFeitaPeloConsultor,
+      solicitarLinkPagamento,
+      tipoLink,
+      // Campos de pagamento
+      formaPagamento,
+      termosCondicoesPagamento,
+      // Campo de observação
+      observacao,
+      // Campo de documentos completos
+      documentosCompletos,
+      // Arquivos para upload
+      arquivos,
     } = req.body;
 
     console.log("[COMPRA API] Criando nova compra no Zoho");
@@ -370,6 +400,21 @@ router.post("/", async (req, res) => {
       JSON.stringify(produtosSubform, null, 2),
     );
 
+    // Formata a data de nascimento do representante
+    let dataNascimentoRepresentanteFormatada = null;
+    if (dataNascimentoRepresentante) {
+      if (dataNascimentoRepresentante.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        dataNascimentoRepresentanteFormatada = dataNascimentoRepresentante;
+      } else {
+        const partes = dataNascimentoRepresentante.split("/");
+        if (partes.length === 3) {
+          dataNascimentoRepresentanteFormatada = `${partes[2]}-${partes[1]}-${partes[0]}`;
+        } else {
+          dataNascimentoRepresentanteFormatada = dataNascimentoRepresentante;
+        }
+      }
+    }
+
     // Prepara os dados para o Zoho
     const dadosZoho = {
       data: [
@@ -390,9 +435,36 @@ router.post("/", async (req, res) => {
           Pa_s: pais || "Brasil",
           Complemento: complemento || "",
           Tipo_Cliente: "Pessoa Fisica",
-          Tipo_de_solicita_o: tipoSolicitacao || "Pedido", // Usa o valor do formulário ou "Pedido" como padrão
+          Tipo_de_pedido: tipoSolicitacao || "1ª Compra",
           Consultor_Tegra: consultorTegra || "",
           Produtos_Portal_Onix: produtosSubform,
+          // Campos do representante legal
+          Representante_legal: temRepresentanteLegal || false,
+          Nome_do_representante_legal: nomeRepresentante || "",
+          RG_do_representante_legal: rgRepresentante || "",
+          E_mail_do_representante_legal: emailRepresentante || "",
+          Data_de_nascimento_do_representante_legal: dataNascimentoRepresentanteFormatada,
+          CPF_do_representante_legal: cpfRepresentante?.replace(/\D/g, "") || "",
+          Celular_Representante_Legal: celularRepresentante?.replace(/\D/g, "") || "",
+          // Campos do novo médico prescritor
+          Dados_do_novo_m_dico_prescritor: temNovoMedicoPrescritor || false,
+          Celular_do_m_dico: celularMedico?.replace(/\D/g, "") || "",
+          CRM_do_m_dico: crmMedico || "",
+          E_mail_2: emailMedico || "",
+          Especialidade_do_m_dico: especialidadeMedico || "",
+          Nome_do_m_dico: nomeMedico || "",
+          UF_do_CRM: ufCrm || "",
+          // Campos de negociação
+          Negocia_o_feita_pelo_consultor1: negociacaoFeitaPeloConsultor || false,
+          Solicitar_Link_de_Pagamento: solicitarLinkPagamento || "",
+          Tipo_de_link: tipoLink || "",
+          // Campos de pagamento
+          Forma_de_Pagamento: formaPagamento || "",
+          Termos_e_condi_es: termosCondicoesPagamento || "",
+          // Campo de observação
+          Observa_es: observacao || "",
+          // Campo de documentos completos
+          Documentos_Completos: documentosCompletos || false,
         },
       ],
     };
@@ -408,18 +480,48 @@ router.post("/", async (req, res) => {
     const response = await chamarZohoApi("POST", endpoint, dadosZoho);
 
     console.log("[COMPRA API] ✓ Compra criada com sucesso no Zoho");
-    console.log(
-      "[COMPRA API] ID do registro:",
-      response.data?.[0]?.details?.id,
-    );
+    const recordId = response.data?.[0]?.details?.id;
+    console.log("[COMPRA API] ID do registro:", recordId);
+
+    // Faz upload dos arquivos se houver
+    let arquivosAnexados = [];
+    if (arquivos && arquivos.length > 0 && recordId) {
+      try {
+        console.log(
+          `[COMPRA API] Fazendo upload de ${arquivos.length} arquivo(s)...`,
+        );
+        const arquivosParaUpload = arquivos.map((arquivo) => ({
+          buffer: Buffer.from(arquivo.base64, "base64"),
+          fileName: arquivo.fileName,
+          contentType: arquivo.contentType || "application/octet-stream",
+        }));
+
+        arquivosAnexados = await anexarArquivosNoRegistro({
+          moduleName,
+          recordId,
+          arquivos: arquivosParaUpload,
+        });
+
+        console.log(
+          `[COMPRA API] ✓ Upload concluído: ${arquivosAnexados.filter((a) => a.success).length}/${arquivos.length} arquivo(s) anexado(s) com sucesso`,
+        );
+      } catch (error) {
+        console.error(
+          "[COMPRA API] ⚠️ Erro ao fazer upload de arquivos (registro criado, mas arquivos não anexados):",
+          error.message,
+        );
+        // Não falha a requisição se o upload de arquivos falhar
+      }
+    }
 
     res.json({
       success: true,
       message: "Compra criada com sucesso",
       data: {
-        id: response.data?.[0]?.details?.id,
+        id: recordId,
         ...response.data?.[0]?.details,
       },
+      arquivosAnexados: arquivosAnexados,
     });
   } catch (error) {
     console.error("[COMPRA API] ✗ Erro ao criar compra:", error);

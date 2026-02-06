@@ -1,5 +1,5 @@
 import ReactSelect from "react-select";
-import { useMemo } from "react";
+import { useMemo, useEffect } from "react";
 
 /**
  * Componente de Select reutilizável usando react-select com design customizado
@@ -101,13 +101,13 @@ export default function Select({
     }),
     singleValue: (base) => ({
       ...base,
-      color: "#333333", // tegra-text-primary
+      color: "#1a2f5b", // tegra-blue-dark
       fontWeight: "700",
       fontSize: "0.875rem",
     }),
     input: (base) => ({
       ...base,
-      color: "#333333",
+      color: "#1a2f5b", // tegra-blue-dark
       fontWeight: "700",
     }),
     menu: (base) => ({
@@ -130,17 +130,15 @@ export default function Select({
       backgroundColor: state.isSelected
         ? "#4d6fa9" // tegra-blue-light
         : state.isFocused
-          ? "#f5f5f5" // tegra-gray-light
+          ? "#e8f0f8" // azul claro para hover (mais claro que tegra-blue-dark)
           : "transparent",
-      color: state.isSelected
-        ? "#1a2f5b" // tegra-blue-dark
-        : "#333333", // tegra-text-primary
+      color: "#1a2f5b", // tegra-blue-dark (sempre azul escuro)
       fontWeight: "700",
       fontSize: "0.875rem",
       padding: "10px 12px",
       cursor: "pointer",
       "&:active": {
-        backgroundColor: state.isSelected ? "#4d6fa9" : "#f5f5f5",
+        backgroundColor: state.isSelected ? "#4d6fa9" : "#e8f0f8",
       },
     }),
     indicatorSeparator: () => ({
@@ -165,6 +163,37 @@ export default function Select({
       padding: "12px",
     }),
   };
+
+  // Adiciona estilos CSS globais para o scrollbar do select
+  useEffect(() => {
+    const styleId = "tegra-select-scrollbar-styles";
+    if (!document.getElementById(styleId)) {
+      const style = document.createElement("style");
+      style.id = styleId;
+      style.textContent = `
+        .tegra-select__menu-list::-webkit-scrollbar {
+          width: 8px;
+        }
+        .tegra-select__menu-list::-webkit-scrollbar-track {
+          background: #f5f5f5;
+          border-radius: 4px;
+        }
+        .tegra-select__menu-list::-webkit-scrollbar-thumb {
+          background: #1a2f5b;
+          border-radius: 4px;
+        }
+        .tegra-select__menu-list::-webkit-scrollbar-thumb:hover {
+          background: #2e4a86;
+        }
+        /* Para Firefox */
+        .tegra-select__menu-list {
+          scrollbar-width: thin;
+          scrollbar-color: #1a2f5b #f5f5f5;
+        }
+      `;
+      document.head.appendChild(style);
+    }
+  }, []);
 
   return (
     <div>

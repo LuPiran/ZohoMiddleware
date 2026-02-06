@@ -2,16 +2,18 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { authService } from "../../services/auth";
 import { ROUTES, STORAGE_KEYS } from "../../utils/constants";
-import logo from "../../assets/Logo-TegraPharma.webp";
-import { MdLogout } from "react-icons/md";
+import logo from "../../assets/LogoTegra.png";
+import { MdLogout, MdMenu } from "react-icons/md";
 import Avatar from "../ui/Avatar";
 import SplashScreen from "../feedback/auth/SplashScreen";
+import { useMenu } from "../../contexts/MenuContext";
 
 export default function Header() {
   const navigate = useNavigate();
   const user = authService.getUser();
   const [showSplash, setShowSplash] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const { toggleMenu } = useMenu();
 
   function handleLogout() {
     // Previne múltiplos cliques e loops
@@ -57,7 +59,6 @@ export default function Header() {
   return (
     <>
       {showSplash && <SplashScreen message="Saindo..." />}
-
       <header className="bg-tegra-bg-primary shadow-sm border-b border-tegra-gray-medium">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
           <img
@@ -86,7 +87,7 @@ export default function Header() {
             )}
             <button
               onClick={handleLogout}
-              className="p-2 text-tegra-error hover:text-red-700 hover:bg-tegra-error-light rounded-lg transition flex items-center justify-center"
+              className="p-2 text-tegra-error hover:text-red-700 hover:bg-tegra-error-light rounded-lg transition flex items-center justify-center cursor-pointer"
               title="Sair"
               aria-label="Sair"
             >

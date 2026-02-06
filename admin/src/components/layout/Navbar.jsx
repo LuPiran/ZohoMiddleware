@@ -1,19 +1,48 @@
-import { NavLink } from "react-router-dom";
+import { useEffect, useRef } from "react";
+import { NavLink, useLocation } from "react-router-dom";
 import {
   MdDashboard,
   MdPeople,
   MdShoppingCart,
   MdAssignment,
   MdReport,
+  MdClose,
 } from "react-icons/md";
 import { ROUTES } from "../../utils/constants";
 import { hasAdminPanelPermission } from "../../utils/permissions";
+import { useMenu } from "../../contexts/MenuContext";
 
 /**
  * Componente de Navegação
  */
 export default function Navbar() {
+  const { isMenuOpen, closeMenu } = useMenu();
+  const location = useLocation();
   const isAdmin = hasAdminPanelPermission();
+  const prevPathnameRef = useRef(location.pathname);
+
+  // Fecha o menu apenas quando a rota realmente muda (não na primeira renderização)
+  useEffect(() => {
+    // Só fecha se a rota realmente mudou (não na primeira renderização)
+    if (prevPathnameRef.current !== location.pathname && prevPathnameRef.current !== null) {
+      closeMenu();
+    }
+    prevPathnameRef.current = location.pathname;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
+
+  // Bloqueia scroll do body quando menu está aberto (mobile/tablet)
+  useEffect(() => {
+    if (isMenuOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    // Limpa o estilo quando componente desmonta
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isMenuOpen]);
 
   const navItems = [
     {
@@ -56,11 +85,13 @@ export default function Navbar() {
             <NavLink
               key={item.path}
               to={item.path}
+              onClick={closeMenu}
               className={({ isActive }) =>
                 `flex items-center gap-2 px-3 sm:px-4 py-2.5 text-sm font-medium transition-colors border-b-2 ${
+                `flex items-center gap-2 px-3 sm:px-4 py-2.5 text-sm font-medium transition-colors border-b-2 ${
                   isActive
-                    ? "text-tegra-blue-dark border-tegra-blue-dark"
-                    : "text-tegra-text-secondary border-transparent hover:text-tegra-blue-dark hover:border-tegra-blue-dark"
+                    ? "text-tegra-blue-dark bg-tegra-blue-light"
+                    : "text-tegra-text-secondary hover:text-tegra-blue-dark hover:bg-tegra-gray-light"
                 }`
               }
             >
@@ -69,7 +100,6 @@ export default function Navbar() {
             </NavLink>
           ))}
         </div>
-      </div>
-    </nav>
+      </nav>
   );
 }
