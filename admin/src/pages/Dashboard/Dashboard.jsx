@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { authService } from "../../services/auth";
 import { useLoading } from "../../contexts/LoadingContext";
+import { useToast } from "../../components/feedback/auth/ToastContainer";
 import MainLayout from "../../components/layout/MainLayout";
 import { ROUTES, STORAGE_KEYS } from "../../utils/constants";
 import { MdShoppingCart, MdRefresh, MdReport } from "react-icons/md";
@@ -10,7 +11,8 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const user = authService.getUser();
   const { setLoading } = useLoading();
-  const [showLoginToast, setShowLoginToast] = useState(false);
+  const { showToast } = useToast();
+  const loginToastShownRef = useRef(false);
 
   useEffect(() => {
     if (!authService.isAuthenticated()) {
@@ -24,15 +26,25 @@ export default function Dashboard() {
 
   useEffect(() => {
     const loginSuccess = sessionStorage.getItem(STORAGE_KEYS.LOGIN_SUCCESS);
-    if (loginSuccess === "true") {
+    if (loginSuccess === "true" && !loginToastShownRef.current) {
       sessionStorage.removeItem(STORAGE_KEYS.LOGIN_SUCCESS);
-      setShowLoginToast(true);
+      loginToastShownRef.current = true;
+      
+      // O blur azul do login acontece na página de Login:
+      // - Aguarda 300ms antes de iniciar o blur
+      // - Inicia o blur (setIsTransitioning) - animação dura 2000ms
+      // - Aguarda 2000ms (duração da animação do blur)
+      // - Navega para o Dashboard
+      // Quando chegamos aqui, o blur azul já terminou completamente
+      // Mostramos o toast logo após o Dashboard carregar
+      // Usamos um delay para garantir que a página está totalmente renderizada
       const timer = setTimeout(() => {
-        setShowLoginToast(false);
-      }, 2600);
+        showToast("Login concluído|Seja bem-vindo de volta!", "success", 4000);
+      }, 500);
+      
       return () => clearTimeout(timer);
     }
-  }, []);
+  }, [showToast]);
 
   // Dados mocados para o mês atual
   const dashboardData = useMemo(() => {
@@ -84,17 +96,6 @@ export default function Dashboard() {
 
   return (
     <MainLayout>
-      {showLoginToast && (
-        <div className="login-success-toast" role="status" aria-live="polite">
-          <div className="login-success-toast__icon">✓</div>
-          <div className="login-success-toast__content">
-            <div className="login-success-toast__title">Login concluído</div>
-            <div className="login-success-toast__text">
-              Seja bem-vindo de volta!
-            </div>
-          </div>
-        </div>
-      )}
       <div className="dashboard-page max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-5 sm:py-7 md:py-8">
         {/* Mensagem de boas-vindas */}
         <div className="mb-4 sm:mb-6 md:mb-8">

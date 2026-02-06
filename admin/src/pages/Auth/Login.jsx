@@ -177,9 +177,15 @@ export default function Login() {
   return (
     <>
       <div className="min-h-screen flex items-center justify-center p-4 sm:p-6 relative">
-        <div className={`login-transition ${isTransitioning ? "is-active" : ""}`} />
-        <div className={`login-transition-glass ${isTransitioning ? "is-active" : ""}`} />
-        <div className={`login-transition-grain ${isTransitioning ? "is-active" : ""}`} />
+        <div
+          className={`login-transition ${isTransitioning ? "is-active" : ""}`}
+        />
+        <div
+          className={`login-transition-glass ${isTransitioning ? "is-active" : ""}`}
+        />
+        <div
+          className={`login-transition-grain ${isTransitioning ? "is-active" : ""}`}
+        />
         <div className="absolute inset-0 login-page-bg" />
 
         <div className="relative w-full max-w-5xl">
@@ -230,11 +236,7 @@ export default function Login() {
                 </p>
               </div>
 
-              <form
-                onSubmit={handleSubmit}
-                className="space-y-5"
-                noValidate
-              >
+              <form onSubmit={handleSubmit} className="space-y-5" noValidate>
                 <div>
                   <Input
                     id="email"
@@ -293,7 +295,8 @@ export default function Login() {
               </form>
 
               <p className="mt-8 text-center text-xs text-tegra-text-secondary">
-                Suporte: <span className="font-semibold">suporte@tegrapharma.com</span>
+                Suporte:{" "}
+                <span className="font-semibold">suporte@tegrapharma.com</span>
               </p>
             </div>
           </div>
