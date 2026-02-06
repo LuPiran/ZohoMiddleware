@@ -5,7 +5,7 @@ import Input from "../../components/ui/Input";
 import Button from "../../components/ui/Button";
 import Checkbox from "../../components/ui/Checkbox";
 import { ROUTES, STORAGE_KEYS } from "../../utils/constants";
-import logo from "../../assets/Logo-TegraPharma.webp";
+import logo from "../../assets/LogoTegra.png";
 import { MdEmail, MdLock, MdVisibility, MdVisibilityOff } from "react-icons/md";
 import { useToast } from "../../components/feedback/auth/ToastContainer";
 import SplashScreen from "../../components/feedback/auth/SplashScreen";
@@ -177,20 +177,24 @@ export default function Login() {
     <>
       {showSplash && <SplashScreen message="Entrando..." />}
 
-      <div className="min-h-screen bg-gradient-to-br from-tegra-bg-accent to-tegra-teal-light flex items-center justify-center p-4">
-        <div className="bg-tegra-bg-primary shadow-2xl rounded-2xl p-8 w-full max-w-md">
-          <div className="text-center mb-8">
+      <div className="min-h-screen bg-gradient-to-br from-tegra-bg-accent to-tegra-teal-light flex items-center justify-center p-3 sm:p-4">
+        <div className="bg-tegra-bg-primary shadow-2xl rounded-xl sm:rounded-2xl p-5 sm:p-6 md:p-8 w-full max-w-md">
+          <div className="text-center mb-6 sm:mb-8">
             <img
               src={logo}
               alt="Logo TegraPharma"
-              className="mx-auto mb-4 max-h-20 object-contain"
+              className="mx-auto mb-3 sm:mb-4 max-h-16 sm:max-h-20 object-contain"
             />
-            <p className="text-tegra-text-secondary">
+            <p className="text-sm sm:text-base text-tegra-text-secondary">
               Faça login para continuar
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6" noValidate>
+          <form
+            onSubmit={handleSubmit}
+            className="space-y-4 sm:space-y-6"
+            noValidate
+          >
             <Input
               id="email"
               label="Email"

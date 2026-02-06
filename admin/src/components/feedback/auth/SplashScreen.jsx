@@ -1,4 +1,4 @@
-import logo from "../../../assets/Logo-TegraPharma.webp";
+import logo from "../../../assets/LogoTegra.png";
 
 /**
  * Componente de Splash Screen

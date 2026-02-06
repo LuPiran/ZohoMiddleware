@@ -3,22 +3,25 @@ import "./App.css";
 import AppRoutes from "./routes/AppRoutes";
 import { ToastProvider } from "./components/feedback/auth/ToastContainer";
 import { LoadingProvider } from "./contexts/LoadingContext";
+import { MenuProvider } from "./contexts/MenuContext";
 import RouteTransition from "./components/navigation/RouteTransition";
 
 function App() {
   return (
     <ToastProvider>
       <LoadingProvider>
-        <BrowserRouter
-          future={{
-            v7_relativeSplatPath: true,
-            v7_startTransition: true,
-          }}
-        >
-          <RouteTransition>
-            <AppRoutes />
-          </RouteTransition>
-        </BrowserRouter>
+        <MenuProvider>
+          <BrowserRouter
+            future={{
+              v7_relativeSplatPath: true,
+              v7_startTransition: true,
+            }}
+          >
+            <RouteTransition>
+              <AppRoutes />
+            </RouteTransition>
+          </BrowserRouter>
+        </MenuProvider>
       </LoadingProvider>
     </ToastProvider>
   );

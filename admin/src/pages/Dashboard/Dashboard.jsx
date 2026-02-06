@@ -71,30 +71,34 @@ export default function Dashboard() {
 
   return (
     <MainLayout>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
         {/* Mensagem de boas-vindas */}
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-tegra-text-primary">
+        <div className="mb-4 sm:mb-6 md:mb-8">
+          <h1 className="text-xl sm:text-2xl font-bold text-tegra-text-primary">
             Bem-vindo de volta, {nomeUsuario} 👋
           </h1>
         </div>
 
         {/* Cards de estatísticas */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 md:gap-6 mb-6 sm:mb-8">
           {statsCards.map((card) => (
             <div
               key={card.id}
-              className="bg-tegra-bg-primary rounded-lg shadow-md p-6 flex items-center gap-4 hover:shadow-lg transition-shadow"
+              className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6 flex items-center gap-3 sm:gap-4 hover:shadow-lg transition-shadow"
             >
               {/* Ícone */}
-              <div className={`flex-shrink-0 ${card.color}`}>{card.icon}</div>
+              <div className={`flex-shrink-0 ${card.color}`}>
+                <div className="text-2xl sm:text-3xl md:text-4xl">
+                  {card.icon}
+                </div>
+              </div>
 
               {/* Número e Label */}
               <div className="flex-1">
-                <div className="text-3xl font-bold text-tegra-text-primary mb-1">
+                <div className="text-2xl sm:text-3xl font-bold text-tegra-text-primary mb-1">
                   {card.value}
                 </div>
-                <div className="text-sm text-tegra-text-secondary">
+                <div className="text-xs sm:text-sm text-tegra-text-secondary">
                   {card.label}
                 </div>
               </div>
@@ -103,12 +107,12 @@ export default function Dashboard() {
         </div>
 
         {/* Seção Dashboard */}
-        <div className="mt-8">
-          <h2 className="text-xl  font-bold text-tegra-text-primary mb-4">
+        <div className="mt-6 sm:mt-8">
+          <h2 className="text-lg sm:text-xl font-bold text-tegra-text-primary mb-3 sm:mb-4">
             Dashboard
           </h2>
-          <div className="bg-tegra-bg-primary rounded-lg shadow p-6">
-            <p className="text-tegra-text-secondary">
+          <div className="bg-tegra-bg-primary rounded-lg shadow p-4 sm:p-5 md:p-6">
+            <p className="text-sm sm:text-base text-tegra-text-secondary">
               Conteúdo adicional do Dashboard será exibido aqui.
             </p>
           </div>

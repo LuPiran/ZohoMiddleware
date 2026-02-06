@@ -10,7 +10,7 @@ export default function MainLayout({ children }) {
     <div className="min-h-screen bg-tegra-bg-secondary">
       <Header />
       <Navbar />
-      <main>{children}</main>
+      <main className="relative">{children}</main>
     </div>
   );
 }

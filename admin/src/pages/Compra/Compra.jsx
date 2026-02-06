@@ -8,11 +8,13 @@ import MainLayout from "../../components/layout/MainLayout";
 import Input from "../../components/ui/Input";
 import Button from "../../components/ui/Button";
 import Select from "../../components/ui/Select";
+import Checkbox from "../../components/ui/Checkbox";
+import Textarea from "../../components/ui/Textarea";
 import { ROUTES } from "../../utils/constants";
 import api from "../../services/api";
 import { compraService } from "../../services/compra";
 import { productsService } from "../../services/products";
-import { isAdminPortal } from "../../utils/permissions";
+import { isAdminPortal, hasAdminPanelPermission } from "../../utils/permissions";
 import {
   MdPerson,
   MdEmail,
@@ -23,6 +25,7 @@ import {
   MdSearch,
   MdLocationOn,
   MdClose,
+  MdCloudUpload,
 } from "react-icons/md";
 
 export default function Compra() {
@@ -41,6 +44,56 @@ export default function Compra() {
   const [dataNascimento, setDataNascimento] = useState("");
   const [telefonePaciente, setTelefonePaciente] = useState("");
 
+  // Estados do representante legal
+  const [temRepresentanteLegal, setTemRepresentanteLegal] = useState(false);
+  const [nomeRepresentante, setNomeRepresentante] = useState("");
+  const [rgRepresentante, setRgRepresentante] = useState("");
+  const [cpfRepresentante, setCpfRepresentante] = useState("");
+  const [emailRepresentante, setEmailRepresentante] = useState("");
+  const [celularRepresentante, setCelularRepresentante] = useState("");
+  const [dataNascimentoRepresentante, setDataNascimentoRepresentante] =
+    useState("");
+
+  // Estado para dados do novo médico prescritor
+  const [temNovoMedicoPrescritor, setTemNovoMedicoPrescritor] = useState(false);
+  const [nomeMedico, setNomeMedico] = useState("");
+  const [crmMedico, setCrmMedico] = useState("");
+  const [ufCrm, setUfCrm] = useState("");
+  const [celularMedico, setCelularMedico] = useState("");
+  const [emailMedico, setEmailMedico] = useState("");
+  const [especialidadeMedico, setEspecialidadeMedico] = useState("");
+
+  // Lista de estados brasileiros para UF do CRM
+  const estadosBrasileiros = [
+    { value: "AC", label: "AC" },
+    { value: "AL", label: "AL" },
+    { value: "AP", label: "AP" },
+    { value: "AM", label: "AM" },
+    { value: "BA", label: "BA" },
+    { value: "CE", label: "CE" },
+    { value: "DF", label: "DF" },
+    { value: "ES", label: "ES" },
+    { value: "GO", label: "GO" },
+    { value: "MA", label: "MA" },
+    { value: "MT", label: "MT" },
+    { value: "MS", label: "MS" },
+    { value: "MG", label: "MG" },
+    { value: "PA", label: "PA" },
+    { value: "PB", label: "PB" },
+    { value: "PR", label: "PR" },
+    { value: "PE", label: "PE" },
+    { value: "PI", label: "PI" },
+    { value: "RJ", label: "RJ" },
+    { value: "RN", label: "RN" },
+    { value: "RS", label: "RS" },
+    { value: "RO", label: "RO" },
+    { value: "RR", label: "RR" },
+    { value: "SC", label: "SC" },
+    { value: "SP", label: "SP" },
+    { value: "SE", label: "SE" },
+    { value: "TO", label: "TO" },
+  ];
+
   // Estados do endereço
   const [rua, setRua] = useState("");
   const [bairro, setBairro] = useState("");
@@ -49,10 +102,17 @@ export default function Compra() {
   const [pais, setPais] = useState("Brasil");
   const [numero, setNumero] = useState("");
   const [complemento, setComplemento] = useState("");
+  const [cep, setCep] = useState("");
 
   // Estado para busca de CEP
   const [buscarCep, setBuscarCep] = useState("");
   const [buscandoCep, setBuscandoCep] = useState(false);
+
+  // Estado para negociação feita pelo consultor
+  const [negociacaoFeitaPeloConsultor, setNegociacaoFeitaPeloConsultor] =
+    useState(false);
+  const [solicitarLinkPagamento, setSolicitarLinkPagamento] = useState("");
+  const [tipoLink, setTipoLink] = useState("");
 
   // Estado para produtos
   const [produtos, setProdutos] = useState([
@@ -63,8 +123,19 @@ export default function Compra() {
   const [produtosZoho, setProdutosZoho] = useState([]);
   const [carregandoProdutos, setCarregandoProdutos] = useState(false);
 
-  // Estado para tipo de solicitação (oculto para Admin Portal)
-  const [tipoSolicitacao, setTipoSolicitacao] = useState("Pedido");
+  // Estado para tipo de solicitação (apenas para Admin Painel)
+  const [tipoSolicitacao, setTipoSolicitacao] = useState("1ª Compra");
+
+  // Estados para forma de pagamento
+  const [formaPagamento, setFormaPagamento] = useState("");
+  const [termosCondicoesPagamento, setTermosCondicoesPagamento] = useState("");
+
+  // Estado para observação
+  const [observacao, setObservacao] = useState("");
+
+  // Estados para upload de arquivos
+  const [arquivos, setArquivos] = useState([]);
+  const [documentosCompletos, setDocumentosCompletos] = useState(false);
 
   useEffect(() => {
     if (!authService.isAuthenticated()) {
@@ -188,8 +259,8 @@ export default function Compra() {
       setCidade(data.localidade || "");
       setEstado(data.uf || "");
       setPais("Brasil");
-      // Salva o CEP encontrado (já está formatado em buscarCep)
-      // O CEP será enviado no formulário através de buscarCep
+      // Preenche o campo CEP do formulário com o CEP encontrado
+      setCep(formatarCep(cepLimpo));
 
       showToast("✅ CEP encontrado com sucesso", "success", 2000);
       setBuscandoCep(false);
@@ -229,6 +300,20 @@ export default function Compra() {
     }
   };
 
+  // Função para formatar RG
+  const formatarRg = (valor) => {
+    const rg = valor.replace(/\D/g, "");
+    if (rg.length <= 2) {
+      return rg;
+    } else if (rg.length <= 5) {
+      return rg.replace(/(\d{2})(\d{0,3})/, "$1.$2");
+    } else if (rg.length <= 8) {
+      return rg.replace(/(\d{2})(\d{3})(\d{0,3})/, "$1.$2.$3");
+    } else {
+      return rg.replace(/(\d{2})(\d{3})(\d{3})(\d{0,1})/, "$1.$2.$3-$4");
+    }
+  };
+
   // Handler para CPF com formatação
   const handleCpfChange = (e) => {
     const valor = e.target.value.replace(/\D/g, "");
@@ -243,6 +328,51 @@ export default function Compra() {
     if (valor.length <= 11) {
       setter(formatarTelefone(valor));
     }
+  };
+
+  // Função para limpar todos os campos do formulário
+  const limparFormulario = () => {
+    setNomePaciente("");
+    setSobrenomePaciente("");
+    setCpfPaciente("");
+    setRgPaciente("");
+    setCelularPaciente("");
+    setEmailPaciente("");
+    setDataNascimento("");
+    setTelefonePaciente("");
+    setRua("");
+    setBairro("");
+    setCidade("");
+    setEstado("");
+    setPais("Brasil");
+    setNumero("");
+    setComplemento("");
+    setCep("");
+    setBuscarCep("");
+    setTemRepresentanteLegal(false);
+    setNomeRepresentante("");
+    setRgRepresentante("");
+    setCpfRepresentante("");
+    setEmailRepresentante("");
+    setCelularRepresentante("");
+    setDataNascimentoRepresentante("");
+    setTemNovoMedicoPrescritor(false);
+    setNomeMedico("");
+    setCrmMedico("");
+    setUfCrm("");
+    setCelularMedico("");
+    setEmailMedico("");
+    setEspecialidadeMedico("");
+    setNegociacaoFeitaPeloConsultor(false);
+    setSolicitarLinkPagamento("");
+    setTipoLink("");
+    setFormaPagamento("");
+    setTermosCondicoesPagamento("");
+    setObservacao("");
+    setArquivos([]);
+    setDocumentosCompletos(false);
+          setProdutos([{ id: 1, nome: "", produtoId: "", quantidade: "1" }]);
+          setTipoSolicitacao("1ª Compra"); // Reseta para o valor padrão
   };
 
   // Função para validar campos obrigatórios
@@ -261,7 +391,7 @@ export default function Compra() {
     if (!cidade.trim()) camposVazios.push("Cidade");
     if (!estado.trim()) camposVazios.push("Estado");
     if (!pais.trim()) camposVazios.push("País");
-    if (!buscarCep.trim()) camposVazios.push("CEP");
+    if (!cep.trim()) camposVazios.push("CEP");
 
     // Valida produtos
     const produtosValidos = produtos.filter(
@@ -285,6 +415,24 @@ export default function Compra() {
         "error",
       );
       return { valido: false, camposVazios: [] };
+    }
+
+    // Valida campos do representante legal (obrigatórios quando checkbox está marcado)
+    if (temRepresentanteLegal) {
+      if (!nomeRepresentante.trim()) camposVazios.push("Nome do Representante");
+      if (!cpfRepresentante.trim()) camposVazios.push("CPF do Representante");
+      if (!celularRepresentante.trim()) camposVazios.push("Celular do Representante");
+      if (!dataNascimentoRepresentante.trim()) camposVazios.push("Data de Nascimento do Representante");
+    }
+
+    // Valida campos do novo médico prescritor (obrigatórios quando checkbox está marcado)
+    if (temNovoMedicoPrescritor) {
+      if (!nomeMedico.trim()) camposVazios.push("Nome do Médico");
+      if (!crmMedico.trim()) camposVazios.push("CRM do Médico");
+      if (!ufCrm.trim()) camposVazios.push("UF do CRM");
+      if (!celularMedico.trim()) camposVazios.push("Celular do Médico");
+      if (!emailMedico.trim()) camposVazios.push("E-mail do Médico");
+      if (!especialidadeMedico.trim()) camposVazios.push("Especialidade do Médico");
     }
 
     if (camposVazios.length > 0) {
@@ -315,6 +463,8 @@ export default function Compra() {
         parseInt(p.quantidade) > 0,
     );
 
+    // Mostra splash screen durante a criação
+    setShowSplash(true);
     setLoading(true);
 
     try {
@@ -327,6 +477,28 @@ export default function Compra() {
         user?.nome_completo ||
         user?.Nome_Completo ||
         "";
+
+      // Converte arquivos para base64
+      const arquivosBase64 =
+        arquivos && arquivos.length > 0
+          ? await Promise.all(
+              arquivos.map(async (arquivo) => {
+                return new Promise((resolve, reject) => {
+                  const reader = new FileReader();
+                  reader.onload = () => {
+                    const base64 = reader.result.split(",")[1]; // Remove o prefixo data:type;base64,
+                    resolve({
+                      fileName: arquivo.name,
+                      base64: base64,
+                      contentType: arquivo.type || "application/octet-stream",
+                    });
+                  };
+                  reader.onerror = reject;
+                  reader.readAsDataURL(arquivo);
+                });
+              }),
+            )
+          : [];
 
       // Prepara os dados da compra
       const dadosCompra = {
@@ -343,41 +515,66 @@ export default function Compra() {
         bairro,
         cidade,
         estado,
-        cep: buscarCep || "",
+        cep: cep || "",
         pais,
         complemento,
         produtos: produtosValidos,
         consultorTegra,
-        tipoSolicitacao: tipoSolicitacao || "Pedido", // Tipo de solicitação (oculto para Admin Portal)
+        tipoSolicitacao: tipoSolicitacao || "1ª Compra", // Tipo de solicitação
+        // Campos do representante legal
+        temRepresentanteLegal,
+        nomeRepresentante,
+        rgRepresentante,
+        cpfRepresentante,
+        emailRepresentante,
+        celularRepresentante,
+        dataNascimentoRepresentante,
+        // Campos do novo médico prescritor
+        temNovoMedicoPrescritor,
+        nomeMedico,
+        crmMedico,
+        ufCrm,
+        celularMedico,
+        emailMedico,
+        especialidadeMedico,
+        // Campos de negociação
+        negociacaoFeitaPeloConsultor,
+        solicitarLinkPagamento,
+        tipoLink,
+        // Campos de pagamento
+        formaPagamento,
+        termosCondicoesPagamento,
+        // Campo de observação
+        observacao,
+        // Campo de documentos completos
+        documentosCompletos,
+        // Arquivos para upload (convertidos para base64)
+        arquivos: arquivosBase64,
       };
 
       // Envia para o backend
       const response = await compraService.criarCompra(dadosCompra);
 
       if (response.success) {
-        showToast("✅ Compra cadastrada com sucesso!", "success", 3000);
+        // Obtém a data de criação do registro (do Zoho ou usa data atual)
+        const dataCriacao =
+          response.data?.Created_Time ||
+          response.data?.created_time ||
+          new Date().toISOString();
 
-        // Limpa o formulário após sucesso
-        setTimeout(() => {
-          setNomePaciente("");
-          setSobrenomePaciente("");
-          setCpfPaciente("");
-          setRgPaciente("");
-          setCelularPaciente("");
-          setEmailPaciente("");
-          setDataNascimento("");
-          setTelefonePaciente("");
-          setRua("");
-          setBairro("");
-          setCidade("");
-          setEstado("");
-          setPais("Brasil");
-          setNumero("");
-          setComplemento("");
-          setBuscarCep("");
-          setProdutos([{ id: 1, nome: "", produtoId: "", quantidade: "1" }]);
-          setTipoSolicitacao("Pedido"); // Reseta para o valor padrão
-        }, 2000);
+        // Oculta splash screen antes de navegar
+        setShowSplash(false);
+
+        // Navega para a página de agradecimento com os dados necessários
+        navigate(ROUTES.AGRADECIMENTO, {
+          state: {
+            tipoSolicitacao: tipoSolicitacao || "1ª Compra",
+            nomePaciente,
+            sobrenomePaciente,
+            dataCriacao,
+            origem: "compra",
+          },
+        });
       }
     } catch (error) {
       console.error("Erro ao criar compra:", error);
@@ -386,6 +583,7 @@ export default function Compra() {
         error.message ||
         "Erro ao cadastrar compra. Tente novamente.";
       showToast(`❌ ${errorMessage}`, "error");
+      setShowSplash(false);
     } finally {
       setLoading(false);
     }
@@ -395,18 +593,21 @@ export default function Compra() {
     <>
       {showSplash && <SplashScreen message="Criando compra..." />}
       <MainLayout>
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <h1 className="text-2xl font-bold text-tegra-text-primary mb-6">
+        <div className="max-w-5xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
+          <h1 className="text-xl sm:text-2xl font-bold text-tegra-text-primary mb-4 sm:mb-6">
             Nova Compra
           </h1>
 
-          <form className="space-y-8" onSubmit={handleSubmit}>
+          <form
+            className="space-y-4 sm:space-y-6 md:space-y-8"
+            onSubmit={handleSubmit}
+          >
             {/* Seção: Dados do Paciente */}
-            <div className="bg-tegra-bg-primary rounded-lg shadow-md p-6">
-              <h2 className="text-lg font-semibold text-tegra-text-primary mb-4">
+            <div className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6">
+              <h2 className="text-base sm:text-lg font-semibold text-tegra-text-primary mb-3 sm:mb-4">
                 Dados do Paciente
               </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                 <Input
                   label="Nome"
                   type="text"
@@ -435,8 +636,14 @@ export default function Compra() {
                   label="RG"
                   type="text"
                   value={rgPaciente}
-                  onChange={(e) => setRgPaciente(e.target.value)}
-                  placeholder="RG do paciente"
+                  onChange={(e) => {
+                    const valor = e.target.value.replace(/\D/g, "");
+                    if (valor.length <= 9) {
+                      setRgPaciente(formatarRg(valor));
+                    }
+                  }}
+                  placeholder="00.000.000-0"
+                  maxLength={12}
                 />
                 <Input
                   label="Celular"
@@ -472,14 +679,170 @@ export default function Compra() {
                   icon={<MdCalendarToday className="text-xl" />}
                 />
               </div>
+
+              {/* Checkbox Representante Legal */}
+              <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-tegra-gray-medium">
+                <Checkbox
+                  id="representante-legal"
+                  label="Representante Legal"
+                  checked={temRepresentanteLegal}
+                  onChange={(e) => setTemRepresentanteLegal(e.target.checked)}
+                />
+              </div>
+            </div>
+
+            {/* Seção: Dados do Representante Legal */}
+            {temRepresentanteLegal && (
+              <div className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6">
+                <h2 className="text-base sm:text-lg font-semibold text-tegra-text-primary mb-3 sm:mb-4">
+                  Dados do Representante Legal
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                  <Input
+                    label="Nome Representante"
+                    type="text"
+                    value={nomeRepresentante}
+                    onChange={(e) => setNomeRepresentante(e.target.value)}
+                    placeholder="Nome do representante legal"
+                    icon={<MdPerson className="text-xl" />}
+                  />
+                  <Input
+                    label="RG Representante"
+                    type="text"
+                    value={rgRepresentante}
+                    onChange={(e) => {
+                      const valor = e.target.value.replace(/\D/g, "");
+                      if (valor.length <= 9) {
+                        setRgRepresentante(formatarRg(valor));
+                      }
+                    }}
+                    placeholder="00.000.000-0"
+                    maxLength={12}
+                  />
+                  <Input
+                    label="CPF Representante"
+                    type="text"
+                    value={cpfRepresentante}
+                    onChange={(e) => {
+                      const valor = e.target.value.replace(/\D/g, "");
+                      if (valor.length <= 11) {
+                        setCpfRepresentante(formatarCpf(valor));
+                      }
+                    }}
+                    placeholder="000.000.000-00"
+                    maxLength={14}
+                  />
+                  <Input
+                    label="E-mail Representante"
+                    type="email"
+                    value={emailRepresentante}
+                    onChange={(e) => setEmailRepresentante(e.target.value)}
+                    placeholder="email@exemplo.com"
+                    icon={<MdEmail className="text-xl" />}
+                  />
+                  <Input
+                    label="Celular Representante"
+                    type="text"
+                    value={celularRepresentante}
+                    onChange={(e) =>
+                      handleTelefoneChange(e, setCelularRepresentante)
+                    }
+                    placeholder="(00) 00000-0000"
+                    icon={<MdPhone className="text-xl" />}
+                    maxLength={15}
+                  />
+                  <Input
+                    label="Data de Nascimento Representante"
+                    type="date"
+                    value={dataNascimentoRepresentante}
+                    onChange={(e) =>
+                      setDataNascimentoRepresentante(e.target.value)
+                    }
+                    icon={<MdCalendarToday className="text-xl" />}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Seção: Dados do Novo Médico Prescritor */}
+            <div className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6">
+              <div className="mb-4">
+                <Checkbox
+                  id="novo-medico-prescritor"
+                  label={
+                    <span className="font-bold text-tegra-blue-dark">
+                      Dados do novo médico prescritor
+                    </span>
+                  }
+                  checked={temNovoMedicoPrescritor}
+                  onChange={(e) => setTemNovoMedicoPrescritor(e.target.checked)}
+                />
+              </div>
+
+              {/* Campos do médico (aparecem quando checkbox está marcado) */}
+              {temNovoMedicoPrescritor && (
+                <div className="mt-4 pt-4 border-t border-tegra-gray-medium">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                    <Input
+                      label="Nome do Médico"
+                      type="text"
+                      value={nomeMedico}
+                      onChange={(e) => setNomeMedico(e.target.value)}
+                      placeholder="Nome completo do médico"
+                      icon={<MdPerson className="text-xl" />}
+                    />
+                    <Input
+                      label="CRM do Médico"
+                      type="number"
+                      value={crmMedico}
+                      onChange={(e) => {
+                        const valor = e.target.value.replace(/\D/g, "");
+                        setCrmMedico(valor);
+                      }}
+                      placeholder="Número do CRM"
+                    />
+                    <Select
+                      label="UF do CRM"
+                      value={ufCrm}
+                      onChange={(e) => setUfCrm(e.target.value)}
+                      options={estadosBrasileiros}
+                      placeholder="Selecione o estado"
+                    />
+                    <Input
+                      label="Celular do Médico"
+                      type="text"
+                      value={celularMedico}
+                      onChange={(e) => handleTelefoneChange(e, setCelularMedico)}
+                      placeholder="(00) 00000-0000"
+                      icon={<MdPhone className="text-xl" />}
+                      maxLength={15}
+                    />
+                    <Input
+                      label="E-mail do Médico"
+                      type="email"
+                      value={emailMedico}
+                      onChange={(e) => setEmailMedico(e.target.value)}
+                      placeholder="email@exemplo.com"
+                      icon={<MdEmail className="text-xl" />}
+                    />
+                    <Input
+                      label="Especialidade"
+                      type="text"
+                      value={especialidadeMedico}
+                      onChange={(e) => setEspecialidadeMedico(e.target.value)}
+                      placeholder="Especialidade do médico"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Seção: Busca CEP */}
-            <div className="bg-tegra-bg-primary rounded-lg shadow-md p-6">
-              <h2 className="text-lg font-semibold text-tegra-text-primary mb-4">
+            <div className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6">
+              <h2 className="text-base sm:text-lg font-semibold text-tegra-text-primary mb-3 sm:mb-4">
                 Buscar CEP
               </h2>
-              <div className="flex gap-4">
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                 <div className="flex-1">
                   <Input
                     label="CEP"
@@ -494,6 +857,12 @@ export default function Compra() {
                     placeholder="00000-000"
                     icon={<MdSearch className="text-xl" />}
                     maxLength={9}
+                    iconClear={<MdClose className="text-xl" />}
+                    showIconClear={buscarCep.replace(/\D/g, "").length === 8}
+                    onClearClick={(e) => {
+                      e.preventDefault();
+                      setBuscarCep("");
+                    }}
                   />
                 </div>
                 <div className="flex items-end">
@@ -504,6 +873,7 @@ export default function Compra() {
                       buscandoCep || buscarCep.replace(/\D/g, "").length !== 8
                     }
                     loading={buscandoCep}
+                    className="w-full sm:w-auto py-2 sm:py-2.5"
                   >
                     Buscar
                   </Button>
@@ -512,12 +882,12 @@ export default function Compra() {
             </div>
 
             {/* Seção: Endereço */}
-            <div className="bg-tegra-bg-primary rounded-lg shadow-md p-6">
-              <h2 className="text-lg font-semibold text-tegra-text-primary mb-4 flex items-center gap-2">
-                <MdLocationOn className="text-xl" />
+            <div className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6">
+              <h2 className="text-base sm:text-lg font-semibold text-tegra-text-primary mb-3 sm:mb-4 flex items-center gap-2">
+                <MdLocationOn className="text-lg sm:text-xl" />
                 Endereço
               </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                 <div className="md:col-span-2">
                   <Input
                     label="Rua"
@@ -549,6 +919,19 @@ export default function Compra() {
                   placeholder="Bairro"
                 />
                 <Input
+                  label="CEP"
+                  type="text"
+                  value={cep}
+                  onChange={(e) => {
+                    const valor = e.target.value.replace(/\D/g, "");
+                    if (valor.length <= 8) {
+                      setCep(formatarCep(valor));
+                    }
+                  }}
+                  placeholder="00000-000"
+                  maxLength={9}
+                />
+                <Input
                   label="Cidade"
                   type="text"
                   value={cidade}
@@ -573,23 +956,78 @@ export default function Compra() {
               </div>
             </div>
 
-            {/* Campo oculto: Tipo de Solicitação (apenas para usuários que NÃO são Admin Portal) */}
-            {!isAdminPortal() && (
-              <div className="bg-tegra-bg-primary rounded-lg shadow-md p-6">
-                <Input
+            {/* Seção: Negociação feita pelo consultor */}
+            <div className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6">
+              <Checkbox
+                id="negociacao-consultor"
+                label={
+                  <span className="font-bold text-tegra-blue-dark">
+                    Negociação feita pelo consultor?
+                  </span>
+                }
+                checked={negociacaoFeitaPeloConsultor}
+                onChange={(e) =>
+                  setNegociacaoFeitaPeloConsultor(e.target.checked)
+                }
+              />
+
+              {/* Campos que aparecem quando o checkbox está marcado */}
+              {negociacaoFeitaPeloConsultor && (
+                <div className="mt-4 pt-4 border-t border-tegra-gray-medium">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                    <Select
+                      label="Solicitar link para pagamento?"
+                      value={solicitarLinkPagamento}
+                      onChange={(e) => {
+                        setSolicitarLinkPagamento(e.target.value);
+                        // Limpa o campo Tipo de Link se a opção for "Não"
+                        if (e.target.value === "Não") {
+                          setTipoLink("");
+                        }
+                      }}
+                      options={[
+                        { value: "Sim", label: "Sim" },
+                        { value: "Não", label: "Não" },
+                      ]}
+                      placeholder="Selecione uma opção"
+                    />
+                    {solicitarLinkPagamento === "Sim" && (
+                      <Select
+                        label="Tipo de Link"
+                        value={tipoLink}
+                        onChange={(e) => setTipoLink(e.target.value)}
+                        options={[
+                          { value: "PayZen", label: "PayZen" },
+                          { value: "Pagar-Me", label: "Pagar-Me" },
+                        ]}
+                        placeholder="Selecione o tipo de link"
+                      />
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Campo: Tipo de Solicitação (apenas para Admin Painel) */}
+            {hasAdminPanelPermission() && (
+              <div className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6">
+                <Select
                   label="Tipo de Solicitação"
-                  type="text"
                   value={tipoSolicitacao}
                   onChange={(e) => setTipoSolicitacao(e.target.value)}
-                  placeholder="Pedido"
+                  options={[
+                    { value: "1ª Compra", label: "1ª Compra" },
+                    { value: "Recompra", label: "Recompra" },
+                  ]}
+                  placeholder="Selecione o tipo de solicitação"
                 />
               </div>
             )}
 
             {/* Seção: Produtos */}
-            <div className="bg-tegra-bg-primary rounded-lg shadow-md p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-semibold text-tegra-text-primary">
+            <div className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 mb-3 sm:mb-4">
+                <h2 className="text-base sm:text-lg font-semibold text-tegra-text-primary">
                   Produtos
                 </h2>
                 <Button
@@ -597,18 +1035,20 @@ export default function Compra() {
                   variant="teal"
                   size="sm"
                   onClick={adicionarProduto}
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-2 w-full sm:w-auto"
                 >
-                  <MdAdd className="text-xl" />
-                  Adicionar Produto
+                  <MdAdd className="text-lg sm:text-xl" />
+                  <span className="text-sm sm:text-base">
+                    Adicionar Produto
+                  </span>
                 </Button>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4">
                 {produtos.map((produto, index) => (
                   <div
                     key={produto.id}
-                    className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end border-b border-tegra-gray-medium pb-4 last:border-b-0"
+                    className="grid grid-cols-1 md:grid-cols-12 gap-3 sm:gap-4 items-end border-b border-tegra-gray-medium pb-3 sm:pb-4 last:border-b-0"
                   >
                     <div className="md:col-span-5">
                       {index === 0 && (
@@ -706,10 +1146,10 @@ export default function Compra() {
                           variant="danger"
                           size="sm"
                           onClick={() => removerProduto(produto.id)}
-                          className="flex items-center gap-2"
+                          className="flex items-center gap-2 w-full sm:w-auto"
                         >
-                          <MdDelete className="text-lg" />
-                          Remover
+                          <MdDelete className="text-base sm:text-lg" />
+                          <span className="text-sm sm:text-base">Remover</span>
                         </Button>
                       )}
                     </div>
@@ -718,16 +1158,164 @@ export default function Compra() {
               </div>
             </div>
 
+            {/* Seção: Forma de Pagamento */}
+            <div className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6">
+              <h2 className="text-base sm:text-lg font-semibold text-tegra-text-primary mb-3 sm:mb-4">
+                Forma de Pagamento
+              </h2>
+              <div className="grid grid-cols-1 gap-3 sm:gap-4">
+                <Select
+                  label="Forma de Pagamento"
+                  value={formaPagamento}
+                  onChange={(e) => setFormaPagamento(e.target.value)}
+                  options={[
+                    { value: "Boleto", label: "Boleto" },
+                    { value: "Cartão de Credito", label: "Cartão de Credito" },
+                    { value: "Deposito", label: "Deposito" },
+                    { value: "Conta Internacional", label: "Conta Internacional" },
+                    { value: "PIX", label: "PIX" },
+                    { value: "TED - Transferencia Bancaria", label: "TED - Transferencia Bancaria" },
+                  ]}
+                  placeholder="Selecione a forma de pagamento"
+                />
+                <Textarea
+                  label="Termos e condições de pagamento"
+                  value={termosCondicoesPagamento}
+                  onChange={(e) => setTermosCondicoesPagamento(e.target.value)}
+                  placeholder="Digite os termos e condições de pagamento"
+                  rows={4}
+                />
+              </div>
+            </div>
+
+            {/* Seção: Observação */}
+            <div className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6">
+              <h2 className="text-base sm:text-lg font-semibold text-tegra-text-primary mb-3 sm:mb-4">
+                Observação
+              </h2>
+              <div className="grid grid-cols-1 gap-3 sm:gap-4">
+                <Textarea
+                  label="Observação"
+                  value={observacao}
+                  onChange={(e) => setObservacao(e.target.value)}
+                  placeholder="Digite suas observações"
+                  rows={4}
+                />
+              </div>
+            </div>
+
+            {/* Seção: Upload de arquivos */}
+            <div className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6">
+              <h2 className="text-base sm:text-lg font-semibold text-tegra-text-primary mb-3 sm:mb-4">
+                <span className="font-bold text-tegra-blue-dark">
+                  Upload de arquivos
+                </span>
+              </h2>
+              <div className="space-y-3 sm:space-y-4">
+                {/* Campo de upload */}
+                <div className="relative">
+                  <input
+                    type="file"
+                    id="file-upload"
+                    multiple
+                    disabled={arquivos.length >= 5}
+                    onChange={(e) => {
+                      const novosArquivos = Array.from(e.target.files);
+                      const totalArquivos = arquivos.length + novosArquivos.length;
+                      
+                      if (totalArquivos > 5) {
+                        showToast(
+                          "⚠️ Máximo de 5 arquivos permitidos",
+                          "warning"
+                        );
+                        return;
+                      }
+                      
+                      setArquivos([...arquivos, ...novosArquivos]);
+                      // Limpa o input para permitir selecionar o mesmo arquivo novamente
+                      e.target.value = "";
+                    }}
+                    className="hidden"
+                  />
+                  <label
+                    htmlFor="file-upload"
+                    className={`flex items-center justify-between px-4 py-3 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${
+                      arquivos.length >= 5
+                        ? "bg-tegra-gray-light border-tegra-gray-medium cursor-not-allowed opacity-60"
+                        : "bg-blue-50 border-tegra-blue hover:bg-blue-100"
+                    }`}
+                  >
+                    <span className="text-tegra-blue-dark font-medium">
+                      Escolher ficheiro(s)
+                    </span>
+                    <MdCloudUpload className="text-tegra-blue-dark text-xl" />
+                  </label>
+                </div>
+
+                {/* Texto de dica */}
+                <p className="text-sm text-tegra-text-secondary">
+                  (Receita / Doc ID Paciente( CPF/RG) / Comprovante Endereço /
+                  Autorização Anvisa / Doc ID RL) (Máximo 5 arquivos)
+                </p>
+
+                {/* Lista de arquivos selecionados */}
+                {arquivos.length > 0 && (
+                  <div className="space-y-2">
+                    {arquivos.map((arquivo, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center justify-between p-2 bg-tegra-gray-light rounded border border-tegra-gray-medium"
+                      >
+                        <span className="text-sm text-tegra-text-primary truncate flex-1">
+                          {arquivo.name}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setArquivos(arquivos.filter((_, i) => i !== index));
+                          }}
+                          className="ml-2 text-tegra-error hover:text-tegra-error-dark transition-colors"
+                          aria-label="Remover arquivo"
+                        >
+                          <MdClose className="text-lg" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Checkbox Documentos Completos */}
+                <div className="pt-2">
+                  <Checkbox
+                    id="documentos-completos"
+                    label={
+                      <span className="font-bold text-tegra-blue-dark">
+                        Documentos Completos?
+                      </span>
+                    }
+                    checked={documentosCompletos}
+                    onChange={(e) => setDocumentosCompletos(e.target.checked)}
+                  />
+                </div>
+              </div>
+            </div>
+
             {/* Botões de ação */}
-            <div className="flex justify-end gap-4">
+            <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 sm:gap-4">
               <Button
                 type="button"
                 variant="secondary"
-                onClick={() => navigate(-1)}
+                onClick={limparFormulario}
+                className="w-full sm:w-auto"
               >
                 Cancelar
               </Button>
-              <Button type="submit" variant="primary" loading={false}>
+              <Button
+                type="submit"
+                variant="primary"
+                loading={false}
+                className="w-full sm:w-auto"
+              >
                 Salvar Compra
               </Button>
             </div>

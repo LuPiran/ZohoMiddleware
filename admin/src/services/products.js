@@ -23,4 +23,23 @@ export const productsService = {
       throw errorData;
     }
   },
+
+  /**
+   * Busca lista de TODOS os produtos do Zoho (sem filtrar por ativo)
+   * @returns {Promise<Object>}
+   */
+  async getAllProducts() {
+    try {
+      const response = await api.get(API_ENDPOINTS.PRODUCTS.LIST_ALL);
+      return response.data;
+    } catch (error) {
+      const errorData = {
+        error: error.response?.data?.error || error.message,
+        message: error.message,
+        response: error.response,
+        status: error.response?.status,
+      };
+      throw errorData;
+    }
+  },
 };
