@@ -52,31 +52,35 @@ export default function Toast({
   const title = parsed.title || defaultTitles[type] || null;
   const subtitle = parsed.subtitle || (parsed.title ? null : message);
 
-  // Configurações de estilo por tipo
+  // Configurações de estilo por tipo (usando paleta TegraPharma)
   const styles = {
     success: {
-      iconBg: "bg-tegra-teal", // Cor azul-petróleo do site (#21b3b3)
+      iconBg: "bg-tegra-success",
       icon: <MdCheck className="text-white text-lg font-bold" />,
-      titleColor: "text-gray-800", // Cinza escuro (#343A40)
-      subtitleColor: "text-gray-600", // Cinza médio (#6C757D)
+      titleColor: "text-tegra-text-primary",
+      subtitleColor: "text-tegra-text-secondary",
+      borderColor: "border-tegra-success/20",
     },
     error: {
-      iconBg: "bg-red-600", // Vermelho (#DC3545)
+      iconBg: "bg-tegra-error",
       icon: <MdClose className="text-white text-lg font-bold" />,
-      titleColor: "text-red-700", // Vermelho escuro
-      subtitleColor: "text-red-600", // Vermelho médio
+      titleColor: "text-tegra-text-primary",
+      subtitleColor: "text-tegra-text-secondary",
+      borderColor: "border-tegra-error/20",
     },
     warning: {
-      iconBg: "bg-yellow-500", // Amarelo (#FFC107)
+      iconBg: "bg-tegra-warning",
       icon: <MdWarning className="text-white text-lg font-bold" />,
-      titleColor: "text-yellow-800", // Amarelo escuro
-      subtitleColor: "text-yellow-700", // Amarelo médio escuro
+      titleColor: "text-tegra-text-primary",
+      subtitleColor: "text-tegra-text-secondary",
+      borderColor: "border-tegra-warning/20",
     },
     info: {
-      iconBg: "bg-tegra-blue", // Azul do site (#2e4a86)
+      iconBg: "bg-tegra-blue",
       icon: <MdCheck className="text-white text-lg font-bold" />,
-      titleColor: "text-gray-800",
-      subtitleColor: "text-gray-600",
+      titleColor: "text-tegra-text-primary",
+      subtitleColor: "text-tegra-text-secondary",
+      borderColor: "border-tegra-blue/20",
     },
   };
 
@@ -84,19 +88,19 @@ export default function Toast({
 
   return (
     <div
-      className={`flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg min-w-[280px] max-w-sm bg-white ${
+      className={`flex items-center gap-3 px-4 py-3.5 rounded-lg border-l-4 ${currentStyle.borderColor} bg-white shadow-lg min-w-[300px] max-w-md ${
         isClosing ? "animate-slide-up" : "animate-slide-down"
       }`}
       role="alert"
       style={{
-        boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06)",
+        boxShadow: "0 4px 16px rgba(46, 74, 134, 0.08), 0 2px 8px rgba(46, 74, 134, 0.04)",
       }}
     >
       {/* Ícone circular */}
       <div
-        className={`shrink-0 w-9 h-9 rounded-full ${currentStyle.iconBg} flex items-center justify-center`}
+        className={`shrink-0 w-10 h-10 rounded-full ${currentStyle.iconBg} flex items-center justify-center`}
         style={{
-          boxShadow: "0 2px 6px rgba(0, 0, 0, 0.12)",
+          boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
         }}
       >
         {currentStyle.icon}
@@ -105,12 +109,12 @@ export default function Toast({
       {/* Texto */}
       <div className="flex-1 min-w-0">
         {title && (
-          <p className={`text-sm font-bold ${currentStyle.titleColor} leading-tight`}>
+          <p className={`text-sm font-semibold ${currentStyle.titleColor} leading-tight`}>
             {title}
           </p>
         )}
         {subtitle && (
-          <p className={`text-xs font-normal ${currentStyle.subtitleColor} leading-tight ${title ? 'mt-0.5' : ''}`}>
+          <p className={`text-sm font-medium ${currentStyle.subtitleColor} leading-tight ${title ? 'mt-1' : ''}`}>
             {subtitle}
           </p>
         )}

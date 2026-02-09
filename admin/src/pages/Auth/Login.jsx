@@ -16,9 +16,11 @@ export default function Login() {
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [isErrorTransitioning, setIsErrorTransitioning] = useState(false);
   const navigate = useNavigate();
   const { showToast } = useToast();
   const logoutToastShownRef = useRef(false); // Usa ref para evitar re-renderizações
+  const errorTransitionTimerRef = useRef(null);
 
   // Verifica se houve logout bem-sucedido ou conta inativa ao montar o componente
   useEffect(() => {
@@ -66,6 +68,7 @@ export default function Login() {
 
     // Validação: campos obrigatórios
     if (!email.trim() || !senha.trim()) {
+      triggerErrorTransition();
       showToast("❌ Os campos são obrigatórios", "error");
       return;
     }
@@ -103,6 +106,8 @@ export default function Login() {
         setEmail("");
         setSenha("");
         setShowPassword(false);
+
+        triggerErrorTransition();
 
         // Aguarda um pouco antes de mostrar o toast
         setTimeout(() => {
@@ -163,15 +168,28 @@ export default function Login() {
         setSenha("");
         setShowPassword(false);
 
+        triggerErrorTransition();
+
         // Aguarda um pouco antes de mostrar o toast
         setTimeout(() => {
           showToast("❌ E-mail ou Senha incorretos", "error");
         }, 500);
       } else {
         // Outro tipo de erro (rede, servidor, etc)
+        triggerErrorTransition();
         showToast("❌ Erro ao fazer login. Tente novamente.", "error");
       }
     }
+  }
+
+  function triggerErrorTransition() {
+    if (errorTransitionTimerRef.current) {
+      clearTimeout(errorTransitionTimerRef.current);
+    }
+    setIsErrorTransitioning(true);
+    errorTransitionTimerRef.current = setTimeout(() => {
+      setIsErrorTransitioning(false);
+    }, 900);
   }
 
   return (
@@ -185,6 +203,15 @@ export default function Login() {
         />
         <div
           className={`login-transition-grain ${isTransitioning ? "is-active" : ""}`}
+        />
+        <div
+          className={`login-error-transition ${isErrorTransitioning ? "is-active" : ""}`}
+        />
+        <div
+          className={`login-error-transition-glass ${isErrorTransitioning ? "is-active" : ""}`}
+        />
+        <div
+          className={`login-error-transition-grain ${isErrorTransitioning ? "is-active" : ""}`}
         />
         <div className="absolute inset-0 login-page-bg" />
 
@@ -210,9 +237,9 @@ export default function Login() {
                   </h1>
                 </div>
 
-                <div className="mt-12 pt-6 border-t border-white/25">
+                <div className="mt-12 pt-6 border-t border-white/25 text-center">
                   <p className="text-sm text-white/85 font-medium">
-                    🔒 Acesso seguro e confiável
+                    © 2026 TegraPharma. Todos os direitos reservados.
                   </p>
                 </div>
               </div>
@@ -300,10 +327,6 @@ export default function Login() {
               </p>
             </div>
           </div>
-
-          <p className="mt-6 text-center text-sm text-white/80 font-medium">
-            © 2026 TegraPharma. Todos os direitos reservados.
-          </p>
         </div>
       </div>
     </>

@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { authService } from "../../services/auth";
 import { useLoading } from "../../contexts/LoadingContext";
-import { useToast } from "../../components/feedback/auth/ToastContainer";
+import { WelcomePopup } from "../../components/feedback/auth";
 import MainLayout from "../../components/layout/MainLayout";
 import { ROUTES, STORAGE_KEYS } from "../../utils/constants";
 import { MdShoppingCart, MdRefresh, MdReport } from "react-icons/md";
@@ -11,8 +11,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const user = authService.getUser();
   const { setLoading } = useLoading();
-  const { showToast } = useToast();
-  const loginToastShownRef = useRef(false);
+  const [showWelcome, setShowWelcome] = useState(false);
 
   useEffect(() => {
     if (!authService.isAuthenticated()) {
@@ -26,25 +25,15 @@ export default function Dashboard() {
 
   useEffect(() => {
     const loginSuccess = sessionStorage.getItem(STORAGE_KEYS.LOGIN_SUCCESS);
-    if (loginSuccess === "true" && !loginToastShownRef.current) {
-      sessionStorage.removeItem(STORAGE_KEYS.LOGIN_SUCCESS);
-      loginToastShownRef.current = true;
-      
-      // O blur azul do login acontece na página de Login:
-      // - Aguarda 300ms antes de iniciar o blur
-      // - Inicia o blur (setIsTransitioning) - animação dura 2000ms
-      // - Aguarda 2000ms (duração da animação do blur)
-      // - Navega para o Dashboard
-      // Quando chegamos aqui, o blur azul já terminou completamente
-      // Mostramos o toast logo após o Dashboard carregar
-      // Usamos um delay para garantir que a página está totalmente renderizada
+    if (loginSuccess === "true") {
+      // Aguarda a página carregar e mostra o popup de boas-vindas
       const timer = setTimeout(() => {
-        showToast("Login concluído|Seja bem-vindo de volta!", "success", 4000);
-      }, 500);
-      
+        setShowWelcome(true);
+      }, 300);
+
       return () => clearTimeout(timer);
     }
-  }, [showToast]);
+  }, []);
 
   // Dados mocados para o mês atual
   const dashboardData = useMemo(() => {
@@ -148,6 +137,17 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Popup de boas-vindas */}
+      {showWelcome && (
+        <WelcomePopup
+          userName={nomeUsuario}
+          onClose={() => {
+            sessionStorage.removeItem(STORAGE_KEYS.LOGIN_SUCCESS);
+            setShowWelcome(false);
+          }}
+        />
+      )}
     </MainLayout>
   );
 }

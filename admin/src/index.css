@@ -331,6 +331,125 @@
   opacity: 0.4;
 }
 
+/* Transição de erro no login (credenciais inválidas) */
+.login-error-transition {
+  position: fixed;
+  inset: 0;
+  z-index: 63;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(
+    135deg,
+    rgba(244, 67, 54, 0.85),
+    rgba(183, 28, 28, 0.85)
+  );
+}
+
+.login-error-transition::before {
+  content: "";
+  position: absolute;
+  inset: -40% -20%;
+  background: linear-gradient(
+    120deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.2) 35%,
+    rgba(255, 255, 255, 0.45) 50%,
+    rgba(255, 255, 255, 0.2) 65%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  transform: translateX(-60%) skewX(-12deg);
+  mix-blend-mode: screen;
+}
+
+.login-error-transition.is-active {
+  animation: login-error-fade 900ms ease forwards;
+}
+
+.login-error-transition.is-active::before {
+  animation: login-error-sweep 900ms cubic-bezier(0.2, 0.9, 0.2, 1) forwards;
+}
+
+@keyframes login-error-fade {
+  0% {
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.55;
+  }
+  100% {
+    opacity: 0.9;
+  }
+}
+
+@keyframes login-error-sweep {
+  0% {
+    transform: translateX(-80%) skewX(-12deg);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(80%) skewX(-12deg);
+    opacity: 0;
+  }
+}
+
+.login-error-transition-glass {
+  position: fixed;
+  inset: 0;
+  z-index: 64;
+  pointer-events: none;
+  opacity: 0;
+  background: rgba(244, 67, 54, 0.12);
+  backdrop-filter: blur(0px) saturate(1.05);
+  -webkit-backdrop-filter: blur(0px) saturate(1.05);
+}
+
+.login-error-transition-glass.is-active {
+  animation: login-error-glass 900ms ease forwards;
+}
+
+@keyframes login-error-glass {
+  0% {
+    opacity: 0;
+    background: rgba(244, 67, 54, 0);
+    backdrop-filter: blur(0px) saturate(1.05);
+    -webkit-backdrop-filter: blur(0px) saturate(1.05);
+  }
+  40% {
+    opacity: 1;
+    background: rgba(244, 67, 54, 0.2);
+    backdrop-filter: blur(18px) saturate(1.15);
+    -webkit-backdrop-filter: blur(18px) saturate(1.15);
+  }
+  100% {
+    opacity: 0.9;
+    background: rgba(244, 67, 54, 0.12);
+    backdrop-filter: blur(8px) saturate(1.08);
+    -webkit-backdrop-filter: blur(8px) saturate(1.08);
+  }
+}
+
+.login-error-transition-grain {
+  position: fixed;
+  inset: 0;
+  z-index: 65;
+  pointer-events: none;
+  opacity: 0;
+  background-image: radial-gradient(
+    rgba(255, 255, 255, 0.1) 1px,
+    transparent 1px
+  );
+  background-size: 3px 3px;
+  mix-blend-mode: soft-light;
+  transition: opacity 260ms ease 260ms;
+}
+
+.login-error-transition-grain.is-active {
+  opacity: 0.45;
+}
+
 /* Toast de login concluído (estilo glass) */
 .login-success-toast {
   position: fixed;
