@@ -7,7 +7,6 @@ import Checkbox from "../../components/ui/Checkbox";
 import { ROUTES, STORAGE_KEYS } from "../../utils/constants";
 import { MdEmail, MdLock, MdVisibility, MdVisibilityOff } from "react-icons/md";
 import { useToast } from "../../components/feedback/auth/ToastContainer";
-import logoTegra from "../../assets/LogoTegra.png";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -228,8 +227,8 @@ export default function Login() {
               <div className="login-media-content p-8 sm:p-10 md:p-12 text-white">
                 <div>
                   <img
-                    src="/LogoTegra.png"
-                    alt="Logo TegraPharma"
+                    src="/logoCorp.png"
+                    alt="Logo corporativo"
                     className="h-[130px] w-auto object-contain drop-shadow-lg"
                   />
                   <h1 className="mt-8 text-3xl sm:text-4xl font-bold leading-tight">
@@ -239,7 +238,7 @@ export default function Login() {
 
                 <div className="mt-12 pt-6 border-t border-white/25 text-center">
                   <p className="text-sm text-white/85 font-medium">
-                    © 2026 TegraPharma. Todos os direitos reservados.
+                    © 2026 TegraCorp. Todos os direitos reservados.
                   </p>
                 </div>
               </div>
@@ -248,8 +247,8 @@ export default function Login() {
             <div className="login-form-panel p-8 sm:p-10 md:p-12">
               <div className="lg:hidden flex flex-col items-center justify-center mb-8">
                 <img
-                  src={logoTegra}
-                  alt="Logo TegraPharma"
+                  src="/logoCorp.png"
+                  alt="Logo corporativo"
                   className="h-16 w-auto object-contain"
                 />
               </div>

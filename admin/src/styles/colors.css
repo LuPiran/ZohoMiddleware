@@ -6,11 +6,11 @@
 
 @theme {
   /* Cores Principais da Logo */
-  --color-tegra-blue: #2e4a86;
+  --color-tegra-blue: #8FA9C1;
   --color-tegra-blue-light: #4d6fa9;
   --color-tegra-blue-dark: #1a2f5b;
 
-  --color-tegra-teal: #21b3b3;
+  --color-tegra-teal: #E5989B;
   --color-tegra-teal-light: #4ecdc4;
   --color-tegra-teal-dark: #1a8a8a;
 
@@ -53,8 +53,8 @@
 
 /* Variáveis CSS para uso direto (compatibilidade) */
 :root {
-  --tegra-primary-blue: #2e4a86;
-  --tegra-primary-teal: #21b3b3;
+  --tegra-primary-blue: #8FA9C1;
+  --tegra-primary-teal: #E5989B;
   --tegra-secondary-blue-green: #3da2b8;
   --tegra-dark-gray: #666666;
   --tegra-light-gray: #f5f5f5;

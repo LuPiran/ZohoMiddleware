@@ -656,6 +656,36 @@ export default function Recompra() {
           response.data?.created_time ||
           new Date().toISOString();
 
+        // Calcula o total da recompra
+        const totalRecompra = produtosValidos.reduce((acc, p) => {
+          return acc + (parseFloat(p.valor) * parseInt(p.quantidade) || 0);
+        }, 0);
+
+        // Prepara os dados do comprovante
+        const dadosComprovante = {
+          tipoSolicitacao: tipoSolicitacao || "Recompra",
+          nomePaciente,
+          sobrenomePaciente,
+          cpfPaciente,
+          emailPaciente,
+          celularPaciente,
+          dataNascimento,
+          rua,
+          numero,
+          bairro,
+          cidade,
+          estado,
+          cep,
+          pais,
+          produtos: produtosValidos.map(p => ({
+            nome: p.nome,
+            quantidade: p.quantidade,
+            valor: p.valor,
+          })),
+          dataCriacao,
+          totalCompra: totalRecompra,
+        };
+
         // Oculta splash screen antes de navegar
         setShowSplash(false);
 
@@ -667,6 +697,7 @@ export default function Recompra() {
             sobrenomePaciente,
             dataCriacao,
             origem: "recompra",
+            dadosComprovante,
           },
         });
       }

@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import logo from '../../assets/LogoTegra.png';
 
 export default function RouteTransition({ children }) {
   const location = useLocation();
@@ -61,13 +60,13 @@ export default function RouteTransition({ children }) {
           <div className="route-transition-glass"></div>
           <div className="route-transition-content">
             <div className="route-loader-container">
-              <img src={logo} alt="TegraPharma" className="route-logo" />
+              <img src="/logoCorp.png" alt="Logo corporativo" className="route-logo" />
               <svg className="route-spinner" viewBox="0 0 120 120">
                 <defs>
                   <linearGradient id="spinnerGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" style={{ stopColor: '#2e4a86', stopOpacity: 1 }} />
-                    <stop offset="50%" style={{ stopColor: '#21b3b3', stopOpacity: 1 }} />
-                    <stop offset="100%" style={{ stopColor: '#2e4a86', stopOpacity: 0.3 }} />
+                    <stop offset="0%" style={{ stopColor: '#8FA9C1', stopOpacity: 1 }} />
+                    <stop offset="50%" style={{ stopColor: '#E5989B', stopOpacity: 1 }} />
+                    <stop offset="100%" style={{ stopColor: '#8FA9C1', stopOpacity: 0.3 }} />
                   </linearGradient>
                 </defs>
                 <circle

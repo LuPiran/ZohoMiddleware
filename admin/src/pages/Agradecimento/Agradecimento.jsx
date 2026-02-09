@@ -3,14 +3,15 @@ import { useEffect } from "react";
 import MainLayout from "../../components/layout/MainLayout";
 import Button from "../../components/ui/Button";
 import { ROUTES } from "../../utils/constants";
-import { MdCheck } from "react-icons/md";
+import { MdCheck, MdDownload } from "react-icons/md";
+import { gerarComprovantePDF } from "../../utils/generateComprovantePDF";
 
 export default function Agradecimento() {
   const navigate = useNavigate();
   const location = useLocation();
 
   // Obtém os dados passados via state
-  const { tipoSolicitacao, nomePaciente, sobrenomePaciente, dataCriacao, origem } =
+  const { tipoSolicitacao, nomePaciente, sobrenomePaciente, dataCriacao, origem, dadosComprovante } =
     location.state || {};
 
   // Se não houver dados, redireciona para dashboard
@@ -68,6 +69,20 @@ export default function Agradecimento() {
     }
   };
 
+  // Função para baixar o comprovante em PDF
+  const handleBaixarComprovante = () => {
+    if (!dadosComprovante) {
+      console.warn("Dados do comprovante não disponíveis");
+      return;
+    }
+
+    try {
+      gerarComprovantePDF(dadosComprovante);
+    } catch (error) {
+      console.error("Erro ao gerar comprovante:", error);
+    }
+  };
+
   if (!tipoSolicitacao || !nomePaciente || !sobrenomePaciente) {
     return null; // Retorna null enquanto redireciona
   }
@@ -99,8 +114,18 @@ export default function Agradecimento() {
             </p>
           </div>
 
-          {/* Botão Voltar */}
-          <div className="flex justify-center">
+          {/* Botões de Ação */}
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={handleBaixarComprovante}
+              disabled={!dadosComprovante}
+              className="w-full sm:w-auto min-w-[200px] flex items-center justify-center gap-2"
+            >
+              <MdDownload className="text-lg" />
+              Baixar Comprovante
+            </Button>
             <Button
               type="button"
               variant="primary"

@@ -466,6 +466,31 @@ export default function Ocorrencia() {
           response.data?.created_time ||
           new Date().toISOString();
 
+        // Prepara os dados do comprovante (Ocorrência tem estrutura diferente)
+        const dadosComprovante = {
+          tipoSolicitacao: "Ocorrência",
+          nomePaciente,
+          sobrenomePaciente,
+          cpfPaciente,
+          emailPaciente,
+          celularPaciente,
+          dataNascimento: "", // Ocorrência não tem data de nascimento
+          rua: "", // Ocorrência não tem dados de endereço detalhados
+          numero: "",
+          bairro: "",
+          cidade: "",
+          estado: "",
+          cep: "",
+          pais: "",
+          produtos: produto && produto.nome ? [{
+            nome: produto.nome,
+            quantidade: produto.quantidade || 1,
+            valor: produto.preco || 0,
+          }] : [],
+          dataCriacao,
+          totalCompra: (parseFloat(produto?.preco) * parseInt(produto?.quantidade)) || 0,
+        };
+
         // Oculta splash screen antes de navegar
         setShowSplash(false);
 
@@ -477,6 +502,7 @@ export default function Ocorrencia() {
             sobrenomePaciente,
             dataCriacao,
             origem: "ocorrencia",
+            dadosComprovante,
           },
         });
       }

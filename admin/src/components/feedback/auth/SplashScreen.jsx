@@ -1,4 +1,3 @@
-import logo from "../../../assets/LogoTegra.png";
 
 /**
  * Componente de Splash Screen
@@ -16,8 +15,8 @@ export default function SplashScreen({ message = "Carregando..." }) {
           {/* Logo no centro */}
           <div className="relative z-10">
             <img
-              src={logo}
-              alt="Logo TegraPharma"
+              src="/logoCorp.png"
+              alt="Logo corporativo"
               className="h-20 w-auto object-contain"
             />
           </div>

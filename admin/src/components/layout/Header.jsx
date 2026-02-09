@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { authService } from "../../services/auth";
 import { ROUTES, STORAGE_KEYS } from "../../utils/constants";
-import logo from "../../assets/LogoTegra.png";
 import { MdLogout, MdMenu } from "react-icons/md";
 import Avatar from "../ui/Avatar";
 import SplashScreen from "../feedback/auth/SplashScreen";
@@ -102,8 +101,8 @@ export default function Header() {
               aria-label="Ir para Dashboard"
             >
               <img
-                src={logo}
-                alt="Logo TegraPharma"
+                src="/logoCorp.png"
+                alt="Logo corporativo"
                 className="header-logo h-8 sm:h-10 w-auto object-contain"
               />
             </button>
@@ -118,8 +117,8 @@ export default function Header() {
               aria-label="Ir para Dashboard"
             >
               <img
-                src={logo}
-                alt="Logo TegraPharma"
+                src="/logoCorp.png"
+                alt="Logo corporativo"
                 className="header-logo h-10 w-auto object-contain"
               />
             </button>

@@ -85,8 +85,8 @@ export default function Select({
         borderColor: error ? "#f44336" : "#e0e0e0", // mantém a mesma cor no hover
       },
       ...(state.isFocused && {
-        borderColor: error ? "#f44336" : "#21b3b3", // tegra-teal (mesma cor de foco dos outros campos)
-        boxShadow: "0 0 0 2px rgba(33, 179, 179, 0.2)", // ring effect como nos outros campos
+        borderColor: error ? "#f44336" : "#E5989B", // tegra-teal (mesma cor de foco dos outros campos)
+        boxShadow: "0 0 0 2px rgba(229, 152, 155, 0.2)", // ring effect como nos outros campos
       }),
       ...(disabled && {
         backgroundColor: "#f5f5f5", // tegra-gray-light
@@ -183,7 +183,7 @@ export default function Select({
           border-radius: 4px;
         }
         .tegra-select__menu-list::-webkit-scrollbar-thumb:hover {
-          background: #2e4a86;
+          background: #8FA9C1;
         }
         /* Para Firefox */
         .tegra-select__menu-list {

@@ -36,7 +36,7 @@ export default function WelcomePopup({ userName, onClose, duration = 3500 }) {
           }`}
           style={{
             boxShadow:
-              "0 10px 24px rgba(46, 74, 134, 0.12), 0 4px 10px rgba(46, 74, 134, 0.08)",
+              "0 10px 24px rgba(143, 169, 193, 0.12), 0 4px 10px rgba(143, 169, 193, 0.08)",
           }}
         >
           <div className="flex items-center gap-3 px-4 py-3">

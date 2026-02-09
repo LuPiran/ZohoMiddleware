@@ -697,6 +697,36 @@ export default function Proposta() {
           response.data?.created_time ||
           new Date().toISOString();
 
+        // Calcula o total da proposta
+        const totalProposta = produtosValidos.reduce((acc, p) => {
+          return acc + (parseFloat(p.valor) * parseInt(p.quantidade) || 0);
+        }, 0);
+
+        // Prepara os dados do comprovante
+        const dadosComprovante = {
+          tipoSolicitacao: tipoSolicitacao || "1ª Compra",
+          nomePaciente,
+          sobrenomePaciente,
+          cpfPaciente,
+          emailPaciente,
+          celularPaciente,
+          dataNascimento,
+          rua,
+          numero,
+          bairro,
+          cidade,
+          estado,
+          cep,
+          pais,
+          produtos: produtosValidos.map(p => ({
+            nome: p.nome,
+            quantidade: p.quantidade,
+            valor: p.valor,
+          })),
+          dataCriacao,
+          totalCompra: totalProposta,
+        };
+
         // Oculta splash screen antes de navegar
         setShowSplash(false);
 
@@ -708,6 +738,7 @@ export default function Proposta() {
             sobrenomePaciente,
             dataCriacao,
             origem: "proposta",
+            dadosComprovante,
           },
         });
       }

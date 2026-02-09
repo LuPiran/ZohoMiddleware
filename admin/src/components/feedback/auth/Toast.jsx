@@ -93,7 +93,7 @@ export default function Toast({
       }`}
       role="alert"
       style={{
-        boxShadow: "0 10px 25px rgba(46, 74, 134, 0.15), 0 3px 10px rgba(46, 74, 134, 0.08)",
+        boxShadow: "0 10px 25px rgba(143, 169, 193, 0.15), 0 3px 10px rgba(143, 169, 193, 0.08)",
       }}
     >
       {/* Ícone circular */}
