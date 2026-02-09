@@ -70,10 +70,99 @@ app.use("/api/proposta", propostaRoutes);
 if (ENV.NODE_ENV === "production") {
   app.use(express.static(path.join(__dirname, "../admin/dist")));
 
-  app.get("/{*any}", (req, res) => {
+  // Rota catch-all corrigida para servir o frontend em produção
+  // Deve vir ANTES do tratamento de erros
+  app.get("*", (req, res, next) => {
+    // Ignora requisições para rotas da API - deixa passar para o próximo middleware
+    if (req.path.startsWith("/api")) {
+      return next();
+    }
     res.sendFile(path.join(__dirname, "../admin", "dist", "index.html"));
   });
 }
+
+// Middleware de tratamento de erros do CORS
+app.use((err, req, res, next) => {
+  if (err.message === "Não permitido pelo CORS") {
+    return res.status(403).json({
+      success: false,
+      error: "Origem não permitida pelo CORS",
+    });
+  }
+  next(err);
+});
+
+// Middleware de tratamento de erros global
+app.use((err, req, res, next) => {
+  console.error("[SERVER] Erro não tratado:", err);
+  console.error("[SERVER] Stack:", err.stack);
+
+  // Se a resposta já foi enviada, delega para o handler padrão do Express
+  if (res.headersSent) {
+    return next(err);
+  }
+
+  // Erros de timeout ou conexão
+  if (
+    err.code === "ECONNABORTED" ||
+    err.code === "ECONNRESET" ||
+    err.code === "ETIMEDOUT" ||
+    err.code === "ENOTFOUND" ||
+    err.code === "ECONNREFUSED"
+  ) {
+    return res.status(503).json({
+      success: false,
+      error: "Serviço temporariamente indisponível. Tente novamente em alguns instantes.",
+    });
+  }
+
+  // Erros de validação
+  if (err.status === 400 || err.name === "ValidationError") {
+    return res.status(400).json({
+      success: false,
+      error: err.message || "Dados inválidos",
+    });
+  }
+
+  // Erros não autorizados
+  if (err.status === 401 || err.name === "UnauthorizedError") {
+    return res.status(401).json({
+      success: false,
+      error: "Não autorizado",
+    });
+  }
+
+  // Erro genérico do servidor
+  res.status(err.status || 500).json({
+    success: false,
+    error: err.message || "Erro interno do servidor",
+    ...(ENV.NODE_ENV === "development" && { stack: err.stack }),
+  });
+});
+
+// Rota 404 para rotas não encontradas (apenas para rotas da API)
+app.use((req, res) => {
+  if (req.path.startsWith("/api")) {
+    return res.status(404).json({
+      success: false,
+      error: "Rota não encontrada",
+      path: req.path,
+    });
+  }
+  // Se não for rota da API e não estiver em produção, retorna 404
+  if (ENV.NODE_ENV !== "production") {
+    return res.status(404).json({
+      success: false,
+      error: "Rota não encontrada",
+      path: req.path,
+    });
+  }
+  // Em produção, se chegou aqui e não é API, já foi tratado pelo catch-all acima
+  res.status(404).json({
+    success: false,
+    error: "Rota não encontrada",
+  });
+});
 
 app.listen(ENV.PORT, () => {
   console.log("========================================");

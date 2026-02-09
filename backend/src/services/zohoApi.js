@@ -35,6 +35,7 @@ export async function chamarZohoApi(method, endpoint, data = null) {
         Authorization: `Zoho-oauthtoken ${token}`,
       },
       data,
+      timeout: 60000, // 60 segundos de timeout
     });
 
     console.log(
@@ -59,6 +60,12 @@ export async function chamarZohoApi(method, endpoint, data = null) {
       "[ZOHO API] Error completo:",
       JSON.stringify(error.response?.data || error.message),
     );
+
+    // Adiciona código de erro para timeout
+    if (error.code === "ECONNABORTED" || error.message?.includes("timeout")) {
+      error.code = "ETIMEDOUT";
+    }
+
     throw error;
   }
 }

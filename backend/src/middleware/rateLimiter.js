@@ -29,18 +29,23 @@ export const loginRateLimiter = rateLimit({
 
 /**
  * Rate Limiter geral para todas as rotas da API
- * - Máximo de 100 requisições por IP a cada 15 minutos
+ * - Máximo de 200 requisições por IP a cada 15 minutos (aumentado para produção)
  * - Protege contra abuso geral da API
  */
 export const apiRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 100, // Máximo de 100 requisições
+  max: 200, // Máximo de 200 requisições (aumentado para suportar mais carga)
   message: {
     error: "Muitas requisições. Aguarde um momento antes de tentar novamente.",
     retryAfter: "15 minutos",
   },
   standardHeaders: true, // Retorna informações de rate limit nos headers `RateLimit-*`
   legacyHeaders: false, // Não usa headers `X-RateLimit-*`
+  // Permite skip para rotas específicas se necessário
+  skip: (req) => {
+    // Pula rate limiting para health checks ou rotas específicas se necessário
+    return false;
+  },
   handler: (req, res) => {
     res.status(429).json({
       success: false,
@@ -48,5 +53,9 @@ export const apiRateLimiter = rateLimit({
         "Muitas requisições. Aguarde um momento antes de tentar novamente.",
       retryAfter: "15 minutos",
     });
+  },
+  // Adiciona tratamento de erro para evitar que o rate limiter cause 503
+  onLimitReached: (req, res, options) => {
+    console.warn(`[RATE LIMITER] Limite atingido para IP: ${req.ip}`);
   },
 });
