@@ -9,6 +9,7 @@ import cepRoutes from "./routes/cep.route.js";
 import compraRoutes from "./routes/compra.route.js";
 import productsRoutes from "./routes/products.route.js";
 import ocorrenciaRoutes from "./routes/ocorrencia.route.js";
+import propostaRoutes from "./routes/proposta.route.js";
 import { apiRateLimiter } from "./middleware/rateLimiter.js";
 
 const app = express();
@@ -63,6 +64,7 @@ app.use("/api/cep", cepRoutes);
 app.use("/api/compra", compraRoutes);
 app.use("/api/products", productsRoutes);
 app.use("/api/ocorrencia", ocorrenciaRoutes);
+app.use("/api/proposta", propostaRoutes);
 
 //??Prepare a nossa aplicação para implementação
 if (ENV.NODE_ENV === "production") {

@@ -5,6 +5,7 @@ import Users from "../pages/Users/Users";
 import Recompra from "../pages/Recompra/Recompra";
 import Compra from "../pages/Compra/Compra";
 import Ocorrencia from "../pages/Ocorrencia/Ocorrencia";
+import Proposta from "../pages/Proposta/Proposta";
 import Agradecimento from "../pages/Agradecimento/Agradecimento";
 import ProtectedRoute from "../components/auth/ProtectedRoute";
 import AdminRoute from "../components/auth/AdminRoute";
@@ -69,6 +70,14 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute>
             <Ocorrencia />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path={ROUTES.PROPOSTA}
+        element={
+          <ProtectedRoute>
+            <Proposta />
           </ProtectedRoute>
         }
       />

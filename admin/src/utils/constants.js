@@ -9,6 +9,7 @@ export const ROUTES = {
   RECOMPRA: "/recompra",
   COMPRA: "/compra",
   OCORRENCIA: "/ocorrencia",
+  PROPOSTA: "/proposta",
   AGRADECIMENTO: "/agradecimento",
 };
 
@@ -29,6 +30,9 @@ export const API_ENDPOINTS = {
   },
   OCORRENCIA: {
     CRIAR: "/api/ocorrencia",
+  },
+  PROPOSTA: {
+    CRIAR: "/api/proposta",
   },
   PRODUCTS: {
     LIST: "/api/products",

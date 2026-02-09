@@ -61,6 +61,8 @@ export default function Agradecimento() {
       navigate(ROUTES.RECOMPRA);
     } else if (origem === "ocorrencia") {
       navigate(ROUTES.OCORRENCIA);
+    } else if (origem === "proposta") {
+      navigate(ROUTES.PROPOSTA);
     } else {
       navigate(ROUTES.DASHBOARD);
     }

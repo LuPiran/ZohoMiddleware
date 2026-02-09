@@ -12,7 +12,7 @@ import Checkbox from "../../components/ui/Checkbox";
 import Textarea from "../../components/ui/Textarea";
 import { ROUTES } from "../../utils/constants";
 import api from "../../services/api";
-import { compraService } from "../../services/compra";
+import { propostaService } from "../../services/proposta";
 import { productsService } from "../../services/products";
 import { isAdminPortal, hasAdminPanelPermission } from "../../utils/permissions";
 import {
@@ -28,11 +28,26 @@ import {
   MdCloudUpload,
 } from "react-icons/md";
 
-export default function Compra() {
+export default function Proposta() {
   const navigate = useNavigate();
   const { setLoading, isLoading } = useLoading();
   const { showToast } = useToast();
   const [showSplash, setShowSplash] = useState(false);
+
+  // Estado para tipo de cliente
+  const [tipoCliente, setTipoCliente] = useState("Pessoa Fisica");
+
+  // Estados do formulário da empresa
+  const [nomeEmpresa, setNomeEmpresa] = useState("");
+  const [cnpjEmpresa, setCnpjEmpresa] = useState("");
+  const [emailEmpresa, setEmailEmpresa] = useState("");
+  const [telefoneEmpresa, setTelefoneEmpresa] = useState("");
+
+  // Estados do representante da empresa
+  const [temRepresentanteEmpresa, setTemRepresentanteEmpresa] = useState(false);
+  const [nomeRepresentanteEmpresa, setNomeRepresentanteEmpresa] = useState("");
+  const [emailRepresentanteEmpresa, setEmailRepresentanteEmpresa] = useState("");
+  const [celularRepresentanteEmpresa, setCelularRepresentanteEmpresa] = useState("");
 
   // Estados do formulário do paciente
   const [nomePaciente, setNomePaciente] = useState("");
@@ -123,8 +138,8 @@ export default function Compra() {
   const [produtosZoho, setProdutosZoho] = useState([]);
   const [carregandoProdutos, setCarregandoProdutos] = useState(false);
 
-  // Estado para tipo de solicitação (fixo como "1ª Compra" nesta página)
-  const [tipoSolicitacao, setTipoSolicitacao] = useState("1ª Compra");
+  // Estado para tipo de solicitação (fixo como "Proposta" nesta página)
+  const [tipoSolicitacao, setTipoSolicitacao] = useState("Proposta");
 
   // Estados para forma de pagamento
   const [formaPagamento, setFormaPagamento] = useState("");
@@ -164,6 +179,75 @@ export default function Compra() {
 
     carregarProdutos();
   }, [navigate, setLoading, showToast]);
+
+  // Limpa todos os campos quando o tipo de cliente muda
+  useEffect(() => {
+    // Limpa campos da empresa
+    setNomeEmpresa("");
+    setCnpjEmpresa("");
+    setEmailEmpresa("");
+    setTelefoneEmpresa("");
+    setTemRepresentanteEmpresa(false);
+    setNomeRepresentanteEmpresa("");
+    setEmailRepresentanteEmpresa("");
+    setCelularRepresentanteEmpresa("");
+
+    // Limpa campos do paciente
+    setNomePaciente("");
+    setSobrenomePaciente("");
+    setCpfPaciente("");
+    setRgPaciente("");
+    setCelularPaciente("");
+    setEmailPaciente("");
+    setDataNascimento("");
+    setTelefonePaciente("");
+    setTemRepresentanteLegal(false);
+    setNomeRepresentante("");
+    setRgRepresentante("");
+    setCpfRepresentante("");
+    setEmailRepresentante("");
+    setCelularRepresentante("");
+    setDataNascimentoRepresentante("");
+
+    // Limpa campos do médico prescritor
+    setTemNovoMedicoPrescritor(false);
+    setNomeMedico("");
+    setCrmMedico("");
+    setUfCrm("");
+    setCelularMedico("");
+    setEmailMedico("");
+    setEspecialidadeMedico("");
+
+    // Limpa campos de endereço
+    setRua("");
+    setBairro("");
+    setCidade("");
+    setEstado("");
+    setPais("Brasil");
+    setNumero("");
+    setComplemento("");
+    setCep("");
+    setBuscarCep("");
+
+    // Limpa campos de negociação
+    setNegociacaoFeitaPeloConsultor(false);
+    setSolicitarLinkPagamento("");
+    setTipoLink("");
+
+    // Limpa campos de pagamento
+    setFormaPagamento("");
+    setTermosCondicoesPagamento("");
+
+    // Limpa observação
+    setObservacao("");
+
+    // Limpa arquivos
+    setArquivos([]);
+    setDocumentosCompletos(false);
+
+    // Reseta produtos
+    setProdutos([{ id: 1, nome: "", produtoId: "", quantidade: "1" }]);
+  }, [tipoCliente]);
 
   // Função para adicionar novo produto
   const adicionarProduto = () => {
@@ -290,6 +374,20 @@ export default function Compra() {
     return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
   };
 
+  // Função para formatar CNPJ
+  const formatarCnpj = (valor) => {
+    const cnpj = valor.replace(/\D/g, "");
+    return cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
+  };
+
+  // Handler para CNPJ com formatação
+  const handleCnpjChange = (e) => {
+    const valor = e.target.value.replace(/\D/g, "");
+    if (valor.length <= 14) {
+      setCnpjEmpresa(formatarCnpj(valor));
+    }
+  };
+
   // Função para formatar telefone/celular
   const formatarTelefone = (valor) => {
     const telefone = valor.replace(/\D/g, "");
@@ -371,18 +469,44 @@ export default function Compra() {
     setObservacao("");
     setArquivos([]);
     setDocumentosCompletos(false);
-          setProdutos([{ id: 1, nome: "", produtoId: "", quantidade: "1" }]);
-          setTipoSolicitacao("1ª Compra"); // Reseta para o valor padrão
+    setTipoCliente("Pessoa Fisica"); // Reseta para o valor padrão
+    // Limpa campos da empresa
+    setNomeEmpresa("");
+    setCnpjEmpresa("");
+    setEmailEmpresa("");
+    setTelefoneEmpresa("");
+    setTemRepresentanteEmpresa(false);
+    setNomeRepresentanteEmpresa("");
+    setEmailRepresentanteEmpresa("");
+    setCelularRepresentanteEmpresa("");
+    setProdutos([{ id: 1, nome: "", produtoId: "", quantidade: "1" }]);
+    setTipoSolicitacao("Proposta"); // Reseta para o valor padrão (fixo)
   };
 
   // Função para validar campos obrigatórios
   const validarCamposObrigatorios = () => {
     const camposVazios = [];
 
-    // Valida campos do paciente
-    if (!nomePaciente.trim()) camposVazios.push("Nome");
-    if (!sobrenomePaciente.trim()) camposVazios.push("Sobrenome");
-    if (!cpfPaciente.trim()) camposVazios.push("CPF");
+    // Valida campos baseado no tipo de cliente
+    if (tipoCliente === "Pessoa Juridica") {
+      // Valida campos da empresa
+      if (!nomeEmpresa.trim()) camposVazios.push("Nome da Empresa");
+      if (!cnpjEmpresa.trim()) camposVazios.push("CNPJ");
+      if (!emailEmpresa.trim()) camposVazios.push("E-mail da Empresa");
+      if (!telefoneEmpresa.trim()) camposVazios.push("Telefone da Empresa");
+
+      // Valida campos do representante da empresa (obrigatórios quando checkbox está marcado)
+      if (temRepresentanteEmpresa) {
+        if (!nomeRepresentanteEmpresa.trim()) camposVazios.push("Nome do Representante da Empresa");
+        if (!emailRepresentanteEmpresa.trim()) camposVazios.push("E-mail do Representante da Empresa");
+        if (!celularRepresentanteEmpresa.trim()) camposVazios.push("Celular do Representante da Empresa");
+      }
+    } else {
+      // Valida campos do paciente
+      if (!nomePaciente.trim()) camposVazios.push("Nome");
+      if (!sobrenomePaciente.trim()) camposVazios.push("Sobrenome");
+      if (!cpfPaciente.trim()) camposVazios.push("CPF");
+    }
 
     // Valida campos do endereço (exceto complemento)
     if (!rua.trim()) camposVazios.push("Rua");
@@ -500,8 +624,19 @@ export default function Compra() {
             )
           : [];
 
-      // Prepara os dados da compra
-      const dadosCompra = {
+      // Prepara os dados da proposta
+      const dadosProposta = {
+        tipoCliente: tipoCliente || "Pessoa Fisica",
+        // Campos da empresa (quando tipoCliente === "Pessoa Juridica")
+        nomeEmpresa,
+        cnpjEmpresa,
+        emailEmpresa,
+        telefoneEmpresa,
+        temRepresentanteEmpresa,
+        nomeRepresentanteEmpresa,
+        emailRepresentanteEmpresa,
+        celularRepresentanteEmpresa,
+        // Campos do paciente (quando tipoCliente === "Pessoa Fisica")
         nomePaciente,
         sobrenomePaciente,
         cpfPaciente,
@@ -553,7 +688,7 @@ export default function Compra() {
       };
 
       // Envia para o backend
-      const response = await compraService.criarCompra(dadosCompra);
+      const response = await propostaService.criarProposta(dadosProposta);
 
       if (response.success) {
         // Obtém a data de criação do registro (do Zoho ou usa data atual)
@@ -572,16 +707,16 @@ export default function Compra() {
             nomePaciente,
             sobrenomePaciente,
             dataCriacao,
-            origem: "compra",
+            origem: "proposta",
           },
         });
       }
     } catch (error) {
-      console.error("Erro ao criar compra:", error);
+      console.error("Erro ao criar proposta:", error);
       const errorMessage =
         error.error ||
         error.message ||
-        "Erro ao cadastrar compra. Tente novamente.";
+        "Erro ao cadastrar proposta. Tente novamente.";
       showToast(`❌ ${errorMessage}`, "error");
       setShowSplash(false);
     } finally {
@@ -591,7 +726,7 @@ export default function Compra() {
 
   return (
     <>
-      {showSplash && <SplashScreen message="Criando compra..." />}
+      {showSplash && <SplashScreen message="Criando proposta..." />}
       <MainLayout>
         <div 
           className="fixed inset-0 z-0"
@@ -611,14 +746,123 @@ export default function Compra() {
         />
         <div className="relative z-10 max-w-5xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
           <h1 className="text-xl sm:text-2xl font-bold text-tegra-text-primary mb-4 sm:mb-6">
-            Nova Compra
+            Nova Proposta
           </h1>
 
           <form
             className="space-y-4 sm:space-y-6 md:space-y-8"
             onSubmit={handleSubmit}
           >
+            {/* Campo: Tipo de Cliente */}
+            <div className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6">
+              <Select
+                label="Tipo de Cliente"
+                value={tipoCliente}
+                onChange={(e) => setTipoCliente(e.target.value)}
+                options={[
+                  { value: "Pessoa Fisica", label: "Pessoa Física" },
+                  { value: "Pessoa Juridica", label: "Pessoa Jurídica" },
+                ]}
+                placeholder="Selecione o tipo de cliente"
+              />
+            </div>
+
+            {/* Seção: Dados da Empresa */}
+            {tipoCliente === "Pessoa Juridica" && (
+              <>
+                <div className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6">
+                  <h2 className="text-base sm:text-lg font-semibold text-tegra-text-primary mb-3 sm:mb-4">
+                    Dados da Empresa
+                  </h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                    <Input
+                      label="Nome"
+                      type="text"
+                      value={nomeEmpresa}
+                      onChange={(e) => setNomeEmpresa(e.target.value)}
+                      placeholder="Nome da empresa"
+                      icon={<MdPerson className="text-xl" />}
+                    />
+                    <Input
+                      label="CNPJ"
+                      type="text"
+                      value={cnpjEmpresa}
+                      onChange={handleCnpjChange}
+                      placeholder="00.000.000/0000-00"
+                      maxLength={18}
+                    />
+                    <Input
+                      label="E-mail"
+                      type="email"
+                      value={emailEmpresa}
+                      onChange={(e) => setEmailEmpresa(e.target.value)}
+                      placeholder="email@exemplo.com"
+                      icon={<MdEmail className="text-xl" />}
+                    />
+                    <Input
+                      label="Telefone"
+                      type="text"
+                      value={telefoneEmpresa}
+                      onChange={(e) => handleTelefoneChange(e, setTelefoneEmpresa)}
+                      placeholder="(00) 0000-0000"
+                      icon={<MdPhone className="text-xl" />}
+                      maxLength={14}
+                    />
+                  </div>
+
+                  {/* Checkbox Representante */}
+                  <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-tegra-gray-medium">
+                    <Checkbox
+                      id="representante-empresa"
+                      label="Representante"
+                      checked={temRepresentanteEmpresa}
+                      onChange={(e) => setTemRepresentanteEmpresa(e.target.checked)}
+                    />
+                  </div>
+                </div>
+
+                {/* Seção: Dados do Representante da Empresa */}
+                {temRepresentanteEmpresa && (
+                  <div className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6">
+                    <h2 className="text-base sm:text-lg font-semibold text-tegra-text-primary mb-3 sm:mb-4">
+                      Dados do Representante
+                    </h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                      <Input
+                        label="Nome do Responsável"
+                        type="text"
+                        value={nomeRepresentanteEmpresa}
+                        onChange={(e) => setNomeRepresentanteEmpresa(e.target.value)}
+                        placeholder="Nome do responsável"
+                        icon={<MdPerson className="text-xl" />}
+                      />
+                      <Input
+                        label="E-mail do Responsável"
+                        type="email"
+                        value={emailRepresentanteEmpresa}
+                        onChange={(e) => setEmailRepresentanteEmpresa(e.target.value)}
+                        placeholder="email@exemplo.com"
+                        icon={<MdEmail className="text-xl" />}
+                      />
+                      <Input
+                        label="Celular do Responsável"
+                        type="text"
+                        value={celularRepresentanteEmpresa}
+                        onChange={(e) =>
+                          handleTelefoneChange(e, setCelularRepresentanteEmpresa)
+                        }
+                        placeholder="(00) 00000-0000"
+                        icon={<MdPhone className="text-xl" />}
+                        maxLength={15}
+                      />
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
             {/* Seção: Dados do Paciente */}
+            {tipoCliente === "Pessoa Fisica" && (
             <div className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6">
               <h2 className="text-base sm:text-lg font-semibold text-tegra-text-primary mb-3 sm:mb-4">
                 Dados do Paciente
@@ -706,6 +950,7 @@ export default function Compra() {
                 />
               </div>
             </div>
+            )}
 
             {/* Seção: Dados do Representante Legal */}
             {temRepresentanteLegal && (
@@ -780,8 +1025,9 @@ export default function Compra() {
               </div>
             )}
 
-            {/* Seção: Dados do Novo Médico Prescritor */}
-            <div className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6">
+            {/* Seção: Dados do Novo Médico Prescritor (apenas para Pessoa Física) */}
+            {tipoCliente === "Pessoa Fisica" && (
+              <div className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6">
               <div className="mb-4">
                 <Checkbox
                   id="novo-medico-prescritor"
@@ -851,7 +1097,8 @@ export default function Compra() {
                   </div>
                 </div>
               )}
-            </div>
+              </div>
+            )}
 
             {/* Seção: Busca CEP */}
             <div className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6">
@@ -1024,14 +1271,14 @@ export default function Compra() {
               )}
             </div>
 
-            {/* Campo: Tipo de Solicitação (fixo como "1ª Compra") */}
+            {/* Campo: Tipo de Solicitação (fixo como "Proposta") */}
             <div className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6">
               <Select
                 label="Tipo de Solicitação"
                 value={tipoSolicitacao}
                 onChange={(e) => setTipoSolicitacao(e.target.value)}
                 options={[
-                  { value: "1ª Compra", label: "1ª Compra" },
+                  { value: "Proposta", label: "Proposta" },
                 ]}
                 placeholder="Selecione o tipo de solicitação"
                 disabled={true}
@@ -1330,7 +1577,7 @@ export default function Compra() {
                 loading={false}
                 className="w-full sm:w-auto"
               >
-                Salvar Compra
+                Salvar Proposta
               </Button>
             </div>
           </form>

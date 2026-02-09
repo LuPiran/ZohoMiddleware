@@ -6,6 +6,7 @@ import {
   MdShoppingCart,
   MdAssignment,
   MdReport,
+  MdDescription,
   MdClose,
 } from "react-icons/md";
 import { ROUTES } from "../../utils/constants";
@@ -73,6 +74,12 @@ export default function Navbar() {
       path: ROUTES.OCORRENCIA,
       label: "Ocorrência",
       icon: <MdReport className="text-xl" />,
+      show: true, // Sempre visível
+    },
+    {
+      path: ROUTES.PROPOSTA,
+      label: "Proposta",
+      icon: <MdDescription className="text-xl" />,
       show: true, // Sempre visível
     },
   ].filter((item) => item.show); // Filtra apenas itens visíveis

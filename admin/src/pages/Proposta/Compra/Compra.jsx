@@ -123,7 +123,7 @@ export default function Compra() {
   const [produtosZoho, setProdutosZoho] = useState([]);
   const [carregandoProdutos, setCarregandoProdutos] = useState(false);
 
-  // Estado para tipo de solicitação (fixo como "1ª Compra" nesta página)
+  // Estado para tipo de solicitação (apenas para Admin Painel)
   const [tipoSolicitacao, setTipoSolicitacao] = useState("1ª Compra");
 
   // Estados para forma de pagamento
@@ -1024,19 +1024,21 @@ export default function Compra() {
               )}
             </div>
 
-            {/* Campo: Tipo de Solicitação (fixo como "1ª Compra") */}
-            <div className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6">
-              <Select
-                label="Tipo de Solicitação"
-                value={tipoSolicitacao}
-                onChange={(e) => setTipoSolicitacao(e.target.value)}
-                options={[
-                  { value: "1ª Compra", label: "1ª Compra" },
-                ]}
-                placeholder="Selecione o tipo de solicitação"
-                disabled={true}
-              />
-            </div>
+            {/* Campo: Tipo de Solicitação (apenas para Admin Painel) */}
+            {hasAdminPanelPermission() && (
+              <div className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6">
+                <Select
+                  label="Tipo de Solicitação"
+                  value={tipoSolicitacao}
+                  onChange={(e) => setTipoSolicitacao(e.target.value)}
+                  options={[
+                    { value: "1ª Compra", label: "1ª Compra" },
+                    { value: "Recompra", label: "Recompra" },
+                  ]}
+                  placeholder="Selecione o tipo de solicitação"
+                />
+              </div>
+            )}
 
             {/* Seção: Produtos */}
             <div className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6">
