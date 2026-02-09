@@ -102,17 +102,19 @@ app.use((err, req, res, next) => {
     return next(err);
   }
 
-  // Erros de timeout ou conexão
+  // Erros de timeout ou conexão OU erros com status 503
   if (
+    err.status === 503 ||
     err.code === "ECONNABORTED" ||
     err.code === "ECONNRESET" ||
     err.code === "ETIMEDOUT" ||
     err.code === "ENOTFOUND" ||
-    err.code === "ECONNREFUSED"
+    err.code === "ECONNREFUSED" ||
+    err.message?.includes("timeout")
   ) {
     return res.status(503).json({
       success: false,
-      error: "Serviço temporariamente indisponível. Tente novamente em alguns instantes.",
+      error: err.message || "Serviço temporariamente indisponível. Tente novamente em alguns instantes.",
     });
   }
 
