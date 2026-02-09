@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { MdCheck, MdClose, MdWarning } from "react-icons/md";
+import { MdCheck, MdClose, MdWarning, MdError } from "react-icons/md";
 
 /**
  * Componente de Toast individual
@@ -56,31 +56,31 @@ export default function Toast({
   const styles = {
     success: {
       iconBg: "bg-tegra-success",
-      icon: <MdCheck className="text-white text-lg font-bold" />,
+      icon: <MdCheck className="text-white text-xl font-bold" />,
       titleColor: "text-tegra-text-primary",
       subtitleColor: "text-tegra-text-secondary",
-      borderColor: "border-tegra-success/20",
+      borderColor: "border-l-4 border-tegra-success",
     },
     error: {
       iconBg: "bg-tegra-error",
-      icon: <MdClose className="text-white text-lg font-bold" />,
-      titleColor: "text-tegra-text-primary",
+      icon: <MdError className="text-white text-xl font-bold" />,
+      titleColor: "text-tegra-error",
       subtitleColor: "text-tegra-text-secondary",
-      borderColor: "border-tegra-error/20",
+      borderColor: "border-l-4 border-tegra-error",
     },
     warning: {
       iconBg: "bg-tegra-warning",
-      icon: <MdWarning className="text-white text-lg font-bold" />,
+      icon: <MdWarning className="text-white text-xl font-bold" />,
       titleColor: "text-tegra-text-primary",
       subtitleColor: "text-tegra-text-secondary",
-      borderColor: "border-tegra-warning/20",
+      borderColor: "border-l-4 border-tegra-warning",
     },
     info: {
       iconBg: "bg-tegra-blue",
-      icon: <MdCheck className="text-white text-lg font-bold" />,
+      icon: <MdCheck className="text-white text-xl font-bold" />,
       titleColor: "text-tegra-text-primary",
       subtitleColor: "text-tegra-text-secondary",
-      borderColor: "border-tegra-blue/20",
+      borderColor: "border-l-4 border-tegra-blue",
     },
   };
 
@@ -88,37 +88,52 @@ export default function Toast({
 
   return (
     <div
-      className={`flex items-center gap-3 px-4 py-3.5 rounded-lg border-l-4 ${currentStyle.borderColor} bg-white shadow-lg min-w-[300px] max-w-md ${
+      className={`flex items-start gap-4 px-5 py-4 rounded-lg ${currentStyle.borderColor} bg-white shadow-xl min-w-[350px] max-w-md ${
         isClosing ? "animate-slide-up" : "animate-slide-down"
       }`}
       role="alert"
       style={{
-        boxShadow: "0 4px 16px rgba(46, 74, 134, 0.08), 0 2px 8px rgba(46, 74, 134, 0.04)",
+        boxShadow: "0 10px 25px rgba(46, 74, 134, 0.15), 0 3px 10px rgba(46, 74, 134, 0.08)",
       }}
     >
       {/* Ícone circular */}
       <div
-        className={`shrink-0 w-10 h-10 rounded-full ${currentStyle.iconBg} flex items-center justify-center`}
+        className={`shrink-0 w-12 h-12 rounded-full ${currentStyle.iconBg} flex items-center justify-center mt-0.5`}
         style={{
-          boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
+          boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
         }}
       >
         {currentStyle.icon}
       </div>
 
       {/* Texto */}
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 pt-0.5">
         {title && (
-          <p className={`text-sm font-semibold ${currentStyle.titleColor} leading-tight`}>
+          <p className={`text-sm font-bold ${currentStyle.titleColor} leading-tight`}>
             {title}
           </p>
         )}
         {subtitle && (
-          <p className={`text-sm font-medium ${currentStyle.subtitleColor} leading-tight ${title ? 'mt-1' : ''}`}>
+          <p className={`text-sm font-medium ${currentStyle.subtitleColor} leading-snug ${title ? 'mt-1.5' : ''}`}>
             {subtitle}
           </p>
         )}
       </div>
+
+      {/* Botão de fechar */}
+      <button
+        onClick={() => {
+          setIsClosing(true);
+          setTimeout(() => {
+            onClose();
+          }, 300);
+        }}
+        className="shrink-0 p-2 text-tegra-text-secondary hover:text-tegra-text-primary hover:bg-tegra-gray-light rounded-lg transition-colors"
+        aria-label="Fechar notificação"
+        type="button"
+      >
+        <MdClose className="text-lg" />
+      </button>
     </div>
   );
 }

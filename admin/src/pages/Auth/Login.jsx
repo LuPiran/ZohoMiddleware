@@ -321,9 +321,14 @@ export default function Login() {
                 </div>
               </form>
 
-              <p className="mt-8 text-center text-xs text-tegra-text-secondary">
-                Suporte:{" "}
-                <span className="font-semibold">suporte@tegrapharma.com</span>
+              <p className="mt-8 text-center text-sm text-tegra-text-secondary">
+                Estamos aqui para ajudar.{" "}
+                <a
+                  href="mailto:suporte.ti@tegrapharma.com?subject=Solicitação%20de%20Suporte%20-%20TegraPharma%20Portal&body=Olá,%0A%0AEstou%20com%20dúvidas%20ou%20problemas%20para%20acessar%20o%20portal%20TegraPharma.%0A%0APor%20favor,%20me%20ajudem.%0A%0AObrigado."
+                  className="font-semibold text-tegra-blue hover:text-tegra-blue-dark transition-colors"
+                >
+                  Entre em contato
+                </a>
               </p>
             </div>
           </div>

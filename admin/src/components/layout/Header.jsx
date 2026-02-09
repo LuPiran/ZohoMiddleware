@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { authService } from "../../services/auth";
 import { ROUTES, STORAGE_KEYS } from "../../utils/constants";
@@ -7,13 +7,32 @@ import { MdLogout, MdMenu } from "react-icons/md";
 import Avatar from "../ui/Avatar";
 import SplashScreen from "../feedback/auth/SplashScreen";
 import { useMenu } from "../../contexts/MenuContext";
+import { useUserDropdown } from "../../contexts/UserContext";
 
 export default function Header() {
   const navigate = useNavigate();
   const user = authService.getUser();
   const [showSplash, setShowSplash] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const { showUserDropdown, setShowUserDropdown } = useUserDropdown();
+  const userMenuRef = useRef(null);
   const { toggleMenu } = useMenu();
+
+  // Fechar dropdown ao clicar fora
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
+        setShowUserDropdown(false);
+      }
+    }
+
+    if (showUserDropdown) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => {
+        document.removeEventListener("mousedown", handleClickOutside);
+      };
+    }
+  }, [showUserDropdown]);
 
   function handleLogout() {
     // Previne múltiplos cliques e loops
@@ -76,25 +95,92 @@ export default function Header() {
             >
               <MdMenu className="text-xl sm:text-2xl" />
             </button>
-            <img
-              src={logo}
-              alt="Logo TegraPharma"
-              className="header-logo h-8 sm:h-10 w-auto object-contain"
-            />
+            <button
+              onClick={() => navigate(ROUTES.DASHBOARD)}
+              className="cursor-pointer hover:opacity-80 transition"
+              type="button"
+              aria-label="Ir para Dashboard"
+            >
+              <img
+                src={logo}
+                alt="Logo TegraPharma"
+                className="header-logo h-8 sm:h-10 w-auto object-contain"
+              />
+            </button>
           </div>
 
           {/* Desktop: Logo */}
           <div className="hidden lg:block">
-            <img
-              src={logo}
-              alt="Logo TegraPharma"
-              className="header-logo h-10 w-auto object-contain"
-            />
+            <button
+              onClick={() => navigate(ROUTES.DASHBOARD)}
+              className="cursor-pointer hover:opacity-80 transition"
+              type="button"
+              aria-label="Ir para Dashboard"
+            >
+              <img
+                src={logo}
+                alt="Logo TegraPharma"
+                className="header-logo h-10 w-auto object-contain"
+              />
+            </button>
           </div>
 
           {/* Mobile/Tablet: Avatar do usuário */}
-          <div className="flex items-center gap-2 sm:gap-4 lg:hidden">
-            {user && <Avatar user={user} size="md" />}
+          <div className="flex items-center gap-2 sm:gap-4 lg:hidden relative" ref={userMenuRef}>
+            {user && (
+              <button
+                onClick={() => setShowUserDropdown(!showUserDropdown)}
+                className="cursor-pointer hover:opacity-80 transition"
+                type="button"
+                aria-label="Menu do usuário"
+              >
+                <Avatar user={user} size="md" />
+              </button>
+            )}
+
+            {/* Dropdown Mobile */}
+            {showUserDropdown && user && (
+              <div className="absolute top-full right-0 mt-2 bg-gradient-to-br from-tegra-blue to-tegra-blue-light rounded-lg shadow-lg z-50 p-0.5">
+                <div className="bg-white rounded-lg p-4 min-w-[250px]">
+                  {/* Informações do usuário */}
+                  <div className="flex items-center gap-3 mb-4">
+                    <Avatar user={user} size="md" />
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium text-tegra-text-primary">
+                        {displayName}
+                      </span>
+                      {emailUsuario && (
+                        <span className="text-xs text-tegra-text-secondary">
+                          {emailUsuario}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Separador */}
+                  <div className="h-px bg-gray-200 mb-4" />
+
+                  {/* Status Online */}
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse"></div>
+                    <span className="text-xs font-medium text-green-500">online</span>
+                  </div>
+
+                  {/* Botão Sair */}
+                  <button
+                    onClick={() => {
+                      setShowUserDropdown(false);
+                      handleLogout();
+                    }}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 text-tegra-error hover:bg-red-50 rounded-lg transition text-sm font-medium"
+                    type="button"
+                  >
+                    <MdLogout className="text-lg" />
+                    Sair
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Desktop: Avatar + Nome + Logout */}
@@ -114,6 +200,12 @@ export default function Header() {
                       {emailUsuario}
                     </span>
                   )}
+                </div>
+
+                {/* Indicador Online */}
+                <div className="flex items-center gap-2 ml-2">
+                  <div className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse"></div>
+                  <span className="text-xs font-medium text-green-500">online</span>
                 </div>
               </div>
             )}

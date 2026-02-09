@@ -731,7 +731,7 @@ export default function Proposta() {
         <div 
           className="fixed inset-0 z-0"
           style={{
-            backgroundImage: 'url(/painel_consultor_compra.png)',
+            backgroundImage: 'url(/painel_consultor_proposta.png)',
             backgroundSize: 'cover',
             backgroundPosition: '40% center',
             backgroundRepeat: 'no-repeat',

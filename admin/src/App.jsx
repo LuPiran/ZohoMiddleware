@@ -4,6 +4,7 @@ import AppRoutes from "./routes/AppRoutes";
 import { ToastProvider } from "./components/feedback/auth/ToastContainer";
 import { LoadingProvider } from "./contexts/LoadingContext";
 import { MenuProvider } from "./contexts/MenuContext";
+import { UserProvider } from "./contexts/UserContext";
 import RouteTransition from "./components/navigation/RouteTransition";
 
 function App() {
@@ -11,16 +12,18 @@ function App() {
     <ToastProvider>
       <LoadingProvider>
         <MenuProvider>
-          <BrowserRouter
-            future={{
-              v7_relativeSplatPath: true,
-              v7_startTransition: true,
-            }}
-          >
-            <RouteTransition>
-              <AppRoutes />
-            </RouteTransition>
-          </BrowserRouter>
+          <UserProvider>
+            <BrowserRouter
+              future={{
+                v7_relativeSplatPath: true,
+                v7_startTransition: true,
+              }}
+            >
+              <RouteTransition>
+                <AppRoutes />
+              </RouteTransition>
+            </BrowserRouter>
+          </UserProvider>
         </MenuProvider>
       </LoadingProvider>
     </ToastProvider>

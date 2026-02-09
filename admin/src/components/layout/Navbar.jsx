@@ -8,16 +8,19 @@ import {
   MdReport,
   MdDescription,
   MdClose,
+  MdPerson,
 } from "react-icons/md";
 import { ROUTES } from "../../utils/constants";
 import { hasAdminPanelPermission } from "../../utils/permissions";
 import { useMenu } from "../../contexts/MenuContext";
+import { useUserDropdown } from "../../contexts/UserContext";
 
 /**
  * Componente de Navegação
  */
 export default function Navbar() {
   const { isMenuOpen, closeMenu } = useMenu();
+  const { showUserDropdown, setShowUserDropdown } = useUserDropdown();
   const location = useLocation();
   const isAdmin = hasAdminPanelPermission();
   const prevPathnameRef = useRef(location.pathname);
@@ -48,7 +51,7 @@ export default function Navbar() {
   const navItems = [
     {
       path: ROUTES.DASHBOARD,
-      label: "Dashboard",
+      label: "Home",
       icon: <MdDashboard className="text-xl" />,
       show: true, // Sempre visível
     },
@@ -59,27 +62,27 @@ export default function Navbar() {
       show: isAdmin, // Apenas para Admin Painel
     },
     {
-      path: ROUTES.RECOMPRA,
-      label: "Recompra",
-      icon: <MdShoppingCart className="text-xl" />,
-      show: true, // Sempre visível
-    },
-    {
       path: ROUTES.COMPRA,
       label: "Compra",
       icon: <MdAssignment className="text-xl" />,
       show: true, // Sempre visível
     },
     {
-      path: ROUTES.OCORRENCIA,
-      label: "Ocorrência",
-      icon: <MdReport className="text-xl" />,
+      path: ROUTES.RECOMPRA,
+      label: "Recompra",
+      icon: <MdShoppingCart className="text-xl" />,
       show: true, // Sempre visível
     },
     {
       path: ROUTES.PROPOSTA,
       label: "Proposta",
       icon: <MdDescription className="text-xl" />,
+      show: true, // Sempre visível
+    },
+    {
+      path: ROUTES.OCORRENCIA,
+      label: "Ocorrência",
+      icon: <MdReport className="text-xl" />,
       show: true, // Sempre visível
     },
   ].filter((item) => item.show); // Filtra apenas itens visíveis
@@ -126,7 +129,7 @@ export default function Navbar() {
 
       {/* Menu mobile/tablet (drawer da esquerda) - sempre renderizado */}
       <nav
-        className={`mobile-menu-drawer fixed top-0 left-0 h-full w-64 sm:w-80 shadow-2xl z-[60] transform transition-transform duration-300 ease-in-out lg:hidden ${
+        className={`mobile-menu-drawer fixed top-0 left-0 h-full w-64 sm:w-80 shadow-2xl z-[60] transform transition-transform duration-300 ease-in-out lg:hidden flex flex-col ${
           isMenuOpen ? "translate-x-0" : "-translate-x-full"
         }`}
         role="navigation"
@@ -138,7 +141,7 @@ export default function Navbar() {
         }}
       >
         {/* Cabeçalho do drawer */}
-        <div className="mobile-menu-header flex items-center justify-between p-4 border-b border-tegra-gray-medium">
+        <div className="mobile-menu-header flex items-center justify-between p-4 border-b border-tegra-gray-medium flex-shrink-0">
           <h2 className="text-lg font-semibold text-tegra-text-primary">
             Menu
           </h2>
@@ -152,7 +155,7 @@ export default function Navbar() {
         </div>
 
         {/* Itens do menu */}
-        <div className="flex flex-col py-2">
+        <div className="flex flex-col py-2 flex-1">
           {navItems.map((item) => (
             <NavLink
               key={item.path}
@@ -170,6 +173,25 @@ export default function Navbar() {
               {item.label}
             </NavLink>
           ))}
+        </div>
+
+        {/* Separador */}
+        <div className="h-px bg-tegra-gray-medium flex-shrink-0" />
+
+        {/* Botão de Perfil - no rodapé */}
+        <div className="flex-shrink-0 px-4 py-4">
+          <button
+            onClick={() => {
+              setShowUserDropdown(!showUserDropdown);
+              closeMenu();
+            }}
+            className="w-full flex items-center justify-center gap-3 px-4 py-3 text-sm font-medium bg-gradient-to-r from-tegra-blue to-tegra-blue-light text-white rounded-lg hover:shadow-lg transition-shadow"
+            type="button"
+            aria-label="Abrir perfil do usuário"
+          >
+            <MdPerson className="text-lg" />
+            Meu Perfil
+          </button>
         </div>
       </nav>
     </>
