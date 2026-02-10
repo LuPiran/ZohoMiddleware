@@ -382,7 +382,7 @@ router.post(
             // Cria URL do endpoint proxy do backend que servirá a imagem autenticada
             const protocol = req.protocol || "http";
             const host = req.get("host") || `localhost:${ENV.PORT || 3000}`;
-            fotoFinal = `${protocol}://${host}/api/auth/user-photo/${usuario.id}`;
+            fotoFinal = `${protocol}://${host}/v1/auth/user-photo/${usuario.id}`;
             console.log(
               "[AUTH ROUTE] URL da foto será servida via proxy:",
               fotoFinal,
@@ -448,7 +448,7 @@ router.post(
           ) {
             const protocol = req.protocol || "http";
             const host = req.get("host") || `localhost:${ENV.PORT || 3000}`;
-            fotoUsuario = `${protocol}://${host}/api/auth/user-photo/${usuario.id}`;
+            fotoUsuario = `${protocol}://${host}/v1/auth/user-photo/${usuario.id}`;
           }
         }
       } else if (fotoUsuario && urlImagemPerfilExistente) {
@@ -463,7 +463,7 @@ router.post(
         ) {
           const protocol = req.protocol || "http";
           const host = req.get("host") || `localhost:${ENV.PORT || 3000}`;
-          fotoUsuario = `${protocol}://${host}/api/auth/user-photo/${usuario.id}`;
+          fotoUsuario = `${protocol}://${host}/v1/auth/user-photo/${usuario.id}`;
         }
       }
 

@@ -49,17 +49,17 @@ app.use(express.json({ limit: "20mb" }));
 app.set("trust proxy", 1);
 
 // Aplica rate limiting geral na API (exceto rotas específicas que têm seu próprio limiter)
-app.use("/api", apiRateLimiter);
+app.use("/v1", apiRateLimiter);
 
-app.use("/api", uploadRoutes);
-app.use("/api/auth", authRoutes);
+app.use("/v1", uploadRoutes);
+app.use("/v1/auth", authRoutes);
 // A rota de usuários já tem rate limiting aplicado no nível da rota se necessário
-app.use("/api/users", usersRoutes);
-app.use("/api/cep", cepRoutes);
-app.use("/api/compra", compraRoutes);
-app.use("/api/products", productsRoutes);
-app.use("/api/ocorrencia", ocorrenciaRoutes);
-app.use("/api/proposta", propostaRoutes);
+app.use("/v1/users", usersRoutes);
+app.use("/v1/cep", cepRoutes);
+app.use("/v1/compra", compraRoutes);
+app.use("/v1/products", productsRoutes);
+app.use("/v1/ocorrencia", ocorrenciaRoutes);
+app.use("/v1/proposta", propostaRoutes);
 
 //??Prepare a nossa aplicação para implementação
 if (ENV.NODE_ENV === "production") {
@@ -68,7 +68,7 @@ if (ENV.NODE_ENV === "production") {
   // Rota catch-all para servir o frontend em produção
   // Deve vir ANTES do tratamento de erros
   // Usando regex para compatibilidade com Express 5.x
-  app.get(/^\/(?!api).*/, (req, res) => {
+  app.get(/^\/(?!v1).*/, (req, res) => {
     res.sendFile(path.join(__dirname, "../admin", "dist", "index.html"));
   });
 }
@@ -138,7 +138,7 @@ app.use((err, req, res, next) => {
 
 // Rota 404 para rotas não encontradas (apenas para rotas da API)
 app.use((req, res) => {
-  if (req.path.startsWith("/api")) {
+  if (req.path.startsWith("/v1")) {
     return res.status(404).json({
       success: false,
       error: "Rota não encontrada",

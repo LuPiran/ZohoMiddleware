@@ -15,28 +15,28 @@ export const ROUTES = {
 
 export const API_ENDPOINTS = {
   AUTH: {
-    LOGIN: "/api/auth/login",
-    CHECK_EMAIL: "/api/auth/check-email",
+    LOGIN: "/v1/auth/login",
+    CHECK_EMAIL: "/v1/auth/check-email",
   },
   UPLOAD: {
-    INVOICE: "/api/upload",
+    INVOICE: "/v1/upload",
   },
   USERS: {
-    LIST: "/api/users",
-    TOGGLE_STATUS: "/api/users/:id/toggle-status",
+    LIST: "/v1/users",
+    TOGGLE_STATUS: "/v1/users/:id/toggle-status",
   },
   COMPRA: {
-    CRIAR: "/api/compra",
+    CRIAR: "/v1/compra",
   },
   OCORRENCIA: {
-    CRIAR: "/api/ocorrencia",
+    CRIAR: "/v1/ocorrencia",
   },
   PROPOSTA: {
-    CRIAR: "/api/proposta",
+    CRIAR: "/v1/proposta",
   },
   PRODUCTS: {
-    LIST: "/api/products",
-    LIST_ALL: "/api/products/all",
+    LIST: "/v1/products",
+    LIST_ALL: "/v1/products/all",
   },
 };
 

@@ -194,7 +194,7 @@ router.get("/", async (req, res) => {
       ) {
         const protocol = req.protocol || "http";
         const host = req.get("host") || `localhost:${ENV.PORT || 3000}`;
-        fotoUsuario = `${protocol}://${host}/api/auth/user-photo/${usuario.id}`;
+        fotoUsuario = `${protocol}://${host}/v1/auth/user-photo/${usuario.id}`;
       }
 
       return {

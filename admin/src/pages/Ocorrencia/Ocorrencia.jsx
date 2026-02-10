@@ -238,7 +238,7 @@ export default function Ocorrencia() {
     setBuscandoCep(true);
     try {
       // Busca CEP via backend (que faz proxy para ViaCEP)
-      const response = await api.get(`/api/cep/${cepLimpo}`);
+      const response = await api.get(`/v1/cep/${cepLimpo}`);
       const data = response.data;
 
       if (data.erro || !data.logradouro) {

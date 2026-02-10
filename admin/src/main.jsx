@@ -15,7 +15,7 @@ console.error = (...args) => {
   // Não loga se for erro 403 de login (conta inativa)
   if (
     message.includes("403") &&
-    (message.includes("/api/auth/login") || message.includes("forbidden"))
+    (message.includes("/v1/auth/login") || message.includes("forbidden"))
   ) {
     return;
   }
@@ -28,7 +28,7 @@ console.warn = (...args) => {
   // Não loga se for erro 403 de login (conta inativa)
   if (
     message.includes("403") &&
-    (message.includes("/api/auth/login") || message.includes("forbidden"))
+    (message.includes("/v1/auth/login") || message.includes("forbidden"))
   ) {
     return;
   }
@@ -41,7 +41,7 @@ console.log = (...args) => {
   // Não loga se for erro 403 de login (conta inativa)
   if (
     message.includes("403") &&
-    (message.includes("/api/auth/login") || message.includes("forbidden"))
+    (message.includes("/v1/auth/login") || message.includes("forbidden"))
   ) {
     return;
   }

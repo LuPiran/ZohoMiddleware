@@ -44,7 +44,7 @@ export const usersService = {
   async toggleUserStatus(userId, currentStatus) {
     try {
       const newStatus = !currentStatus; // Inverte o status
-      const response = await api.put(`/api/users/${userId}/toggle-status`, {
+      const response = await api.put(`/v1/users/${userId}/toggle-status`, {
         status: newStatus,
       });
       return response.data;

@@ -13,7 +13,7 @@ export const compraService = {
   async buscarClientePorCpf(cpf) {
     try {
       const cpfLimpo = cpf.replace(/\D/g, "");
-      const response = await api.get(`/api/compra/cliente/${cpfLimpo}`);
+      const response = await api.get(`/v1/compra/cliente/${cpfLimpo}`);
       return {
         success: true,
         data: response.data.data || null,
