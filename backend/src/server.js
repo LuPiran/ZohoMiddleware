@@ -17,12 +17,7 @@ const app = express();
 const __dirname = path.resolve();
 
 // Configuração do CORS
-const allowedOrigins = [
-  "https://zohomiddleware-x12ad.sevalla.app",
-  "http://localhost:5173", // Desenvolvimento local
-  "http://localhost:5174", // Desenvolvimento local
-  "http://localhost:3000", // Desenvolvimento local
-];
+const allowedOrigins = ["https://portaldoconsultor.tegrapharma.com"];
 
 app.use(
   cors({
@@ -111,7 +106,9 @@ app.use((err, req, res, next) => {
   ) {
     return res.status(503).json({
       success: false,
-      error: err.message || "Serviço temporariamente indisponível. Tente novamente em alguns instantes.",
+      error:
+        err.message ||
+        "Serviço temporariamente indisponível. Tente novamente em alguns instantes.",
     });
   }
 
