@@ -69,7 +69,7 @@ export default function Dashboard() {
         <div className="bg-white/80 rounded-2xl shadow-lg p-8 sm:p-10 flex flex-col items-center w-full">
           <div className="flex justify-center items-center w-full mb-6">
             <img 
-              src="/logoCorp.png" 
+              src="/LogoTegra3.png" 
               alt="TegraPharma Logo" 
               className="h-16 sm:h-20 md:h-24 object-contain drop-shadow-none bg-transparent rounded-none"
               style={{ maxWidth: '180px', filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.04))' }}
