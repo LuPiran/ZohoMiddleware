@@ -1,8 +1,7 @@
 import axios from "axios";
 import { STORAGE_KEYS, ROUTES } from "../utils/constants";
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_URL || "https://zohomiddleware-x12ad.sevalla.app";
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 const api = axios.create({
   baseURL: API_BASE_URL,
