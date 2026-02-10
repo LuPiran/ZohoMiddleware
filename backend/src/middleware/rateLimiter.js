@@ -54,8 +54,4 @@ export const apiRateLimiter = rateLimit({
       retryAfter: "15 minutos",
     });
   },
-  // Adiciona tratamento de erro para evitar que o rate limiter cause 503
-  onLimitReached: (req, res, options) => {
-    console.warn(`[RATE LIMITER] Limite atingido para IP: ${req.ip}`);
-  },
 });

@@ -96,13 +96,13 @@ export default function Header() {
             </button>
             <button
               onClick={() => navigate(ROUTES.DASHBOARD)}
-              className="cursor-pointer hover:opacity-80 transition"
+              className="cursor-pointer hover:opacity-80 transition flex flex-col items-center"
               type="button"
               aria-label="Ir para Dashboard"
             >
               <img
                 src="/logoCorp.png"
-                alt="Logo corporativo"
+                alt="Logo TegraCorp"
                 className="header-logo h-8 sm:h-10 w-auto object-contain"
               />
             </button>
@@ -112,13 +112,13 @@ export default function Header() {
           <div className="hidden lg:block">
             <button
               onClick={() => navigate(ROUTES.DASHBOARD)}
-              className="cursor-pointer hover:opacity-80 transition"
+              className="cursor-pointer hover:opacity-80 transition flex flex-col items-center"
               type="button"
               aria-label="Ir para Dashboard"
             >
               <img
                 src="/logoCorp.png"
-                alt="Logo corporativo"
+                alt="Logo TegraCorp"
                 className="header-logo h-10 w-auto object-contain"
               />
             </button>

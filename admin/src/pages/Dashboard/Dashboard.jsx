@@ -1,166 +1,108 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { authService } from "../../services/auth";
 import { useLoading } from "../../contexts/LoadingContext";
 import { WelcomePopup } from "../../components/feedback/auth";
 import MainLayout from "../../components/layout/MainLayout";
+
 import { ROUTES, STORAGE_KEYS } from "../../utils/constants";
-import { MdShoppingCart, MdRefresh, MdReport, MdDescription, MdArrowForward } from "react-icons/md";
 
 export default function Dashboard() {
+
   const navigate = useNavigate();
   const user = authService.getUser();
   const { setLoading } = useLoading();
   const [showWelcome, setShowWelcome] = useState(false);
 
+  // Atalhos principais do sistema
+  const shortcutCards = [
+    {
+      id: "compra",
+      label: "Compra",
+      icon: <span className="text-3xl md:text-4xl"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none"><path d="M7 18a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm10 2a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM7.16 16l.94-2h7.45a2 2 0 0 0 1.92-1.45l2.13-7.11A1 1 0 0 0 18.65 4H6.21l-.94-2H1v2h2l3.6 7.59-1.35 2.44A2 2 0 0 0 5 17a2 2 0 0 0 2.16-1z" fill="currentColor"/></svg></span>,
+      route: ROUTES.COMPRA,
+    },
+    {
+      id: "recompra",
+      label: "Recompra",
+      icon: <span className="text-3xl md:text-4xl"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.3-.42 2.5-1.13 3.47l1.46 1.46A7.932 7.932 0 0 0 20 12c0-4.42-3.58-8-8-8zm-6.87 2.53L3.67 7.99A7.932 7.932 0 0 0 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3c-3.31 0-6-2.69-6-6 0-1.3.42-2.5 1.13-3.47z" fill="currentColor"/></svg></span>,
+      route: ROUTES.RECOMPRA,
+    },
+    {
+      id: "proposta",
+      label: "Proposta",
+      icon: <span className="text-3xl md:text-4xl"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none"><path d="M19 2H8c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V6l-5-4zm0 18H8V4h7v5h5v11c0 1.1-.9 2-2 2zm-7-7h2v2h-2v-2zm0-4h2v2h-2V9z" fill="currentColor"/></svg></span>,
+      route: ROUTES.PROPOSTA,
+    },
+    {
+      id: "ocorrencia",
+      label: "Ocorrência",
+      icon: <span className="text-3xl md:text-4xl"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm0-4h-2V7h2v8z" fill="currentColor"/></svg></span>,
+      route: ROUTES.OCORRENCIA,
+    },
+  ];
+
   useEffect(() => {
     if (!authService.isAuthenticated()) {
-      navigate(ROUTES.LOGIN);
+      navigate("/login");
       return;
     }
-
-    // Desativa loading imediatamente para Dashboard (dados são mocados)
     setLoading(false);
   }, [navigate, setLoading]);
 
   useEffect(() => {
     const loginSuccess = sessionStorage.getItem(STORAGE_KEYS.LOGIN_SUCCESS);
     if (loginSuccess === "true") {
-      // Aguarda a página carregar e mostra o popup de boas-vindas
       const timer = setTimeout(() => {
         setShowWelcome(true);
       }, 300);
-
       return () => clearTimeout(timer);
     }
   }, []);
 
-  // Dados mocados para o mês atual
-  const dashboardData = useMemo(() => {
-    const currentMonth = new Date().getMonth() + 1;
-    const currentYear = new Date().getFullYear();
-
-    return {
-      compra: 24, // Total de compras no mês atual
-      recompra: 18, // Total de recompras no mês atual
-      ocorrencia: 12, // Total de ocorrências no mês atual
-      proposta: 9, // Total de propostas no mês atual
-      month: currentMonth,
-      year: currentYear,
-    };
-  }, []);
-
-  // Obtém o nome do usuário para a mensagem de boas-vindas
   const nomeUsuario =
-    user?.nome ||
-    user?.Nome ||
-    user?.Name ||
-    user?.nome_completo ||
-    user?.Nome_Completo ||
-    "Admin";
-
-  // Cards de estatísticas
-  const statsCards = [
-    {
-      id: "compra",
-      label: "Compra",
-      value: dashboardData.compra,
-      icon: <MdShoppingCart className="text-4xl" />,
-      color: "text-tegra-blue-dark",
-      route: ROUTES.COMPRA,
-    },
-    {
-      id: "recompra",
-      label: "Recompra",
-      value: dashboardData.recompra,
-      icon: <MdRefresh className="text-4xl" />,
-      color: "text-tegra-blue-dark",
-      route: ROUTES.RECOMPRA,
-    },
-    {
-      id: "proposta",
-      label: "Proposta",
-      value: dashboardData.proposta,
-      icon: <MdDescription className="text-4xl" />,
-      color: "text-tegra-blue-dark",
-      route: ROUTES.PROPOSTA,
-    },
-    {
-      id: "ocorrencia",
-      label: "Ocorrência",
-      value: dashboardData.ocorrencia,
-      icon: <MdReport className="text-4xl" />,
-      color: "text-tegra-blue-dark",
-      route: ROUTES.OCORRENCIA,
-    },
-  ];
+    user?.nome || user?.Nome || user?.Name || user?.nome_completo || user?.Nome_Completo || "Admin";
 
   return (
     <MainLayout>
-      <div className="dashboard-page max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-5 sm:py-7 md:py-8">
-        {/* Mensagem de boas-vindas */}
-        <div className="mb-4 sm:mb-6 md:mb-8">
-          <div className="dashboard-title">
-            <h1 className="text-xl sm:text-2xl font-bold text-tegra-text-primary">
-              Bem-vindo de volta, {nomeUsuario} 👋
-            </h1>
+      <div className="dashboard-page max-w-2xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-10 sm:py-14 md:py-16 flex flex-col items-center justify-center min-h-[60vh]">
+        <div className="bg-white/80 rounded-2xl shadow-lg p-8 sm:p-10 flex flex-col items-center w-full">
+          <div className="flex justify-center items-center w-full mb-6">
+            <img 
+              src="/logoCorp.png" 
+              alt="TegraPharma Logo" 
+              className="h-16 sm:h-20 md:h-24 object-contain drop-shadow-none bg-transparent rounded-none"
+              style={{ maxWidth: '180px', filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.04))' }}
+            />
           </div>
-          <p className="dashboard-subtitle mt-1">
-            Aqui está um resumo rápido do seu desempenho neste mês.
+          <h1 className="text-2xl sm:text-3xl font-bold text-tegra-text-primary mb-2 text-center">
+            Bem-vindo(a) ao Painel Administrativo TegraPharma
+          </h1>
+          <p className="text-base sm:text-lg text-tegra-text-secondary text-center mb-4">
+            Olá, {nomeUsuario}!<br />
+            Este é o seu ambiente de gestão centralizada.<br />
+            Utilize o menu acima ou os atalhos abaixo para acessar as funcionalidades do sistema.
           </p>
-        </div>
-
-        {/* Cards de estatísticas */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 md:gap-6 mb-6 sm:mb-8">
-          {statsCards.map((card) => (
-            <div
-              key={card.id}
-              className="dashboard-card p-4 sm:p-5 md:p-6 flex items-center gap-3 sm:gap-4 hover:shadow-lg hover:scale-105 transition-all duration-200 text-left relative"
-            >
-              {/* Botão de seta no canto superior direito */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-lg my-4">
+            {shortcutCards.map((card) => (
               <button
+                key={card.id}
                 onClick={() => navigate(card.route)}
-                className="absolute top-4 sm:top-5 md:top-6 right-4 sm:right-5 md:right-6 p-2.5 sm:p-3 rounded-lg bg-tegra-blue-light text-white hover:bg-tegra-blue-dark transition-colors shadow-md cursor-pointer"
+                className="flex flex-col items-center justify-center p-5 bg-tegra-blue-light/10 hover:bg-tegra-blue-light/20 rounded-xl shadow transition-all border border-tegra-blue-light/30 focus:outline-none focus:ring-2 focus:ring-tegra-blue-dark"
                 type="button"
                 aria-label={`Ir para ${card.label}`}
               >
-                <MdArrowForward className="text-xl sm:text-2xl" />
+                <div className="mb-2 text-tegra-blue-dark">{card.icon}</div>
+                <span className="font-semibold text-tegra-text-primary text-base">{card.label}</span>
               </button>
-
-              {/* Ícone */}
-              <div className="dashboard-card__icon">
-                <div className="text-2xl sm:text-3xl md:text-4xl">
-                  {card.icon}
-                </div>
-              </div>
-
-              {/* Número e Label */}
-              <div className="flex-1">
-                <div className="text-2xl sm:text-3xl font-bold text-tegra-text-primary mb-1">
-                  {card.value}
-                </div>
-                <div className="text-xs sm:text-sm text-tegra-text-secondary">
-                  {card.label}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Seção Dashboard */}
-        <div className="mt-6 sm:mt-8">
-          <h2 className="text-lg sm:text-xl font-bold text-tegra-text-primary mb-3 sm:mb-4">
-            Home
-          </h2>
-          <div className="dashboard-panel p-4 sm:p-5 md:p-6">
-            <p className="text-sm sm:text-base text-tegra-text-secondary">
-              Conteúdo adicional do Dashboard será exibido aqui.
-            </p>
+            ))}
+          </div>
+          <div className="mt-2 text-xs text-tegra-text-tertiary text-center">
+            Sistema desenvolvido para facilitar o controle de compras, propostas, recompras e ocorrências.<br />
+            Caso precise de suporte, entre em contato com a equipe TegraPharma.
           </div>
         </div>
       </div>
-
-      {/* Popup de boas-vindas */}
       {showWelcome && (
         <WelcomePopup
           userName={nomeUsuario}

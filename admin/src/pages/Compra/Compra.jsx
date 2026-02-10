@@ -383,6 +383,9 @@ export default function Compra() {
     if (!nomePaciente.trim()) camposVazios.push("Nome");
     if (!sobrenomePaciente.trim()) camposVazios.push("Sobrenome");
     if (!cpfPaciente.trim()) camposVazios.push("CPF");
+    if (!celularPaciente.trim()) camposVazios.push("Celular");
+    if (!emailPaciente.trim()) camposVazios.push("E-mail");
+    if (!dataNascimento.trim()) camposVazios.push("Data de Nascimento");
 
     // Valida campos do endereço (exceto complemento)
     if (!rua.trim()) camposVazios.push("Rua");
@@ -567,9 +570,21 @@ export default function Compra() {
           return acc + (parseFloat(p.valor) * parseInt(p.quantidade) || 0);
         }, 0);
 
+        // Obtém o nome do usuário logado para o comprovante
+        const user = authService.getUser();
+        const nomeConsultor =
+          user?.nome ||
+          user?.Nome ||
+          user?.Name ||
+          user?.nome_completo ||
+          user?.Nome_Completo ||
+          "";
+
         // Prepara os dados do comprovante
         const dadosComprovante = {
+          protocolo: response.protocolo,
           tipoSolicitacao: tipoSolicitacao || "1ª Compra",
+          consultorTegra: nomeConsultor,
           nomePaciente,
           sobrenomePaciente,
           cpfPaciente,

@@ -2,6 +2,7 @@ import express from "express";
 import { chamarZohoApi } from "../services/zohoApi.js";
 import { ENV } from "../config/env.js";
 import { anexarArquivosNoRegistro } from "../services/zohoAttachment.js";
+import { gerarNumeroProtocolo } from "../utils/protocol.js";
 
 const router = express.Router();
 
@@ -415,10 +416,15 @@ router.post("/", async (req, res) => {
       }
     }
 
+    // Gera o número de protocolo único
+    const numeroProtocolo = gerarNumeroProtocolo();
+    console.log("[COMPRA API] Número de protocolo gerado:", numeroProtocolo);
+
     // Prepara os dados para o Zoho
     const dadosZoho = {
       data: [
         {
+          Protocolo_Portal: numeroProtocolo,
           Name: nomePaciente || "",
           Sobrenome: sobrenomePaciente || "",
           CPF: cpfPaciente?.replace(/\D/g, "") || "",
@@ -517,6 +523,7 @@ router.post("/", async (req, res) => {
     res.json({
       success: true,
       message: "Compra criada com sucesso",
+      protocolo: numeroProtocolo,
       data: {
         id: recordId,
         ...response.data?.[0]?.details,

@@ -70,13 +70,10 @@ app.use("/api/proposta", propostaRoutes);
 if (ENV.NODE_ENV === "production") {
   app.use(express.static(path.join(__dirname, "../admin/dist")));
 
-  // Rota catch-all corrigida para servir o frontend em produção
+  // Rota catch-all para servir o frontend em produção
   // Deve vir ANTES do tratamento de erros
-  app.get("*", (req, res, next) => {
-    // Ignora requisições para rotas da API - deixa passar para o próximo middleware
-    if (req.path.startsWith("/api")) {
-      return next();
-    }
+  // Usando regex para compatibilidade com Express 5.x
+  app.get(/^\/(?!api).*/, (req, res) => {
     res.sendFile(path.join(__dirname, "../admin", "dist", "index.html"));
   });
 }

@@ -7,7 +7,10 @@ import Checkbox from "../../components/ui/Checkbox";
 import { ROUTES, STORAGE_KEYS } from "../../utils/constants";
 import { MdEmail, MdLock, MdVisibility, MdVisibilityOff } from "react-icons/md";
 import { useToast } from "../../components/feedback/auth/ToastContainer";
-import LogoTegraPharmacorp from "../../assets/LogoTegraPharmacorp.png";
+// import LogoTegraPharmacorp from "../../assets/LogoTegraPharmacorp.png";
+
+// Logo mobile
+const logoMobile = "/logoCorp.png";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -228,7 +231,7 @@ export default function Login() {
               <div className="login-media-content p-8 sm:p-10 md:p-12 text-white">
                 <div>
                   <img
-                    src={LogoTegraPharmacorp}
+                    src="/LogoTegra.png"
                     alt="Logo corporativo"
                     className="h-[130px] w-auto object-contain drop-shadow-lg"
                   />
@@ -248,7 +251,7 @@ export default function Login() {
             <div className="login-form-panel p-8 sm:p-10 md:p-12">
               <div className="lg:hidden flex flex-col items-center justify-center mb-8">
                 <img
-                  src={LogoTegraPharmacorp}
+                  src={logoMobile}
                   alt="Logo corporativo"
                   className="h-16 w-auto object-contain"
                 />

@@ -356,6 +356,9 @@ export default function Ocorrencia() {
     if (!nomePaciente.trim()) camposVazios.push("Nome");
     if (!sobrenomePaciente.trim()) camposVazios.push("Sobrenome");
     if (!cpfPaciente.trim()) camposVazios.push("CPF");
+    if (!celularPaciente.trim()) camposVazios.push("Celular");
+    if (!emailPaciente.trim()) camposVazios.push("E-mail");
+    if (!dataNascimento.trim()) camposVazios.push("Data de Nascimento");
 
 
     // Valida produto
@@ -466,9 +469,21 @@ export default function Ocorrencia() {
           response.data?.created_time ||
           new Date().toISOString();
 
+        // Obtém o nome do usuário logado para o comprovante
+        const user = authService.getUser();
+        const nomeConsultor =
+          user?.nome ||
+          user?.Nome ||
+          user?.Name ||
+          user?.nome_completo ||
+          user?.Nome_Completo ||
+          "";
+
         // Prepara os dados do comprovante (Ocorrência tem estrutura diferente)
         const dadosComprovante = {
+          protocolo: response.protocolo,
           tipoSolicitacao: "Ocorrência",
+          consultorTegra: nomeConsultor,
           nomePaciente,
           sobrenomePaciente,
           cpfPaciente,
