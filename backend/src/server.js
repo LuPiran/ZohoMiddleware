@@ -17,7 +17,12 @@ const app = express();
 const __dirname = path.resolve();
 
 // Configuração do CORS
-const allowedOrigins = ["https://portaldoconsultor.tegrapharma.com"];
+const allowedOrigins = [
+  "https://portaldoconsultor.tegrapharma.com",
+  "http://localhost:5173", // Vite dev
+  "http://localhost:5174",
+  "http://localhost:3000",
+];
 
 app.use(
   cors({

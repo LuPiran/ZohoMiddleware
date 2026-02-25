@@ -49,3 +49,49 @@ export const STORAGE_KEYS = {
   ACCOUNT_INACTIVE: "accountInactive",
   LOGIN_SUCCESS: "loginSuccess",
 };
+
+// Parceiro: usuários que veem a seção e opções por usuário
+export const PARCEIRO = {
+  USUARIOS_PERMITIDOS: ["Marcelli Silva", "Diego Betti"],
+  OPCOES_MARCELLI_SILVA: [
+    { value: "Equilibra", label: "Equilibra" },
+    { value: "TonTon", label: "TonTon" },
+    { value: "Gravital", label: "Gravital" },
+    { value: "Natural Science", label: "Natural Science" },
+  ],
+  OPCOES_DIEGO_BETTI: [
+    { value: "Cannabis em Foco", label: "Cannabis em Foco" },
+  ],
+};
+
+/**
+ * Retorna o nome do usuário logado (qualquer variação de campo).
+ */
+export function getNomeUsuario(user) {
+  return (
+    user?.nome ||
+    user?.Nome ||
+    user?.Name ||
+    user?.nome_completo ||
+    user?.Nome_Completo ||
+    ""
+  ).trim();
+}
+
+/**
+ * Retorna true se o usuário pode ver a seção Parceiro.
+ */
+export function podeVerSecaoParceiro(user) {
+  const nome = getNomeUsuario(user);
+  return PARCEIRO.USUARIOS_PERMITIDOS.includes(nome);
+}
+
+/**
+ * Retorna as opções do select Parceiro para o usuário logado.
+ */
+export function getOpcoesParceiro(user) {
+  const nome = getNomeUsuario(user);
+  if (nome === "Marcelli Silva") return PARCEIRO.OPCOES_MARCELLI_SILVA;
+  if (nome === "Diego Betti") return PARCEIRO.OPCOES_DIEGO_BETTI;
+  return [];
+}

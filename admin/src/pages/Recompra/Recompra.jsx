@@ -10,7 +10,7 @@ import Button from "../../components/ui/Button";
 import Select from "../../components/ui/Select";
 import Checkbox from "../../components/ui/Checkbox";
 import Textarea from "../../components/ui/Textarea";
-import { ROUTES } from "../../utils/constants";
+import { ROUTES, getNomeUsuario, podeVerSecaoParceiro, getOpcoesParceiro } from "../../utils/constants";
 import api from "../../services/api";
 import { compraService } from "../../services/compra";
 import { productsService } from "../../services/products";
@@ -138,6 +138,11 @@ export default function Recompra() {
 
   // Estado para observação
   const [observacao, setObservacao] = useState("");
+
+  // Estado para parceiro (visível apenas para Marcelli Silva e Diego Betti)
+  const [realizarProcessoComParceiro, setRealizarProcessoComParceiro] =
+    useState(false);
+  const [parceiroSelecionado, setParceiroSelecionado] = useState("");
 
   // Estados para upload de arquivos
   const [arquivos, setArquivos] = useState([]);
@@ -463,6 +468,8 @@ export default function Recompra() {
     setObservacao("");
     setArquivos([]);
     setDocumentosCompletos(false);
+    setRealizarProcessoComParceiro(false);
+    setParceiroSelecionado("");
     setProdutos([{ id: 1, nome: "", produtoId: "", quantidade: "1" }]);
     setTipoSolicitacao("Recompra"); // Reseta para o valor padrão
     setCpfBusca("");
@@ -565,15 +572,12 @@ export default function Recompra() {
     setLoading(true);
 
     try {
-      // Obtém o nome do usuário logado
+      // Obtém o nome do usuário logado (ou parceiro se selecionado)
       const user = authService.getUser();
       const consultorTegra =
-        user?.nome ||
-        user?.Nome ||
-        user?.Name ||
-        user?.nome_completo ||
-        user?.Nome_Completo ||
-        "";
+        realizarProcessoComParceiro && parceiroSelecionado
+          ? parceiroSelecionado
+          : getNomeUsuario(user) || "";
 
       // Converte arquivos para base64
       const arquivosBase64 =
@@ -664,15 +668,11 @@ export default function Recompra() {
           return acc + (parseFloat(p.valor) * parseInt(p.quantidade) || 0);
         }, 0);
 
-        // Obtém o nome do usuário logado para o comprovante
-        const user = authService.getUser();
+        // Obtém o nome para o comprovante (ou parceiro se selecionado)
         const nomeConsultor =
-          user?.nome ||
-          user?.Nome ||
-          user?.Name ||
-          user?.nome_completo ||
-          user?.Nome_Completo ||
-          "";
+          realizarProcessoComParceiro && parceiroSelecionado
+            ? parceiroSelecionado
+            : getNomeUsuario(authService.getUser());
 
         // Prepara os dados do comprovante
         const dadosComprovante = {
@@ -840,6 +840,35 @@ export default function Recompra() {
                 </div>
               )}
             </div>
+
+            {/* Seção: Parceiro (apenas para Marcelli Silva e Diego Betti) */}
+            {podeVerSecaoParceiro(authService.getUser()) && (
+              <div className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6">
+                <h2 className="text-base sm:text-lg font-semibold text-tegra-text-primary mb-3 sm:mb-4">
+                  Parceiro
+                </h2>
+                <Checkbox
+                  id="realizar-processo-parceiro"
+                  label="Realizar processo com um parceiro"
+                  checked={realizarProcessoComParceiro}
+                  onChange={(e) => {
+                    setRealizarProcessoComParceiro(e.target.checked);
+                    if (!e.target.checked) setParceiroSelecionado("");
+                  }}
+                />
+                {realizarProcessoComParceiro && (
+                  <div className="mt-4">
+                    <Select
+                      label="Parceria"
+                      value={parceiroSelecionado}
+                      onChange={(e) => setParceiroSelecionado(e.target.value)}
+                      options={getOpcoesParceiro(authService.getUser())}
+                      placeholder="Selecione o parceiro"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Seção: Dados do Paciente */}
             <div className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6">
