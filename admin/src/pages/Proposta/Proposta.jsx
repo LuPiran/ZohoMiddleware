@@ -511,13 +511,10 @@ export default function Proposta() {
         if (!celularRepresentanteEmpresa.trim()) camposVazios.push("Celular do Representante da Empresa");
       }
     } else {
-      // Valida campos do paciente
+      // Valida campos do paciente (apenas os obrigatórios)
       if (!nomePaciente.trim()) camposVazios.push("Nome");
       if (!sobrenomePaciente.trim()) camposVazios.push("Sobrenome");
-      if (!cpfPaciente.trim()) camposVazios.push("CPF");
       if (!celularPaciente.trim()) camposVazios.push("Celular");
-      if (!emailPaciente.trim()) camposVazios.push("E-mail");
-      if (!dataNascimento.trim()) camposVazios.push("Data de Nascimento");
     }
 
     // Valida campos do endereço (exceto complemento)

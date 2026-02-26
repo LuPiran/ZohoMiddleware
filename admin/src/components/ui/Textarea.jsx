@@ -11,6 +11,7 @@ export default function Textarea({
   rows = 4,
   error = "",
   className = "",
+  maxLength = 2000,
   ...props
 }) {
   return (
@@ -28,6 +29,7 @@ export default function Textarea({
         required={required}
         disabled={disabled}
         rows={rows}
+        maxLength={maxLength}
         className={`w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-tegra-teal transition ${
           error ? "border-tegra-error" : "border-tegra-gray-medium"
         } ${

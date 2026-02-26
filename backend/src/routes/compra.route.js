@@ -343,8 +343,7 @@ router.post("/", async (req, res) => {
     console.log("[COMPRA API] Dados recebidos:", {
       nomePaciente,
       sobrenomePaciente,
-      cpfPaciente,
-      emailPaciente,
+      celularPaciente,
       produtos: produtos?.length || 0,
     });
     console.log(
@@ -352,11 +351,11 @@ router.post("/", async (req, res) => {
       JSON.stringify(produtos, null, 2),
     );
 
-    // Validação básica
-    if (!nomePaciente || !cpfPaciente || !emailPaciente) {
+    // Validação básica (somente campos essenciais do paciente)
+    if (!nomePaciente || !sobrenomePaciente || !celularPaciente) {
       return res.status(400).json({
         success: false,
-        error: "Nome, CPF e Email são obrigatórios",
+        error: "Nome, Sobrenome e Celular são obrigatórios",
       });
     }
 

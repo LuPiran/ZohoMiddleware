@@ -352,14 +352,11 @@ export default function Ocorrencia() {
   const validarCamposObrigatorios = () => {
     const camposVazios = [];
 
-    // Valida campos do paciente
+    // Valida campos do paciente (apenas os obrigatórios)
     if (!nomePaciente.trim()) camposVazios.push("Nome");
     if (!sobrenomePaciente.trim()) camposVazios.push("Sobrenome");
-    if (!cpfPaciente.trim()) camposVazios.push("CPF");
     if (!celularPaciente.trim()) camposVazios.push("Celular");
-    if (!emailPaciente.trim()) camposVazios.push("E-mail");
-    if (!dataNascimento.trim()) camposVazios.push("Data de Nascimento");
-
+    // CPF, e-mail e data de nascimento NÃO são obrigatórios na ocorrência
 
     // Valida produto
     if (!produto.nome.trim() || !produto.produtoId) {
@@ -378,12 +375,7 @@ export default function Ocorrencia() {
       }
     }
 
-    // Valida campos do novo médico prescritor
-    if (!nomeMedico.trim()) camposVazios.push("Nome do Médico");
-    if (!crmMedico.trim()) camposVazios.push("CRM do Médico");
-    if (!ufCrm.trim()) camposVazios.push("UF do CRM");
-    if (!celularMedico.trim()) camposVazios.push("Celular do Médico");
-    if (!emailMedico.trim()) camposVazios.push("E-mail do Médico");
+    // Campos do médico NÃO são obrigatórios na ocorrência
 
     if (camposVazios.length > 0) {
       const camposTexto = camposVazios.join(", ");

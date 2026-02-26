@@ -355,8 +355,7 @@ router.post("/", async (req, res) => {
       tipoCliente,
       nomePaciente,
       sobrenomePaciente,
-      cpfPaciente,
-      emailPaciente,
+      celularPaciente,
       produtos: produtos?.length || 0,
     });
     console.log(
@@ -373,10 +372,11 @@ router.post("/", async (req, res) => {
         });
       }
     } else {
-      if (!nomePaciente || !cpfPaciente || !emailPaciente) {
+      // Pessoa Física: apenas campos essenciais do paciente
+      if (!nomePaciente || !sobrenomePaciente || !celularPaciente) {
         return res.status(400).json({
           success: false,
-          error: "Nome, CPF e Email são obrigatórios",
+          error: "Nome, Sobrenome e Celular são obrigatórios",
         });
       }
     }

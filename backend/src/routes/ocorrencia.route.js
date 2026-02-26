@@ -39,16 +39,15 @@ router.post("/", async (req, res) => {
     console.log("[OCORRENCIA API] Dados recebidos:", {
       nomePaciente,
       sobrenomePaciente,
-      cpfPaciente,
-      emailPaciente,
+      celularPaciente,
       motivoOcorrencia,
     });
 
-    // Validação básica
-    if (!nomePaciente || !cpfPaciente || !emailPaciente) {
+    // Validação básica: apenas campos essenciais do paciente + motivo
+    if (!nomePaciente || !sobrenomePaciente || !celularPaciente) {
       return res.status(400).json({
         success: false,
-        error: "Nome, CPF e Email são obrigatórios",
+        error: "Nome, Sobrenome e Celular são obrigatórios",
       });
     }
 
