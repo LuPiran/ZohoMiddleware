@@ -9,6 +9,7 @@ import cepRoutes from "./routes/cep.route.js";
 import compraRoutes from "./routes/compra.route.js";
 import productsRoutes from "./routes/products.route.js";
 import ocorrenciaRoutes from "./routes/ocorrencia.route.js";
+import salesOrderRoutes from "./routes/salesOrder.route.js";
 import propostaRoutes from "./routes/proposta.route.js";
 import { apiRateLimiter } from "./middleware/rateLimiter.js";
 
@@ -65,6 +66,7 @@ app.use("/v1/compra", compraRoutes);
 app.use("/v1/products", productsRoutes);
 app.use("/v1/ocorrencia", ocorrenciaRoutes);
 app.use("/v1/proposta", propostaRoutes);
+app.use("/v1/sales-orders", salesOrderRoutes);
 
 //??Prepare a nossa aplicação para implementação
 if (ENV.NODE_ENV === "production") {

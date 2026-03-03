@@ -14,6 +14,7 @@ import { ROUTES } from "../../utils/constants";
 import api from "../../services/api";
 import { productsService } from "../../services/products";
 import { ocorrenciaService } from "../../services/ocorrencia";
+import { salesOrderService } from "../../services/salesOrder";
 import { hasAdminPanelPermission } from "../../utils/permissions";
 import {
   MdPerson,
@@ -114,13 +115,8 @@ export default function Ocorrencia() {
   const [solicitarLinkPagamento, setSolicitarLinkPagamento] = useState("");
   const [tipoLink, setTipoLink] = useState("");
 
-  // Estado para produto (único produto, não lista)
-  const [produto, setProduto] = useState({
-    nome: "",
-    produtoId: "",
-    quantidade: "1",
-    preco: "",
-  });
+  // Estado para lista de produtos (múltiplos produtos)
+  const [produtos, setProdutos] = useState([]);
 
   // Estado para produtos do Zoho (opções do select)
   const [produtosZoho, setProdutosZoho] = useState([]);
@@ -135,7 +131,7 @@ export default function Ocorrencia() {
 
   // Estado para motivo da ocorrência
   const [motivoOcorrencia, setMotivoOcorrencia] = useState("");
-  
+
   // Estado para observação do motivo
   const [observacaoMotivo, setObservacaoMotivo] = useState("");
 
@@ -152,6 +148,11 @@ export default function Ocorrencia() {
   // Estados para upload de arquivos
   const [arquivos, setArquivos] = useState([]);
   const [documentosCompletos, setDocumentosCompletos] = useState(false);
+
+  // Estado para busca de número do pedido
+  const [numeroPedidoBusca, setNumeroPedidoBusca] = useState("");
+  const [pedidosEncontrados, setPedidosEncontrados] = useState([]);
+  const [buscandoPedido, setBuscandoPedido] = useState(false);
 
   useEffect(() => {
     if (!authService.isAuthenticated()) {
@@ -181,42 +182,68 @@ export default function Ocorrencia() {
     carregarProdutos();
   }, [navigate, setLoading, showToast]);
 
-  // Função para atualizar quantidade do produto
-  const atualizarQuantidade = (valor) => {
-    // Remove caracteres não numéricos
-    const valorLimpo = valor.replace(/\D/g, "");
-
-    // Se estiver vazio, mantém como está (permite digitação)
-    if (valorLimpo === "") {
-      setProduto({ ...produto, quantidade: "" });
+  // Função para buscar pedido pelo número
+  const handleBuscarPedido = async () => {
+    if (!numeroPedidoBusca.trim()) {
+      showToast("⚠️ Digite um número de pedido válido", "warning");
       return;
     }
 
-    const numValor = parseInt(valorLimpo);
-
-    // Se for menor que 1, força para 1
-    if (numValor < 1) {
-      setProduto({ ...produto, quantidade: "1" });
-    } else {
-      setProduto({ ...produto, quantidade: valorLimpo });
+    setBuscandoPedido(true);
+    try {
+      const response = await salesOrderService.getSalesOrderByNumber(
+        numeroPedidoBusca
+      );
+      if (response.success && response.data.length > 0) {
+        setPedidosEncontrados(response.data);
+      } else {
+        showToast("❌ Pedido não encontrado", "error");
+      }
+    } catch (error) {
+      console.error("Erro ao buscar pedido:", error);
+      showToast("❌ Erro ao buscar pedido. Tente novamente.", "error");
+    } finally {
+      setBuscandoPedido(false);
     }
   };
 
-  // Função para atualizar produto completo (nome, ID e preço)
-  const atualizarProdutoCompleto = (nome, produtoId) => {
-    // Busca o produto no array produtosZoho para obter o preço
-    const produtoSelecionado = produtosZoho.find(
-      (pz) => pz.id === produtoId || pz.nome === nome,
+  // Função para preencher formulário com dados do pedido selecionado
+  const preencherFormularioComPedido = (pedido) => {
+    // Nome e sobrenome vêm do módulo Contacts (First_Name / Last_Name)
+    setNomePaciente(pedido.First_Name || "");
+    setSobrenomePaciente(pedido.Last_Name || "");
+    setCpfPaciente(pedido.CPF || "");
+    setCelularPaciente(pedido.Celular || "");
+    setEmailPaciente(pedido.E_mail || "");
+    setNumeroPedido(pedido.N_mero_Pedido || "");
+    setAwb(pedido.AWB || "");
+    setDataPedido(pedido.Data || "");
+    // Produtos vêm do subform Ordered_Items do Sales_Orders
+    setProdutos(
+      (pedido.Ordered_Items || []).map((produto) => ({
+        nome: produto.Product_Name || "",
+        quantidade: produto.Quantity || "1",
+        preco: produto.Preco || "",
+      }))
     );
+    setPedidosEncontrados([]); // Limpa resultados da busca
+  };
 
-    const preco = produtoSelecionado?.unitPrice || "";
+  // Função para adicionar um novo produto
+  const adicionarProduto = () => {
+    setProdutos([...produtos, { nome: "", quantidade: "1", preco: "" }]);
+  };
 
-    setProduto({
-      nome: nome || "",
-      produtoId: produtoId || "",
-      quantidade: produto.quantidade || "1",
-      preco: preco ? `R$ ${parseFloat(preco).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "",
-    });
+  // Função para atualizar um produto na lista
+  const atualizarProduto = (index, campo, valor) => {
+    const novosProdutos = [...produtos];
+    novosProdutos[index][campo] = valor;
+    setProdutos(novosProdutos);
+  };
+
+  // Função para remover um produto da lista
+  const removerProduto = (index) => {
+    setProdutos(produtos.filter((_, i) => i !== index));
   };
 
   // Função para formatar CEP
@@ -345,7 +372,7 @@ export default function Ocorrencia() {
     setDataValidade("");
     setArquivos([]);
     setDocumentosCompletos(false);
-    setProduto({ nome: "", produtoId: "", quantidade: "1", preco: "" });
+    setProdutos([]);
   };
 
   // Função para validar campos obrigatórios
@@ -358,24 +385,24 @@ export default function Ocorrencia() {
     if (!celularPaciente.trim()) camposVazios.push("Celular");
     // CPF, e-mail e data de nascimento NÃO são obrigatórios na ocorrência
 
-    // Valida produto
-    if (!produto.nome.trim() || !produto.produtoId) {
-      camposVazios.push("Produto");
+    // Valida produtos
+    if (produtos.length === 0) {
+      camposVazios.push("Produtos");
     }
 
-    // Valida quantidade do produto
-    if (produto.nome.trim() && produto.produtoId) {
+    // Valida quantidade dos produtos
+    produtos.forEach((produto, index) => {
       const quantidade = parseInt(produto.quantidade) || 0;
       if (quantidade <= 0) {
         showToast(
-          "❌ A quantidade do produto não pode ser igual ou menor que 0",
-          "error",
+          `❌ A quantidade do produto na posição ${
+            index + 1
+          } não pode ser igual ou menor que 0`,
+          "error"
         );
         return { valido: false, camposVazios: [] };
       }
-    }
-
-    // Campos do médico NÃO são obrigatórios na ocorrência
+    });
 
     if (camposVazios.length > 0) {
       const camposTexto = camposVazios.join(", ");
@@ -419,7 +446,7 @@ export default function Ocorrencia() {
                   reader.onerror = reject;
                   reader.readAsDataURL(arquivo);
                 });
-              }),
+              })
             )
           : [];
 
@@ -437,11 +464,10 @@ export default function Ocorrencia() {
         ufCrm,
         celularMedico,
         crmMedico,
-        produto: {
-          nome: produto.nome || "",
-          quantidade: produto.quantidade || "",
-          preco: produto.preco || "",
-        },
+        produtos: produtos.map((produto) => ({
+          Nome_do_Produto: produto.nome,
+          Quantidade: produto.quantidade,
+        })),
         numeroPedido,
         awb,
         numeroLote,
@@ -488,14 +514,18 @@ export default function Ocorrencia() {
           cidade: "",
           estado: "",
           cep: "",
-          pais: "",
-          produtos: produto && produto.nome ? [{
+          produtos: produtos.map((produto) => ({
             nome: produto.nome,
             quantidade: produto.quantidade || 1,
             valor: produto.preco || 0,
-          }] : [],
+          })),
           dataCriacao,
-          totalCompra: (parseFloat(produto?.preco) * parseInt(produto?.quantidade)) || 0,
+          totalCompra: produtos.reduce(
+            (total, produto) =>
+              total +
+              (parseFloat(produto?.preco) * parseInt(produto?.quantidade) || 0),
+            0
+          ),
         };
 
         // Oculta splash screen antes de navegar
@@ -530,20 +560,21 @@ export default function Ocorrencia() {
     <>
       {showSplash && <SplashScreen message="Criando ocorrência..." />}
       <MainLayout>
-        <div 
+        <div
           className="fixed inset-0 z-0"
           style={{
-            backgroundImage: 'url(/painel_consultor_ocorrencia.png)',
-            backgroundSize: 'cover',
-            backgroundPosition: '40% center',
-            backgroundRepeat: 'no-repeat',
-            filter: 'blur(3px)'
+            backgroundImage: "url(/painel_consultor_ocorrencia.png)",
+            backgroundSize: "cover",
+            backgroundPosition: "40% center",
+            backgroundRepeat: "no-repeat",
+            filter: "blur(3px)",
           }}
         />
-        <div 
+        <div
           className="fixed inset-0 z-0"
           style={{
-            background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.85) 0%, rgba(248, 250, 252, 0.8) 50%, rgba(255, 255, 255, 0.85) 100%)'
+            background:
+              "linear-gradient(135deg, rgba(255, 255, 255, 0.85) 0%, rgba(248, 250, 252, 0.8) 50%, rgba(255, 255, 255, 0.85) 100%)",
           }}
         />
         <div className="relative z-10 max-w-5xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
@@ -555,6 +586,52 @@ export default function Ocorrencia() {
             className="space-y-4 sm:space-y-6 md:space-y-8"
             onSubmit={handleSubmit}
           >
+            {/* Seção: Buscar Pedido */}
+            <div className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6">
+              <h2 className="text-base sm:text-lg font-semibold text-tegra-text-primary mb-3 sm:mb-4">
+                Buscar Pedido
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                <Input
+                  label="Número do Pedido"
+                  type="text"
+                  value={numeroPedidoBusca}
+                  onChange={(e) => setNumeroPedidoBusca(e.target.value)}
+                  placeholder="Digite o número do pedido"
+                />
+                <Button
+                  type="button"
+                  onClick={handleBuscarPedido}
+                  loading={buscandoPedido}
+                  className="w-full sm:w-auto"
+                >
+                  Buscar
+                </Button>
+              </div>
+              {pedidosEncontrados.length > 0 && (
+                <div className="mt-4">
+                  <h3 className="text-sm font-semibold text-tegra-text-primary mb-2">
+                    Resultados da Busca
+                  </h3>
+                  <ul className="space-y-2">
+                    {pedidosEncontrados.map((pedido, index) => (
+                      <li
+                        key={index}
+                        className="p-2 bg-tegra-gray-light rounded cursor-pointer hover:bg-tegra-gray-medium"
+                        onClick={() => preencherFormularioComPedido(pedido)}
+                      >
+                        <span className="font-medium">Pedido:</span>{" "}
+                        {pedido.N_mero_Pedido} -{" "}
+                        <span className="font-medium">Cliente:</span>{" "}
+                        {/* Contact_Name vindo do Zoho é um objeto { name, id } */}
+                        {pedido.Contact_Name?.name || pedido.Contact_Name?.Nome || pedido.Contact_Name || ""}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+
             {/* Seção: Dados do Paciente */}
             <div className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6">
               <h2 className="text-base sm:text-lg font-semibold text-tegra-text-primary mb-3 sm:mb-4">
@@ -618,36 +695,66 @@ export default function Ocorrencia() {
                   options={[
                     { value: "Acareação", label: "Acareação" },
                     { value: "Anvisa", label: "Anvisa" },
-                    { value: "Atraso de produção", label: "Atraso de produção" },
+                    {
+                      value: "Atraso de produção",
+                      label: "Atraso de produção",
+                    },
                     { value: "Cor", label: "Cor" },
                     { value: "Demora na Entrega", label: "Demora na Entrega" },
                     { value: "Densidade", label: "Densidade" },
-                    { value: "Descontinuidade / Subistituição de tratamento", label: "Descontinuidade / Subistituição de tratamento" },
-                    { value: "Devolvido ao remetente", label: "Devolvido ao remetente" },
-                    { value: "Diveregencia de Produto", label: "Diveregencia de Produto" },
-                    { value: "Dosador com defeito", label: "Dosador com defeito" },
+                    {
+                      value: "Descontinuidade / Subistituição de tratamento",
+                      label: "Descontinuidade / Subistituição de tratamento",
+                    },
+                    {
+                      value: "Devolvido ao remetente",
+                      label: "Devolvido ao remetente",
+                    },
+                    {
+                      value: "Diveregencia de Produto",
+                      label: "Diveregencia de Produto",
+                    },
+                    {
+                      value: "Dosador com defeito",
+                      label: "Dosador com defeito",
+                    },
                     { value: "Duplicidade", label: "Duplicidade" },
                     { value: "Efeito adverso", label: "Efeito adverso" },
                     { value: "Embalagem violada", label: "Embalagem violada" },
                     { value: "Extraviado", label: "Extraviado" },
                     { value: "Falta de produto", label: "Falta de produto" },
-                    { value: "Fora de prazo de validade", label: "Fora de prazo de validade" },
+                    {
+                      value: "Fora de prazo de validade",
+                      label: "Fora de prazo de validade",
+                    },
                     { value: "Fornecedor", label: "Fornecedor" },
                     { value: "Furto", label: "Furto" },
                     { value: "Inversão", label: "Inversão" },
                     { value: "Oil/tincture", label: "Oil/tincture" },
                     { value: "Pedido Parcial", label: "Pedido Parcial" },
-                    { value: "Qualidade do porduto", label: "Qualidade do porduto" },
+                    {
+                      value: "Qualidade do porduto",
+                      label: "Qualidade do porduto",
+                    },
                     { value: "Quantidade", label: "Quantidade" },
-                    { value: "Lacre rompido/Sem lacre padrão", label: "Lacre rompido/Sem lacre padrão" },
+                    {
+                      value: "Lacre rompido/Sem lacre padrão",
+                      label: "Lacre rompido/Sem lacre padrão",
+                    },
                     { value: "Reclamação", label: "Reclamação" },
                     { value: "Rembolso", label: "Rembolso" },
                     { value: "Sabor", label: "Sabor" },
                     { value: "Sem lacre", label: "Sem lacre" },
                     { value: "Sobra de produto", label: "Sobra de produto" },
-                    { value: "Solicitação devolução", label: "Solicitação devolução" },
+                    {
+                      value: "Solicitação devolução",
+                      label: "Solicitação devolução",
+                    },
                     { value: "Vazando", label: "Vazando" },
-                    { value: "Eventos Climáticos", label: "Eventos Climáticos" },
+                    {
+                      value: "Eventos Climáticos",
+                      label: "Eventos Climáticos",
+                    },
                     { value: "Vazio", label: "Vazio" },
                     { value: "Outros", label: "Outros" },
                   ]}
@@ -714,94 +821,48 @@ export default function Ocorrencia() {
               </div>
             </div>
 
-            {/* Seção: Produto */}
+            {/* Seção: Produtos */}
             <div className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6">
               <h2 className="text-base sm:text-lg font-semibold text-tegra-text-primary mb-3 sm:mb-4">
-                Produto
+                Produtos
               </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-                <div className="md:col-span-2">
-                  {produto.nome && produto.produtoId ? (
-                    // Componente visual do produto selecionado (chip/pill)
-                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-white border-2 border-tegra-blue rounded-full">
-                      <span className="text-tegra-blue-dark font-bold text-sm">
-                        {produto.nome}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          atualizarProdutoCompleto("", "");
-                        }}
-                        className="text-tegra-blue-dark hover:text-tegra-error transition-colors flex items-center justify-center"
-                        aria-label="Remover produto"
-                      >
-                        <MdClose className="text-lg font-bold" />
-                      </button>
-                    </div>
-                  ) : (
-                    // Select aparece apenas quando não há produto selecionado
-                    <Select
-                      label="Nome do Produto"
-                      value={produto.nome}
-                      onChange={(e) => {
-                        const valor = e.target.value;
-                        const opcaoSelecionada = e.selectedOption;
-
-                        // Busca o produto completo no array produtosZoho
-                        let produtoId = null;
-
-                        if (opcaoSelecionada && opcaoSelecionada.id) {
-                          produtoId = opcaoSelecionada.id;
-                        } else if (valor) {
-                          // Fallback: busca pelo nome se não tiver ID na opção
-                          const produtoSelecionado = produtosZoho.find(
-                            (pz) => pz.nome === valor,
-                          );
-                          if (produtoSelecionado && produtoSelecionado.id) {
-                            produtoId = produtoSelecionado.id;
-                          }
-                        }
-
-                        // Atualiza produto com nome, ID e preço
-                        if (valor && produtoId) {
-                          atualizarProdutoCompleto(valor, produtoId);
-                        } else if (!valor) {
-                          // Se não tem valor, limpa tudo
-                          atualizarProdutoCompleto("", "");
-                        }
-                      }}
-                      options={produtosZoho.map((produtoZoho) => {
-                        const nomeProduto = produtoZoho.nome || "";
-                        return {
-                          id: produtoZoho.id,
-                          value: nomeProduto,
-                          label: nomeProduto,
-                          nome: nomeProduto,
-                        };
-                      })}
-                      placeholder="Selecione um produto"
-                      disabled={carregandoProdutos}
-                      loading={carregandoProdutos}
-                    />
-                  )}
+              {produtos.map((produto, index) => (
+                <div
+                  key={index}
+                  className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 mb-4"
+                >
+                  <Input
+                    label="Nome do Produto"
+                    type="text"
+                    value={produto.nome}
+                    onChange={(e) =>
+                      atualizarProduto(index, "nome", e.target.value)
+                    }
+                    placeholder="Digite o nome do produto"
+                  />
+                  <Input
+                    label="Quantidade"
+                    type="number"
+                    value={produto.quantidade}
+                    onChange={(e) =>
+                      atualizarProduto(index, "quantidade", e.target.value)
+                    }
+                    placeholder="1"
+                    min="1"
+                  />
+                  <Button
+                    type="button"
+                    variant="danger"
+                    onClick={() => removerProduto(index)}
+                    className="self-end"
+                  >
+                    Remover
+                  </Button>
                 </div>
-                <Input
-                  label="Quantidade"
-                  type="number"
-                  value={produto.quantidade}
-                  onChange={(e) => atualizarQuantidade(e.target.value)}
-                  placeholder="1"
-                  min="1"
-                />
-                <Input
-                  label="Preço"
-                  type="text"
-                  value={produto.preco}
-                  readOnly
-                  placeholder="Preço será preenchido automaticamente"
-                  className="bg-tegra-gray-light cursor-not-allowed"
-                />
-              </div>
+              ))}
+              <Button type="button" onClick={adicionarProduto} className="mt-2">
+                Adicionar Produto
+              </Button>
             </div>
 
             {/* Seção: Registro do Pedido */}
@@ -868,8 +929,9 @@ export default function Ocorrencia() {
                     disabled={arquivos.length >= 5}
                     onChange={(e) => {
                       const novosArquivos = Array.from(e.target.files);
-                      const totalArquivos = arquivos.length + novosArquivos.length;
-                      
+                      const totalArquivos =
+                        arquivos.length + novosArquivos.length;
+
                       if (totalArquivos > 5) {
                         showToast(
                           "⚠️ Máximo de 5 arquivos permitidos",
@@ -877,7 +939,7 @@ export default function Ocorrencia() {
                         );
                         return;
                       }
-                      
+
                       setArquivos([...arquivos, ...novosArquivos]);
                       // Limpa o input para permitir selecionar o mesmo arquivo novamente
                       e.target.value = "";
@@ -930,7 +992,6 @@ export default function Ocorrencia() {
                     ))}
                   </div>
                 )}
-
               </div>
             </div>
 
