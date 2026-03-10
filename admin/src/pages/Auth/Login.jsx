@@ -27,6 +27,11 @@ export default function Login() {
 
   // Verifica se houve logout bem-sucedido ou conta inativa ao montar o componente
   useEffect(() => {
+    // Mantém o estado visual do checkbox sincronizado com a preferência persistida.
+    const rememberMePreference =
+      localStorage.getItem(STORAGE_KEYS.REMEMBER_ME) === "true";
+    setRememberMe(rememberMePreference);
+
     // Verifica no sessionStorage (onde a flag é salva durante o logout)
     const logoutSuccess = sessionStorage.getItem(STORAGE_KEYS.LOGOUT_SUCCESS);
     const accountInactive = sessionStorage.getItem(
@@ -242,7 +247,7 @@ export default function Login() {
 
                 <div className="mt-12 pt-6 border-t border-white/25 text-center">
                   <p className="text-sm text-white/85 font-medium">
-                    © 2026 TegraCorp. Todos os direitos reservados.
+                    © 2026 TegraPharmaCorp. Todos os direitos reservados.
                   </p>
                 </div>
               </div>

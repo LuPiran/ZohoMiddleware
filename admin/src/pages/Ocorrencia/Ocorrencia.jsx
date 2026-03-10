@@ -116,7 +116,9 @@ export default function Ocorrencia() {
   const [tipoLink, setTipoLink] = useState("");
 
   // Estado para lista de produtos (múltiplos produtos)
-  const [produtos, setProdutos] = useState([]);
+  const [produtos, setProdutos] = useState([
+    { id: 1, nome: "", produtoId: "", quantidade: "1", preco: "" },
+  ]);
 
   // Estado para produtos do Zoho (opções do select)
   const [produtosZoho, setProdutosZoho] = useState([]);
@@ -219,31 +221,70 @@ export default function Ocorrencia() {
     setAwb(pedido.AWB || "");
     setDataPedido(pedido.Data || "");
     // Produtos vêm do subform Ordered_Items do Sales_Orders
+    const itensPedido = (pedido.Ordered_Items || []).map((produto, index) => ({
+      id: index + 1,
+      nome: produto.Product_Name || "",
+      produtoId: "",
+      quantidade: String(produto.Quantity || "1"),
+      preco: produto.Preco || "",
+    }));
+
     setProdutos(
-      (pedido.Ordered_Items || []).map((produto) => ({
-        nome: produto.Product_Name || "",
-        quantidade: produto.Quantity || "1",
-        preco: produto.Preco || "",
-      }))
+      itensPedido.length > 0
+        ? itensPedido
+        : [{ id: 1, nome: "", produtoId: "", quantidade: "1", preco: "" }]
     );
     setPedidosEncontrados([]); // Limpa resultados da busca
   };
 
   // Função para adicionar um novo produto
   const adicionarProduto = () => {
-    setProdutos([...produtos, { nome: "", quantidade: "1", preco: "" }]);
+    const novoId =
+      produtos.length > 0 ? Math.max(...produtos.map((p) => p.id || 0)) + 1 : 1;
+    setProdutos([
+      ...produtos,
+      { id: novoId, nome: "", produtoId: "", quantidade: "1", preco: "" },
+    ]);
   };
 
   // Função para atualizar um produto na lista
-  const atualizarProduto = (index, campo, valor) => {
-    const novosProdutos = [...produtos];
-    novosProdutos[index][campo] = valor;
-    setProdutos(novosProdutos);
+  const atualizarProduto = (id, campo, valor) => {
+    if (campo === "quantidade") {
+      const valorLimpo = valor.replace(/\D/g, "");
+
+      if (valorLimpo === "") {
+        setProdutos(
+          produtos.map((produto) =>
+            produto.id === id ? { ...produto, [campo]: "" } : produto
+          )
+        );
+        return;
+      }
+
+      const numValor = parseInt(valorLimpo);
+      valor = numValor < 1 ? "1" : valorLimpo;
+    }
+
+    setProdutos(
+      produtos.map((produto) =>
+        produto.id === id ? { ...produto, [campo]: valor } : produto
+      )
+    );
+  };
+
+  const atualizarProdutoCompleto = (id, nome, produtoId) => {
+    setProdutos(
+      produtos.map((produto) =>
+        produto.id === id ? { ...produto, nome, produtoId } : produto
+      )
+    );
   };
 
   // Função para remover um produto da lista
-  const removerProduto = (index) => {
-    setProdutos(produtos.filter((_, i) => i !== index));
+  const removerProduto = (id) => {
+    if (produtos.length > 1) {
+      setProdutos(produtos.filter((produto) => produto.id !== id));
+    }
   };
 
   // Função para formatar CEP
@@ -372,7 +413,9 @@ export default function Ocorrencia() {
     setDataValidade("");
     setArquivos([]);
     setDocumentosCompletos(false);
-    setProdutos([]);
+    setProdutos([
+      { id: 1, nome: "", produtoId: "", quantidade: "1", preco: "" },
+    ]);
   };
 
   // Função para validar campos obrigatórios
@@ -577,6 +620,14 @@ export default function Ocorrencia() {
               "linear-gradient(135deg, rgba(255, 255, 255, 0.85) 0%, rgba(248, 250, 252, 0.8) 50%, rgba(255, 255, 255, 0.85) 100%)",
           }}
         />
+        {buscandoPedido && (
+          <div className="cpf-loading-overlay" aria-live="polite">
+            <div className="cpf-loading-glass" role="status">
+              <div className="cpf-loading-spinner" />
+              <p className="cpf-loading-text">Buscando dados do pedido...</p>
+            </div>
+          </div>
+        )}
         <div className="relative z-10 max-w-5xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
           <h1 className="text-xl sm:text-2xl font-bold text-tegra-text-primary mb-4 sm:mb-6">
             Nova Ocorrência
@@ -591,22 +642,26 @@ export default function Ocorrencia() {
               <h2 className="text-base sm:text-lg font-semibold text-tegra-text-primary mb-3 sm:mb-4">
                 Buscar Pedido
               </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-                <Input
-                  label="Número do Pedido"
-                  type="text"
-                  value={numeroPedidoBusca}
-                  onChange={(e) => setNumeroPedidoBusca(e.target.value)}
-                  placeholder="Digite o número do pedido"
-                />
-                <Button
-                  type="button"
-                  onClick={handleBuscarPedido}
-                  loading={buscandoPedido}
-                  className="w-full sm:w-auto"
-                >
-                  Buscar
-                </Button>
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                <div className="flex-1">
+                  <Input
+                    label="Número do Pedido"
+                    type="text"
+                    value={numeroPedidoBusca}
+                    onChange={(e) => setNumeroPedidoBusca(e.target.value)}
+                    placeholder="Digite o número do pedido"
+                  />
+                </div>
+                <div className="flex items-end">
+                  <Button
+                    type="button"
+                    onClick={handleBuscarPedido}
+                    loading={buscandoPedido}
+                    className="w-full sm:w-auto py-2 sm:py-2.5"
+                  >
+                    Buscar
+                  </Button>
+                </div>
               </div>
               {pedidosEncontrados.length > 0 && (
                 <div className="mt-4">
@@ -823,46 +878,118 @@ export default function Ocorrencia() {
 
             {/* Seção: Produtos */}
             <div className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6">
-              <h2 className="text-base sm:text-lg font-semibold text-tegra-text-primary mb-3 sm:mb-4">
-                Produtos
-              </h2>
-              {produtos.map((produto, index) => (
-                <div
-                  key={index}
-                  className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 mb-4"
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 mb-3 sm:mb-4">
+                <h2 className="text-base sm:text-lg font-semibold text-tegra-text-primary">
+                  Produtos
+                </h2>
+                <Button
+                  type="button"
+                  variant="teal"
+                  size="sm"
+                  onClick={adicionarProduto}
+                  className="flex items-center gap-2 w-full sm:w-auto"
                 >
-                  <Input
-                    label="Nome do Produto"
-                    type="text"
-                    value={produto.nome}
-                    onChange={(e) =>
-                      atualizarProduto(index, "nome", e.target.value)
-                    }
-                    placeholder="Digite o nome do produto"
-                  />
-                  <Input
-                    label="Quantidade"
-                    type="number"
-                    value={produto.quantidade}
-                    onChange={(e) =>
-                      atualizarProduto(index, "quantidade", e.target.value)
-                    }
-                    placeholder="1"
-                    min="1"
-                  />
-                  <Button
-                    type="button"
-                    variant="danger"
-                    onClick={() => removerProduto(index)}
-                    className="self-end"
+                  <MdAdd className="text-lg sm:text-xl" />
+                  <span className="text-sm sm:text-base">Adicionar Produto</span>
+                </Button>
+              </div>
+
+              <div className="space-y-3 sm:space-y-4">
+                {produtos.map((produto, index) => (
+                  <div
+                    key={produto.id}
+                    className="grid grid-cols-1 md:grid-cols-12 gap-3 sm:gap-4 items-end border-b border-tegra-gray-medium pb-3 sm:pb-4 last:border-b-0"
                   >
-                    Remover
-                  </Button>
-                </div>
-              ))}
-              <Button type="button" onClick={adicionarProduto} className="mt-2">
-                Adicionar Produto
-              </Button>
+                    <div className="md:col-span-5">
+                      {index === 0 && (
+                        <label className="block text-sm font-medium text-tegra-text-secondary mb-2">
+                          Nome do Produto
+                        </label>
+                      )}
+                      {produto.nome && produto.produtoId ? (
+                        <div className="inline-flex items-center gap-2 px-4 py-2 bg-white border-2 border-tegra-blue rounded-full">
+                          <span className="text-tegra-blue-dark font-bold text-sm">
+                            {produto.nome}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => atualizarProdutoCompleto(produto.id, "", "")}
+                            className="text-tegra-blue-dark hover:text-tegra-error transition-colors flex items-center justify-center"
+                            aria-label="Remover produto"
+                          >
+                            <MdClose className="text-lg font-bold" />
+                          </button>
+                        </div>
+                      ) : (
+                        <Select
+                          value={produto.nome}
+                          onChange={(e) => {
+                            const valor = e.target.value;
+                            const opcaoSelecionada = e.selectedOption;
+
+                            let produtoId = null;
+
+                            if (opcaoSelecionada && opcaoSelecionada.id) {
+                              produtoId = opcaoSelecionada.id;
+                            } else if (valor) {
+                              const produtoSelecionado = produtosZoho.find(
+                                (pz) => pz.nome === valor
+                              );
+                              if (produtoSelecionado && produtoSelecionado.id) {
+                                produtoId = produtoSelecionado.id;
+                              }
+                            }
+
+                            if (valor && produtoId) {
+                              atualizarProdutoCompleto(produto.id, valor, produtoId);
+                            } else if (!valor) {
+                              atualizarProdutoCompleto(produto.id, "", "");
+                            }
+                          }}
+                          options={produtosZoho.map((produtoZoho) => {
+                            const nomeProduto = produtoZoho.nome || "";
+                            return {
+                              id: produtoZoho.id,
+                              value: nomeProduto,
+                              label: nomeProduto,
+                              nome: nomeProduto,
+                            };
+                          })}
+                          placeholder="Selecione um produto"
+                          disabled={carregandoProdutos}
+                          loading={carregandoProdutos}
+                        />
+                      )}
+                    </div>
+                    <div className="md:col-span-3">
+                      <Input
+                        label={index === 0 ? "Quantidade" : ""}
+                        type="number"
+                        value={produto.quantidade}
+                        onChange={(e) =>
+                          atualizarProduto(produto.id, "quantidade", e.target.value)
+                        }
+                        placeholder="1"
+                        min="1"
+                      />
+                    </div>
+                    <div className="md:col-span-4 flex gap-2 items-end">
+                      {produtos.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="danger"
+                          size="sm"
+                          onClick={() => removerProduto(produto.id)}
+                          className="flex items-center gap-2 w-full sm:w-auto"
+                        >
+                          <MdDelete className="text-base sm:text-lg" />
+                          <span className="text-sm sm:text-base">Remover</span>
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
 
             {/* Seção: Registro do Pedido */}

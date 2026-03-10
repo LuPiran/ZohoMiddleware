@@ -6,6 +6,24 @@ import { STORAGE_KEYS, API_ENDPOINTS } from "../utils/constants";
  */
 export const authService = {
   /**
+   * Retorna o storage que possui sessão de autenticação válida.
+   * Prioriza sessionStorage para sessão atual; cai para localStorage.
+   * @returns {Storage}
+   */
+  resolveAuthStorage() {
+    const sessionHasAuth =
+      sessionStorage.getItem(STORAGE_KEYS.IS_AUTHENTICATED) === "true" &&
+      !!sessionStorage.getItem(STORAGE_KEYS.TOKEN) &&
+      !!sessionStorage.getItem(STORAGE_KEYS.USER);
+
+    if (sessionHasAuth) {
+      return sessionStorage;
+    }
+
+    return localStorage;
+  },
+
+  /**
    * Faz login com email e senha
    * @param {string} email
    * @param {string} senha
@@ -53,21 +71,7 @@ export const authService = {
    * @returns {Storage} localStorage ou sessionStorage
    */
   getStorage() {
-    // Verifica se REMEMBER_ME existe E se há dados de autenticação válidos
-    const rememberMe =
-      localStorage.getItem(STORAGE_KEYS.REMEMBER_ME) === "true";
-    const hasLocalAuth =
-      localStorage.getItem(STORAGE_KEYS.IS_AUTHENTICATED) === "true";
-    const hasSessionAuth =
-      sessionStorage.getItem(STORAGE_KEYS.IS_AUTHENTICATED) === "true";
-
-    // Se REMEMBER_ME está ativo E há autenticação no localStorage, usa localStorage
-    if (rememberMe && hasLocalAuth) {
-      return localStorage;
-    }
-
-    // Caso contrário, usa sessionStorage (ou localStorage se não houver sessionStorage)
-    return hasSessionAuth ? sessionStorage : localStorage;
+    return this.resolveAuthStorage();
   },
 
   /**

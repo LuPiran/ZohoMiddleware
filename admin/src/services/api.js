@@ -12,9 +12,12 @@ const api = axios.create({
 
 // Função auxiliar para obter o token do storage correto
 function getToken() {
-  const rememberMe = localStorage.getItem(STORAGE_KEYS.REMEMBER_ME) === "true";
-  const storage = rememberMe ? localStorage : sessionStorage;
-  return storage.getItem(STORAGE_KEYS.TOKEN);
+  const sessionToken = sessionStorage.getItem(STORAGE_KEYS.TOKEN);
+  if (sessionToken) {
+    return sessionToken;
+  }
+
+  return localStorage.getItem(STORAGE_KEYS.TOKEN);
 }
 
 // Interceptor para adicionar token JWT em todas as requisições
