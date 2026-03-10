@@ -16,6 +16,8 @@ import { apiRateLimiter } from "./middleware/rateLimiter.js";
 const app = express();
 
 const __dirname = path.resolve();
+const shouldServeFrontend =
+  ENV.NODE_ENV === "production" && ENV.SERVE_FRONTEND === "true";
 
 // Configuração do CORS
 const allowedOrigins = [
@@ -23,7 +25,16 @@ const allowedOrigins = [
   "http://localhost:5173", // Vite dev
   "http://localhost:5174",
   "http://localhost:3000",
-];
+  "http://localhost:8081",
+  ENV.FRONTEND_URL,
+].filter(Boolean);
+
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    success: true,
+    status: "ok",
+  });
+});
 
 app.use(
   cors({
@@ -69,7 +80,7 @@ app.use("/v1/proposta", propostaRoutes);
 app.use("/v1/sales-orders", salesOrderRoutes);
 
 //??Prepare a nossa aplicação para implementação
-if (ENV.NODE_ENV === "production") {
+if (shouldServeFrontend) {
   app.use(express.static(path.join(__dirname, "../admin/dist")));
 
   // Rota catch-all para servir o frontend em produção

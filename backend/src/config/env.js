@@ -5,6 +5,8 @@ dotenv.config();
 export const ENV = {
   NODE_ENV: process.env.NODE_ENV,
   PORT: process.env.PORT,
+  FRONTEND_URL: process.env.FRONTEND_URL,
+  SERVE_FRONTEND: process.env.SERVE_FRONTEND,
   ZOHO_CLIENT_ID: process.env.ZOHO_CLIENT_ID,
   ZOHO_CLIENT_SECRET: process.env.ZOHO_CLIENT_SECRET,
   ZOHO_REFRESH_TOKEN: process.env.ZOHO_REFRESH_TOKEN,
