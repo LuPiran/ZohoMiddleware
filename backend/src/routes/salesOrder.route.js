@@ -132,7 +132,10 @@ router.get("/:numeroPedido", async (req, res) => {
     }
 
     // Se encontrou o pedido, busca também os dados completos do cliente em Contacts
+    // e garante que o subform Ordered_Items esteja carregado
     let pedidoComContato = pedidoEncontrado;
+
+    // 1) Busca dados do contato relacionado (para preencher CPF, email, etc.)
     try {
       const contactRef = pedidoEncontrado.Contact_Name;
       const contactId =
@@ -160,7 +163,7 @@ router.get("/:numeroPedido", async (req, res) => {
 
         if (contato) {
           pedidoComContato = {
-            ...pedidoEncontrado,
+            ...pedidoComContato,
             // Dados achatados para o front preencher o formulário
             CPF: contato.CPF || pedidoEncontrado.CPF,
             E_mail: contato.Email || pedidoEncontrado.E_mail,
@@ -176,6 +179,84 @@ router.get("/:numeroPedido", async (req, res) => {
         error.message
       );
       // Continua mesmo assim com os dados do pedido
+    }
+
+    // 2) Garante que o subform de itens esteja presente (Product_Details no Zoho)
+    try {
+      const pedidoId = pedidoEncontrado.id;
+      if (pedidoId) {
+        console.log(
+          "[SALES ORDER API] Buscando detalhes do pedido (Ordered_Items). ID:",
+          pedidoId
+        );
+
+        // Busca o pedido completo para garantir que o subform venha na resposta
+        // (algumas vezes o Zoho não retorna subform quando usamos o parâmetro fields)
+        const detalhesEndpoint = `/${moduleName}/${pedidoId}`;
+        const detalhesResponse = await chamarZohoApi("GET", detalhesEndpoint);
+        const detalhesPedido =
+          detalhesResponse.data && detalhesResponse.data.length > 0
+            ? detalhesResponse.data[0]
+            : null;
+
+        if (detalhesPedido) {
+          // Caso clássico: já veio um subform chamado Ordered_Items
+          if (Array.isArray(detalhesPedido.Ordered_Items)) {
+            pedidoComContato = {
+              ...pedidoComContato,
+              Ordered_Items: detalhesPedido.Ordered_Items,
+            };
+          }
+          // Caso real do seu Zoho: subform chama Product_Details
+          else if (Array.isArray(detalhesPedido.Product_Details)) {
+            const orderedItemsFromProductDetails =
+              detalhesPedido.Product_Details.map((item) => ({
+                // Mantém a mesma estrutura esperada pelo frontend:
+                // Product_Name como lookup do módulo Products (objeto com id/name)
+                Product_Name: item.product || null,
+                // Quantity como número/inteiro
+                Quantity: item.quantity ?? 1,
+              }));
+
+            pedidoComContato = {
+              ...pedidoComContato,
+              Ordered_Items: orderedItemsFromProductDetails,
+            };
+          } else {
+            console.log(
+              "[SALES ORDER API] Pedido não retornou Ordered_Items nem Product_Details no detalhe. Detalhes brutos do pedido:",
+              JSON.stringify(detalhesPedido, null, 2)
+            );
+          }
+        }
+      }
+    } catch (error) {
+      console.log(
+        "[SALES ORDER API] Falha ao buscar Ordered_Items do pedido:",
+        error.message
+      );
+      // Continua mesmo assim com os dados básicos do pedido
+    }
+
+    // Log detalhado do pedido encontrado (incluindo subform Ordered_Items)
+    try {
+      console.log(
+        "[SALES ORDER API] Pedido encontrado (normalizado) >>",
+        JSON.stringify(
+          {
+            id: pedidoComContato.id,
+            numeroPedido: pedidoComContato.N_mero_Pedido,
+            orderedItems: pedidoComContato.Ordered_Items,
+          },
+          null,
+          2
+        )
+      );
+    } catch (logError) {
+      console.log(
+        "[SALES ORDER API] Falha ao fazer log detalhado do pedido:",
+        logError.message
+      );
     }
 
     return res.json({

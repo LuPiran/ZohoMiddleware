@@ -115,7 +115,9 @@ export default function Recompra() {
   const [solicitarLinkPagamento, setSolicitarLinkPagamento] = useState("");
   const [tipoLink, setTipoLink] = useState("");
 
-  // Estado para busca de cliente por CPF
+  // Estado para busca de cliente
+  const [tipoBuscaCliente, setTipoBuscaCliente] = useState("nome"); // 'nome' | 'cpf'
+  const [nomeBusca, setNomeBusca] = useState("");
   const [cpfBusca, setCpfBusca] = useState("");
   const [buscandoCliente, setBuscandoCliente] = useState(false);
   const [clientesEncontrados, setClientesEncontrados] = useState([]);
@@ -236,38 +238,57 @@ export default function Recompra() {
     );
   };
 
-  // Função para buscar cliente por CPF
+  // Função para buscar cliente (por nome ou CPF)
   const handleBuscarCliente = async (e) => {
     e.preventDefault();
-    const cpfLimpo = cpfBusca.replace(/\D/g, "");
-
-    if (!cpfLimpo || cpfLimpo.length !== 11) {
-      showToast("⚠️ Digite um CPF válido com 11 dígitos", "warning");
-      return;
-    }
-
-    setBuscandoCliente(true);
     setClientesEncontrados([]);
 
     try {
-      const response = await compraService.buscarClientePorCpf(cpfBusca);
+      setBuscandoCliente(true);
 
-      if (response.success && response.data) {
-        // Se encontrou o cliente, preenche automaticamente e mostra na lista
-        const cliente = response.data;
-        // Garante que o CPF está presente (pode vir de diferentes campos)
-        if (!cliente.CPF && cpfLimpo) {
-          cliente.CPF = cpfLimpo;
+      if (tipoBuscaCliente === "nome") {
+        const nome = nomeBusca.trim();
+
+        if (!nome || nome.length < 3) {
+          showToast(
+            "⚠️ Digite pelo menos 3 caracteres do nome do cliente",
+            "warning"
+          );
+          return;
         }
-        setClientesEncontrados([cliente]);
+
+        const response = await compraService.buscarClientePorNome(nome);
+
+        if (response.success && response.data) {
+          const cliente = response.data;
+          setClientesEncontrados([cliente]);
+        } else {
+          showToast("❌ Cliente não encontrado", "error");
+        }
       } else {
-        showToast("❌ Cliente não encontrado", "error");
-        setClientesEncontrados([]);
+        const cpfLimpo = cpfBusca.replace(/\D/g, "");
+
+        if (!cpfLimpo || cpfLimpo.length !== 11) {
+          showToast("⚠️ Digite um CPF válido com 11 dígitos", "warning");
+          return;
+        }
+
+        const response = await compraService.buscarClientePorCpf(cpfBusca);
+
+        if (response.success && response.data) {
+          const cliente = response.data;
+          // garante que o CPF esteja preenchido no cliente para exibição
+          if (!cliente.CPF && cpfLimpo) {
+            cliente.CPF = cpfLimpo;
+          }
+          setClientesEncontrados([cliente]);
+        } else {
+          showToast("❌ Cliente não encontrado", "error");
+        }
       }
     } catch (error) {
       console.error("Erro ao buscar cliente:", error);
       showToast("❌ Erro ao buscar cliente. Tente novamente.", "error");
-      setClientesEncontrados([]);
     } finally {
       setBuscandoCliente(false);
     }
@@ -472,6 +493,8 @@ export default function Recompra() {
     setParceiroSelecionado("");
     setProdutos([{ id: 1, nome: "", produtoId: "", quantidade: "1" }]);
     setTipoSolicitacao("Recompra"); // Reseta para o valor padrão
+    setTipoBuscaCliente("nome");
+    setNomeBusca("");
     setCpfBusca("");
     setClientesEncontrados([]);
   };
@@ -750,7 +773,11 @@ export default function Recompra() {
           <div className="cpf-loading-overlay" aria-live="polite">
             <div className="cpf-loading-glass" role="status">
               <div className="cpf-loading-spinner" />
-              <p className="cpf-loading-text">Buscando dados pelo CPF...</p>
+              <p className="cpf-loading-text">
+                {tipoBuscaCliente === "nome"
+                  ? "Buscando dados pelo nome do cliente..."
+                  : "Buscando dados pelo CPF..."}
+              </p>
             </div>
           </div>
         )}
@@ -763,36 +790,83 @@ export default function Recompra() {
             className="space-y-4 sm:space-y-6 md:space-y-8"
             onSubmit={handleSubmit}
           >
-            {/* Seção: Buscar Cliente por CPF */}
+            {/* Seção: Buscar Cliente */}
             <div className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6">
               <h2 className="text-base sm:text-lg font-semibold text-tegra-text-primary mb-3 sm:mb-4">
-                Buscar cliente por CPF
+                Buscar cliente
               </h2>
+
+              {/* Opções de tipo de busca */}
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-6 mb-4">
+                <Checkbox
+                  id="busca-por-nome"
+                  label="Busca por Nome"
+                  checked={tipoBuscaCliente === "nome"}
+                  onChange={() => {
+                    setTipoBuscaCliente("nome");
+                    setNomeBusca("");
+                    setCpfBusca("");
+                    setClientesEncontrados([]);
+                  }}
+                />
+                <Checkbox
+                  id="busca-por-cpf"
+                  label="Busca por CPF"
+                  checked={tipoBuscaCliente === "cpf"}
+                  onChange={() => {
+                    setTipoBuscaCliente("cpf");
+                    setNomeBusca("");
+                    setCpfBusca("");
+                    setClientesEncontrados([]);
+                  }}
+                />
+              </div>
               <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                 <div className="flex-1">
-                  <Input
-                    label="CPF"
-                    type="text"
-                    value={cpfBusca}
-                    onChange={(e) => {
-                      const valor = e.target.value.replace(/\D/g, "");
-                      if (valor.length <= 11) {
-                        setCpfBusca(formatarCpf(valor));
-                      }
-                      // Limpa resultados quando o CPF muda
-                      setClientesEncontrados([]);
-                    }}
-                    placeholder="000.000.000-00"
-                    maxLength={14}
-                    icon={<MdContacts className="text-xl" />}
-                    iconClear={<MdClose className="text-xl" />}
-                    showIconClear={cpfBusca.replace(/\D/g, "").length === 11}
-                    onClearClick={(e) => {
-                      e.preventDefault();
-                      setCpfBusca("");
-                      setClientesEncontrados([]);
-                    }}
-                  />
+                  {tipoBuscaCliente === "nome" ? (
+                    <Input
+                      label="Nome do Cliente"
+                      type="text"
+                      value={nomeBusca}
+                      onChange={(e) => {
+                        const valor = e.target.value;
+                        setNomeBusca(valor);
+                        setClientesEncontrados([]);
+                      }}
+                      placeholder="Digite o nome do paciente"
+                      icon={<MdContacts className="text-xl" />}
+                      iconClear={<MdClose className="text-xl" />}
+                      showIconClear={nomeBusca.trim().length > 0}
+                      onClearClick={(e) => {
+                        e.preventDefault();
+                        setNomeBusca("");
+                        setClientesEncontrados([]);
+                      }}
+                    />
+                  ) : (
+                    <Input
+                      label="CPF"
+                      type="text"
+                      value={cpfBusca}
+                      onChange={(e) => {
+                        const valor = e.target.value.replace(/\D/g, "");
+                        if (valor.length <= 11) {
+                          setCpfBusca(formatarCpf(valor));
+                        }
+                        setClientesEncontrados([]);
+                      }}
+                      placeholder="000.000.000-00"
+                      maxLength={14}
+                      icon={<MdContacts className="text-xl" />}
+                      iconClear={<MdClose className="text-xl" />}
+                      showIconClear={cpfBusca.replace(/\D/g, "").length > 0}
+                      onClearClick={(e) => {
+                        e.preventDefault();
+                        setCpfBusca("");
+                        setClientesEncontrados([]);
+                      }}
+                    />
+                  )}
                 </div>
                 <div className="flex items-end">
                   <Button
@@ -800,7 +874,9 @@ export default function Recompra() {
                     onClick={handleBuscarCliente}
                     disabled={
                       buscandoCliente ||
-                      cpfBusca.replace(/\D/g, "").length !== 11
+                      (tipoBuscaCliente === "nome"
+                        ? nomeBusca.trim().length < 3
+                        : cpfBusca.replace(/\D/g, "").length !== 11)
                     }
                     loading={buscandoCliente}
                     className="w-full sm:w-auto py-2 sm:py-2.5"
@@ -814,12 +890,13 @@ export default function Recompra() {
               {clientesEncontrados.length > 0 && (
                 <div className="mt-2 space-y-2">
                   {clientesEncontrados.map((cliente, index) => {
-                    // Tenta encontrar o CPF em diferentes campos possíveis
-                    const cpfExibido =
-                      cliente.CPF ||
-                      cliente.cpf ||
-                      cpfBusca.replace(/\D/g, "") ||
-                      "";
+                    const nomeCompleto =
+                      cliente.Nome_Cliente ||
+                      `${cliente.First_Name || ""} ${
+                        cliente.Last_Name || ""
+                      }`.trim();
+                    const cpfExibido = cliente.CPF || cliente.cpf || "";
+
                     return (
                       <div
                         key={cliente.id || index}
@@ -827,10 +904,13 @@ export default function Recompra() {
                         className="bg-white border-2 border-tegra-blue-dark rounded-lg p-3 cursor-pointer hover:bg-tegra-blue-light transition-colors group"
                       >
                         <div className="text-tegra-blue-dark font-bold group-hover:text-white transition-colors">
-                          {cpfExibido
-                            ? formatarCpf(cpfExibido)
-                            : formatarCpf(cpfBusca)}
+                          {nomeCompleto || "Nome não informado"}
                         </div>
+                        {cpfExibido && (
+                          <div className="text-tegra-text-secondary text-sm group-hover:text-white transition-colors">
+                            CPF: {formatarCpf(cpfExibido)}
+                          </div>
+                        )}
                       </div>
                     );
                   })}

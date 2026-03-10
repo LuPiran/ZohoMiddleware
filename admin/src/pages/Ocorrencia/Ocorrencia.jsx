@@ -220,14 +220,41 @@ export default function Ocorrencia() {
     setNumeroPedido(pedido.N_mero_Pedido || "");
     setAwb(pedido.AWB || "");
     setDataPedido(pedido.Data || "");
+
     // Produtos vêm do subform Ordered_Items do Sales_Orders
-    const itensPedido = (pedido.Ordered_Items || []).map((produto, index) => ({
-      id: index + 1,
-      nome: produto.Product_Name || "",
-      produtoId: "",
-      quantidade: String(produto.Quantity || "1"),
-      preco: produto.Preco || "",
-    }));
+    // Product_Name no Zoho é um lookup para o módulo Products e retorna { id, name }
+    const itensPedido = (pedido.Ordered_Items || []).map((item, index) => {
+      const productRef = item.Product_Name || {};
+
+      // Tenta extrair o id e o nome diretamente do lookup
+      const produtoIdZoho =
+        typeof productRef === "object" && productRef !== null
+          ? productRef.id || ""
+          : "";
+
+      const nomeProdutoZoho =
+        typeof productRef === "object" && productRef !== null
+          ? productRef.name ||
+            productRef.nome ||
+            productRef.Product_Name ||
+            ""
+          : String(productRef || "");
+
+      // Tenta encontrar o produto nas opções já carregadas do Zoho pelo id
+      const produtoCatalogo =
+        produtosZoho.find((p) => p.id === produtoIdZoho) || null;
+
+      const nomeFinal = produtoCatalogo?.nome || nomeProdutoZoho || "";
+      const produtoIdFinal = produtoCatalogo?.id || produtoIdZoho || "";
+
+      return {
+        id: index + 1,
+        nome: nomeFinal,
+        produtoId: produtoIdFinal,
+        quantidade: String(item.Quantity || "1"),
+        preco: item.Preco || "",
+      };
+    });
 
     setProdutos(
       itensPedido.length > 0
