@@ -1,19 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { authService } from "../../services/auth";
 import { useLoading } from "../../contexts/LoadingContext";
-import { WelcomePopup } from "../../components/feedback/auth";
 import MainLayout from "../../components/layout/MainLayout";
 
-import { ROUTES, STORAGE_KEYS } from "../../utils/constants";
+import { ROUTES } from "../../utils/constants";
 
 export default function Dashboard() {
 
   const navigate = useNavigate();
   const user = authService.getUser();
   const { setLoading } = useLoading();
-  const [showWelcome, setShowWelcome] = useState(false);
-
   // Atalhos principais do sistema
   const shortcutCards = [
     {
@@ -49,16 +46,6 @@ export default function Dashboard() {
     }
     setLoading(false);
   }, [navigate, setLoading]);
-
-  useEffect(() => {
-    const loginSuccess = sessionStorage.getItem(STORAGE_KEYS.LOGIN_SUCCESS);
-    if (loginSuccess === "true") {
-      const timer = setTimeout(() => {
-        setShowWelcome(true);
-      }, 300);
-      return () => clearTimeout(timer);
-    }
-  }, []);
 
   const nomeUsuario =
     user?.nome || user?.Nome || user?.Name || user?.nome_completo || user?.Nome_Completo || "Admin";
@@ -103,15 +90,6 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
-      {showWelcome && (
-        <WelcomePopup
-          userName={nomeUsuario}
-          onClose={() => {
-            sessionStorage.removeItem(STORAGE_KEYS.LOGIN_SUCCESS);
-            setShowWelcome(false);
-          }}
-        />
-      )}
     </MainLayout>
   );
 }

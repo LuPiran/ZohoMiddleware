@@ -13,6 +13,8 @@ import { useToast } from "../../components/feedback/auth/ToastContainer";
 const logoMobile = "/logoCorp.png";
 
 export default function Login() {
+  const LOGIN_PRE_REDIRECT_DELAY_MS = 120;
+  const LOGIN_TRANSITION_MS = 900;
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -92,8 +94,9 @@ export default function Login() {
         // Credenciais corretas - salva usuário e token com preferência de "Manter conectado"
         authService.saveUser(response.usuario, response.token, rememberMe);
 
-        // Marca login concluído para exibir popup no dashboard
+        // Exibe popup de novidades uma vez após o login
         sessionStorage.setItem(STORAGE_KEYS.LOGIN_SUCCESS, "true");
+
         // Flag para pular a tela de loading na transição de rota
         sessionStorage.setItem("SKIP_ROUTE_LOADING", "true");
 
@@ -104,8 +107,8 @@ export default function Login() {
           });
           setTimeout(() => {
             navigate(ROUTES.DASHBOARD);
-          }, 2000);
-        }, 300);
+          }, LOGIN_TRANSITION_MS);
+        }, LOGIN_PRE_REDIRECT_DELAY_MS);
       } else {
         // Credenciais incorretas - volta para tela de login
         setLoading(false);

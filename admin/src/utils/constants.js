@@ -48,7 +48,10 @@ export const STORAGE_KEYS = {
   LOGOUT_SUCCESS: "logoutSuccess",
   ACCOUNT_INACTIVE: "accountInactive",
   LOGIN_SUCCESS: "loginSuccess",
+  PLATFORM_UPDATE_SEEN: "platformUpdateSeen",
 };
+
+export const PLATFORM_UPDATE_VERSION = "2026-03-11";
 
 // Parceiro: usuários que veem a seção e opções por usuário
 export const PARCEIRO = {
@@ -76,6 +79,18 @@ export function getNomeUsuario(user) {
     user?.Nome_Completo ||
     ""
   ).trim();
+}
+
+export function getPlatformUpdateStorageKey(user) {
+  const userIdentifier =
+    user?.id ||
+    user?.ID ||
+    user?.email ||
+    user?.Email ||
+    getNomeUsuario(user) ||
+    "global";
+
+  return `${STORAGE_KEYS.PLATFORM_UPDATE_SEEN}:${PLATFORM_UPDATE_VERSION}:${String(userIdentifier).trim()}`;
 }
 
 /**
