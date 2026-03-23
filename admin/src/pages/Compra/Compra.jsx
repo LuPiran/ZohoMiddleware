@@ -391,9 +391,8 @@ export default function Compra() {
     if (!sobrenomePaciente.trim()) camposVazios.push("Sobrenome");
     if (!celularPaciente.trim()) camposVazios.push("Celular");
 
-    // Valida campos do endereço (exceto complemento)
+    // Valida campos do endereço (número e complemento opcionais)
     if (!rua.trim()) camposVazios.push("Rua");
-    if (!numero.trim()) camposVazios.push("Número");
     if (!bairro.trim()) camposVazios.push("Bairro");
     if (!cidade.trim()) camposVazios.push("Cidade");
     if (!estado.trim()) camposVazios.push("Estado");

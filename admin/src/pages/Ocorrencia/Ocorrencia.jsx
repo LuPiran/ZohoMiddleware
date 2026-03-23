@@ -572,11 +572,13 @@ export default function Ocorrencia() {
           protocolo: response.protocolo,
           tipoSolicitacao: "Ocorrência",
           consultorTegra: nomeConsultor,
+          assunto: motivoOcorrencia,
           nomePaciente,
           sobrenomePaciente,
           cpfPaciente,
           emailPaciente,
           celularPaciente,
+          telefonePaciente,
           dataNascimento: "", // Ocorrência não tem data de nascimento
           rua: "", // Ocorrência não tem dados de endereço detalhados
           numero: "",
@@ -589,6 +591,12 @@ export default function Ocorrencia() {
             quantidade: produto.quantidade || 1,
             valor: produto.preco || 0,
           })),
+          numeroPedido,
+          awb,
+          dataPedido,
+          numeroLote,
+          dataValidade,
+          observacoes: observacao || observacaoMotivo,
           dataCriacao,
           totalCompra: produtos.reduce(
             (total, produto) =>
@@ -601,17 +609,23 @@ export default function Ocorrencia() {
         // Oculta splash screen antes de navegar
         setShowSplash(false);
 
-        // Navega para a página de agradecimento com os dados necessários
-        navigate(ROUTES.AGRADECIMENTO, {
-          state: {
-            tipoSolicitacao: "Ocorrência",
-            nomePaciente,
-            sobrenomePaciente,
-            dataCriacao,
-            origem: "ocorrencia",
-            dadosComprovante,
-          },
-        });
+        const agradecimentoState = {
+          tipoSolicitacao: "Ocorrência",
+          nomePaciente,
+          sobrenomePaciente,
+          dataCriacao,
+          origem: "ocorrencia",
+          dadosComprovante,
+        };
+
+        // Persiste o payload para funcionar mesmo com recarga completa da rota.
+        sessionStorage.setItem(
+          "agradecimentoState",
+          JSON.stringify(agradecimentoState),
+        );
+
+        // Força reload para garantir versão mais recente da tela imediatamente após salvar.
+        window.location.href = `${ROUTES.AGRADECIMENTO}?t=${Date.now()}`;
       }
     } catch (error) {
       console.error("Erro ao criar ocorrência:", error);
