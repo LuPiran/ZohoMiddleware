@@ -21,6 +21,165 @@ const MESES_ABREV = [
   "Dez",
 ];
 
+const CAMPOS_IGNORADOS = new Set([
+  "arquivos",
+  "documentos",
+  "documento",
+  "attachment",
+  "attachments",
+]);
+
+const CHAVE_BUSCA_REGEX = /busca|buscar|pesquisa|search/i;
+
+const temValor = (valor) => {
+  if (valor === null || valor === undefined) return false;
+  if (typeof valor === "string") return valor.trim() !== "";
+  if (Array.isArray(valor)) return valor.some((item) => temValor(item));
+  if (typeof valor === "object") {
+    return Object.values(valor).some((item) => temValor(item));
+  }
+  return true;
+};
+
+const formatarRotuloCampo = (chave) => {
+  const texto = String(chave)
+    .replace(/_/g, " ")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .trim();
+
+  return texto.charAt(0).toUpperCase() + texto.slice(1);
+};
+
+const formatarValorCampo = (valor) => {
+  if (!temValor(valor)) return null;
+
+  if (typeof valor === "boolean") {
+    return valor ? "Sim" : "Não";
+  }
+
+  if (Array.isArray(valor)) {
+    const linhas = valor
+      .map((item, index) => {
+        if (!temValor(item)) return null;
+
+        if (typeof item === "object" && !Array.isArray(item)) {
+          const pares = Object.entries(item)
+            .filter(([, valorInterno]) => temValor(valorInterno))
+            .map(
+              ([chaveInterna, valorInterno]) =>
+                `${formatarRotuloCampo(chaveInterna)}: ${String(valorInterno).trim()}`,
+            );
+
+          return pares.length > 0 ? `${index + 1}. ${pares.join(" | ")}` : null;
+        }
+
+        return `${index + 1}. ${String(item).trim()}`;
+      })
+      .filter(Boolean);
+
+    return linhas.length > 0 ? linhas.join("\n") : null;
+  }
+
+  if (typeof valor === "object") {
+    const pares = Object.entries(valor)
+      .filter(([, valorInterno]) => temValor(valorInterno))
+      .map(
+        ([chaveInterna, valorInterno]) =>
+          `${formatarRotuloCampo(chaveInterna)}: ${String(valorInterno).trim()}`,
+      );
+
+    return pares.length > 0 ? pares.join(" | ") : null;
+  }
+
+  return String(valor).trim();
+};
+
+const extrairCamposPreenchidos = (dados) => {
+  if (!dados || typeof dados !== "object") return [];
+
+  return Object.entries(dados)
+    .filter(([chave, valor]) => {
+      const chaveNormalizada = String(chave || "").toLowerCase();
+      if (CAMPOS_IGNORADOS.has(chaveNormalizada)) return false;
+      if (CHAVE_BUSCA_REGEX.test(chaveNormalizada)) return false;
+      return temValor(valor);
+    })
+    .map(([chave, valor]) => ({
+      chave,
+      label: formatarRotuloCampo(chave),
+      valor: formatarValorCampo(valor),
+    }))
+    .filter((item) => temValor(item.valor));
+};
+
+const CONFIG_SECOES = [
+  {
+    id: "geral",
+    titulo: "Informacoes gerais",
+    regex: /(protocolo|tipoSolicitacao|consultor|dataCriacao|origem)/i,
+  },
+  {
+    id: "paciente",
+    titulo: "Paciente",
+    regex: /(paciente|cpf|rg|nascimento|celular|telefone|email)/i,
+  },
+  {
+    id: "representante",
+    titulo: "Representante",
+    regex: /(representante)/i,
+  },
+  {
+    id: "medico",
+    titulo: "Medico",
+    regex: /(medico|crm|especialidade|ufCrm)/i,
+  },
+  {
+    id: "endereco",
+    titulo: "Endereco",
+    regex: /(rua|bairro|cidade|estado|cep|pais|numero|complemento)/i,
+  },
+  {
+    id: "produtos",
+    titulo: "Produtos",
+    regex: /(produto|totalCompra|numeroPedido|lote|awb|validade|pedido)/i,
+  },
+  {
+    id: "pagamento",
+    titulo: "Pagamento e negociacao",
+    regex: /(pagamento|termos|condicoes|negociacao|link|tipoLink)/i,
+  },
+];
+
+const agruparCamposPorSecao = (campos) => {
+  const secoesMap = new Map();
+
+  for (const secao of CONFIG_SECOES) {
+    secoesMap.set(secao.id, {
+      id: secao.id,
+      titulo: secao.titulo,
+      campos: [],
+    });
+  }
+
+  secoesMap.set("outros", {
+    id: "outros",
+    titulo: "Outros dados",
+    campos: [],
+  });
+
+  for (const campo of campos) {
+    const secaoEncontrada = CONFIG_SECOES.find((secao) =>
+      secao.regex.test(String(campo.chave || "")),
+    );
+    const secaoId = secaoEncontrada?.id || "outros";
+    secoesMap.get(secaoId)?.campos.push(campo);
+  }
+
+  return Array.from(secoesMap.values()).filter(
+    (secao) => secao.campos.length > 0,
+  );
+};
+
 export default function Agradecimento() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -172,135 +331,8 @@ export default function Agradecimento() {
     return texto || " ";
   };
 
-  const ehOcorrencia = String(tipoSolicitacaoTela || "")
-    .toLowerCase()
-    .includes("ocorr");
-
-  const nomeProdutos = (dadosTela?.produtos || [])
-    .map((produto) => produto?.nome)
-    .filter(Boolean)
-    .join(" | ");
-
-  const quantidadeProdutos = (dadosTela?.produtos || [])
-    .map((produto) => produto?.quantidade)
-    .filter((valor) => valor !== undefined && valor !== null && String(valor).trim() !== "")
-    .join(" | ");
-
-  const dadosOcorrencia = [
-    {
-      label: "Consultor Tegra",
-      valor: formatarValor(dadosTela?.consultorTegra),
-    },
-    {
-      label: "Assunto",
-      valor: formatarValor(dadosTela?.assunto),
-    },
-    {
-      label: "Primeiro - paciente",
-      valor: formatarValor(dadosTela?.nomePaciente),
-    },
-    {
-      label: "Sobrenome - paciente",
-      valor: formatarValor(dadosTela?.sobrenomePaciente),
-    },
-    {
-      label: "Celular do paciente",
-      valor: formatarValor(dadosTela?.celularPaciente),
-    },
-    {
-      label: "Telefone do paciente",
-      valor: formatarValor(dadosTela?.telefonePaciente),
-    },
-    {
-      label: "Nome produto",
-      valor: formatarValor(nomeProdutos),
-    },
-    {
-      label: "Quantidade produto",
-      valor: formatarValor(quantidadeProdutos),
-    },
-    {
-      label: "Número do pedido",
-      valor: formatarValor(dadosTela?.numeroPedido),
-    },
-    {
-      label: "AWB",
-      valor: formatarValor(dadosTela?.awb),
-    },
-    {
-      label: "Data do pedido",
-      valor: formatarValor(dadosTela?.dataPedido),
-    },
-    {
-      label: "Número de lote",
-      valor: formatarValor(dadosTela?.numeroLote),
-    },
-    {
-      label: "Data validade",
-      valor: formatarValor(dadosTela?.dataValidade),
-    },
-    {
-      label: "Observações",
-      valor: formatarValor(dadosTela?.observacoes),
-    },
-  ];
-
-  const enderecoLinha = [
-    formatarValor(dadosTela?.rua),
-    formatarValor(dadosTela?.numero),
-    formatarValor(dadosTela?.bairro),
-    formatarValor(dadosTela?.cidade),
-    formatarValor(dadosTela?.estado),
-    formatarValor(dadosTela?.cep),
-    formatarValor(dadosTela?.pais),
-  ]
-    .filter((valor) => valor && valor !== " ")
-    .join(" - ");
-
-  const dadosGerais = [
-    {
-      label: "Consultor Tegra",
-      valor: formatarValor(dadosTela?.consultorTegra),
-    },
-    {
-      label: "Primeiro - paciente",
-      valor: formatarValor(nomePacienteTela),
-    },
-    {
-      label: "Sobrenome - paciente",
-      valor: formatarValor(sobrenomePacienteTela),
-    },
-    {
-      label: "Celular do paciente",
-      valor: formatarValor(dadosTela?.celularPaciente),
-    },
-    {
-      label: "Email do paciente",
-      valor: formatarValor(dadosTela?.emailPaciente),
-    },
-    {
-      label: "Endereco",
-      valor: formatarValor(enderecoLinha),
-    },
-    {
-      label: "Nome produto",
-      valor: formatarValor(nomeProdutos),
-    },
-    {
-      label: "Quantidade produto",
-      valor: formatarValor(quantidadeProdutos),
-    },
-    {
-      label: "Total",
-      valor:
-        typeof dadosTela?.totalCompra === "number"
-          ? `R$ ${dadosTela.totalCompra.toFixed(2)}`
-          : formatarValor(dadosTela?.totalCompra),
-    },
-  ];
-
-  const dadosExibicao = ehOcorrencia ? dadosOcorrencia : dadosGerais;
-  const tituloDados = ehOcorrencia ? "Dados da ocorrência" : "Dados da solicitação";
+  const dadosExibicao = extrairCamposPreenchidos(dadosTela);
+  const secoesDados = agruparCamposPorSecao(dadosExibicao);
 
   // Função para voltar à página de origem
   const handleVoltar = () => {
@@ -318,14 +350,14 @@ export default function Agradecimento() {
   };
 
   // Função para baixar o comprovante em PDF
-  const handleBaixarComprovante = () => {
+  const handleBaixarComprovante = async () => {
     if (!dadosTela) {
       console.warn("Dados do comprovante não disponíveis");
       return;
     }
 
     try {
-      gerarComprovantePDF(dadosTela);
+      await gerarComprovantePDF(dadosTela);
     } catch (error) {
       console.error("Erro ao gerar comprovante:", error);
     }
@@ -338,8 +370,8 @@ export default function Agradecimento() {
   return (
     <MainLayout>
       <div className="min-h-screen flex items-center justify-center px-4 py-6 sm:py-10">
-        <div className="max-w-4xl w-full bg-tegra-bg-primary rounded-2xl shadow-lg border border-tegra-gray-light overflow-hidden">
-          <div className="relative px-6 sm:px-8 md:px-10 py-6 sm:py-8 bg-gradient-to-r from-tegra-bg-secondary to-tegra-bg-primary border-b border-tegra-gray-light">
+        <div className="max-w-5xl w-full bg-tegra-bg-primary rounded-2xl shadow-xl border border-tegra-gray-light overflow-hidden">
+          <div className="relative px-6 sm:px-8 md:px-10 py-6 sm:py-8 bg-gradient-to-r from-tegra-bg-secondary via-tegra-bg-primary to-tegra-bg-secondary border-b border-tegra-gray-light">
             <div className="absolute -top-8 -right-8 w-24 h-24 rounded-full bg-tegra-blue-dark/10" />
             <div className="absolute -bottom-10 -left-8 w-20 h-20 rounded-full bg-tegra-blue-dark/10" />
 
@@ -370,35 +402,59 @@ export default function Agradecimento() {
           </div>
 
           <div className="px-6 sm:px-8 md:px-10 py-6 sm:py-8">
-            <div className="bg-tegra-bg-secondary rounded-xl border border-tegra-gray-light p-4 sm:p-6 mb-6 sm:mb-8">
-              <h2 className="text-base sm:text-lg font-semibold text-tegra-text-primary mb-4 sm:mb-5">
-                {tituloDados}
-              </h2>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-                {dadosExibicao.map((item) => {
-                  const valorNormalizado = String(item.valor || "").trim();
-                  const valorFinal = valorNormalizado || "Não informado";
-
-                  return (
-                    <div
-                      key={item.label}
-                      className="rounded-xl border border-tegra-gray-light bg-tegra-bg-primary p-3 sm:p-4 shadow-sm"
-                    >
-                      <p className="text-xs sm:text-sm font-semibold uppercase tracking-wide text-tegra-text-secondary mb-1.5">
-                        {item.label}
-                      </p>
-                      <p className={`text-sm sm:text-base break-words whitespace-pre-wrap ${
-                        valorNormalizado
-                          ? "text-tegra-text-primary font-medium"
-                          : "text-tegra-text-secondary italic"
-                      }`}>
-                        {valorFinal}
-                      </p>
-                    </div>
-                  );
-                })}
+            <div className="mb-5 grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
+              <div className="rounded-xl border border-tegra-gray-light bg-tegra-bg-secondary p-3 sm:p-4">
+                <p className="text-[11px] uppercase tracking-wide text-tegra-text-secondary font-semibold">Protocolo</p>
+                <p className="text-sm sm:text-base font-bold text-tegra-text-primary mt-1 break-all">{formatarValor(dadosTela?.protocolo)}</p>
               </div>
+              <div className="rounded-xl border border-tegra-gray-light bg-tegra-bg-secondary p-3 sm:p-4">
+                <p className="text-[11px] uppercase tracking-wide text-tegra-text-secondary font-semibold">Paciente</p>
+                <p className="text-sm sm:text-base font-bold text-tegra-text-primary mt-1">
+                  {[nomePacienteTela, sobrenomePacienteTela].filter(Boolean).join(" ")}
+                </p>
+              </div>
+              <div className="rounded-xl border border-tegra-gray-light bg-tegra-bg-secondary p-3 sm:p-4">
+                <p className="text-[11px] uppercase tracking-wide text-tegra-text-secondary font-semibold">Tipo</p>
+                <p className="text-sm sm:text-base font-bold text-tegra-text-primary mt-1">{tipoSolicitacaoTela}</p>
+              </div>
+            </div>
+
+            <div className="space-y-4 sm:space-y-5 mb-6 sm:mb-8">
+              {secoesDados.map((secao) => (
+                <div
+                  key={secao.id}
+                  className="bg-tegra-bg-secondary rounded-xl border border-tegra-gray-light p-4 sm:p-6"
+                >
+                  <h2 className="text-base sm:text-lg font-semibold text-tegra-text-primary mb-3 sm:mb-4">
+                    {secao.titulo}
+                  </h2>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                    {secao.campos.map((item) => {
+                      const valorNormalizado = String(item.valor || "").trim();
+                      const valorFinal = valorNormalizado || "Nao informado";
+
+                      return (
+                        <div
+                          key={`${secao.id}-${item.chave}`}
+                          className="rounded-xl border border-tegra-gray-light bg-tegra-bg-primary p-3 sm:p-4 shadow-sm hover:shadow-md transition-shadow"
+                        >
+                          <p className="text-xs sm:text-sm font-semibold uppercase tracking-wide text-tegra-text-secondary mb-1.5">
+                            {item.label}
+                          </p>
+                          <p className={`text-sm sm:text-base break-words whitespace-pre-wrap ${
+                            valorNormalizado
+                              ? "text-tegra-text-primary font-medium"
+                              : "text-tegra-text-secondary italic"
+                          }`}>
+                            {valorFinal}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
 
             <p className="text-center text-tegra-text-primary font-medium mb-6 sm:mb-8">

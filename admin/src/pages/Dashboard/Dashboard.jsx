@@ -1,9 +1,9 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { authService } from "../../services/auth";
 import { useLoading } from "../../contexts/LoadingContext";
 import MainLayout from "../../components/layout/MainLayout";
-
+import { obterContagemFormulariosSalvos } from "../../services/savedForms";
 import { ROUTES } from "../../utils/constants";
 
 export default function Dashboard() {
@@ -11,6 +11,8 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const user = authService.getUser();
   const { setLoading } = useLoading();
+  const [savedFormsCount, setSavedFormsCount] = useState(0);
+
   // Atalhos principais do sistema
   const shortcutCards = [
     {
@@ -37,6 +39,13 @@ export default function Dashboard() {
       icon: <span className="text-3xl md:text-4xl"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm0-4h-2V7h2v8z" fill="currentColor"/></svg></span>,
       route: ROUTES.OCORRENCIA,
     },
+    {
+      id: "saved-forms",
+      label: "Formulários Salvos",
+      icon: <span className="text-3xl md:text-4xl"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V4h3v5h-3z" fill="currentColor"/></svg></span>,
+      route: ROUTES.SAVED_FORMS,
+      badge: savedFormsCount > 0 ? savedFormsCount : null,
+    },
   ];
 
   useEffect(() => {
@@ -44,7 +53,19 @@ export default function Dashboard() {
       navigate("/login");
       return;
     }
-    setLoading(false);
+    
+    const carregarContagem = async () => {
+      try {
+        const count = await obterContagemFormulariosSalvos();
+        setSavedFormsCount(count);
+      } catch (error) {
+        console.error("Erro ao carregar contagem de formulários:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    carregarContagem();
   }, [navigate, setLoading]);
 
   const nomeUsuario =
@@ -75,12 +96,17 @@ export default function Dashboard() {
               <button
                 key={card.id}
                 onClick={() => navigate(card.route)}
-                className="flex flex-col items-center justify-center p-5 bg-tegra-blue-light/10 hover:bg-tegra-blue-light/20 rounded-xl shadow transition-all border border-tegra-blue-light/30 focus:outline-none focus:ring-2 focus:ring-tegra-blue-dark"
+                className="flex flex-col items-center justify-center p-5 bg-tegra-blue-light/10 hover:bg-tegra-blue-light/20 rounded-xl shadow transition-all border border-tegra-blue-light/30 focus:outline-none focus:ring-2 focus:ring-tegra-blue-dark relative"
                 type="button"
                 aria-label={`Ir para ${card.label}`}
               >
+                {card.badge && (
+                  <span className="absolute top-2 right-2 flex items-center justify-center w-6 h-6 bg-tegra-error text-white text-xs font-bold rounded-full">
+                    {card.badge}
+                  </span>
+                )}
                 <div className="mb-2 text-tegra-blue-dark">{card.icon}</div>
-                <span className="font-semibold text-tegra-text-primary text-base">{card.label}</span>
+                <span className="font-semibold text-tegra-text-primary text-base text-center">{card.label}</span>
               </button>
             ))}
           </div>

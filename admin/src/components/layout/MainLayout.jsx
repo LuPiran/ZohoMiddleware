@@ -1,11 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { PlatformUpdatePopup } from "../feedback/auth";
-import {
-  getPlatformUpdateStorageKey,
-  ROUTES,
-  STORAGE_KEYS,
-} from "../../utils/constants";
+import { getPlatformUpdateStorageKey, ROUTES } from "../../utils/constants";
 import { authService } from "../../services/auth";
 import Header from "./Header";
 import Navbar from "./Navbar";
@@ -18,24 +14,21 @@ export default function MainLayout({ children }) {
   const location = useLocation();
   const [showPlatformUpdate, setShowPlatformUpdate] = useState(false);
   const isDashboardRoute = location.pathname === ROUTES.DASHBOARD;
+  const user = authService.getUser();
+  const updateStorageKey = getPlatformUpdateStorageKey(user);
 
   useEffect(() => {
-    const shouldShow =
-      sessionStorage.getItem(STORAGE_KEYS.LOGIN_SUCCESS) === "true";
-
-    const user = authService.getUser();
-    const updateStorageKey = getPlatformUpdateStorageKey(user);
-    const hasSeenUpdate = localStorage.getItem(updateStorageKey) === "true";
-
-    if (shouldShow && !hasSeenUpdate && isDashboardRoute) {
-      localStorage.setItem(updateStorageKey, "true");
-      setShowPlatformUpdate(true);
+    if (!isDashboardRoute || !user) {
+      setShowPlatformUpdate(false);
+      return;
     }
 
-    sessionStorage.removeItem(STORAGE_KEYS.LOGIN_SUCCESS);
-  }, [isDashboardRoute]);
+    const hasSeenUpdate = localStorage.getItem(updateStorageKey) === "true";
+    setShowPlatformUpdate(!hasSeenUpdate);
+  }, [isDashboardRoute, updateStorageKey, user]);
 
   function handleContinue() {
+    localStorage.setItem(updateStorageKey, "true");
     setShowPlatformUpdate(false);
   }
 

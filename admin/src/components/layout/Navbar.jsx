@@ -7,6 +7,7 @@ import {
   MdAssignment,
   MdReport,
   MdDescription,
+  MdBookmarks,
   MdClose,
   MdPerson,
 } from "react-icons/md";
@@ -83,6 +84,12 @@ export default function Navbar() {
       path: ROUTES.OCORRENCIA,
       label: "Ocorrência",
       icon: <MdReport className="text-xl" />,
+      show: true, // Sempre visível
+    },
+    {
+      path: ROUTES.SAVED_FORMS,
+      label: "Formulários Salvos",
+      icon: <MdBookmarks className="text-xl" />,
       show: true, // Sempre visível
     },
   ].filter((item) => item.show); // Filtra apenas itens visíveis

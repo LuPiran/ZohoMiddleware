@@ -280,11 +280,18 @@ router.get("/cliente/:cpf", async (req, res) => {
 
     const moduleName = "Contacts";
     let clienteEncontrado = null;
+    let falhaTemporariaNasBuscasRapidas = false;
 
     // Função auxiliar para normalizar e comparar CPFs
     const normalizarCpf = (cpf) => {
       if (!cpf) return "";
       return cpf.toString().replace(/\D/g, "");
+    };
+
+    const formatarCpf = (valor) => {
+      const limpo = String(valor || "").replace(/\D/g, "");
+      if (limpo.length !== 11) return limpo;
+      return limpo.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
     };
 
     // Função auxiliar para buscar cliente em um array de registros
@@ -320,11 +327,54 @@ router.get("/cliente/:cpf", async (req, res) => {
       return null;
     };
 
-    // Estratégia 1: Tentar busca com critério otimizado (mais eficiente)
+    // Estratégia 1: Busca direta no endpoint de search (mais performática)
+    try {
+      console.log("[COMPRA API] Tentativa 1: Busca direta via /search");
+      const cpfFormatado = formatarCpf(cpfLimpo);
+      const fieldsCompletos =
+        "id,CPF,First_Name,Last_Name,Email,Mobile,Phone,Date_of_Birth,RG,Other_Street,Outro_Bairro,Other_City,Other_State,Other_Country,Other_Zip,Outra_Correspond_ncia,Tipo_de_Lead";
+      const criterios = [
+        `(CPF:equals:${cpfLimpo}) AND (Tipo_de_Lead:equals:Paciente)`,
+        `(CPF:equals:${cpfFormatado}) AND (Tipo_de_Lead:equals:Paciente)`,
+      ];
+
+      for (const criteria of criterios) {
+        const endpoint = `/${moduleName}/search?criteria=${encodeURIComponent(criteria)}&fields=${encodeURIComponent(fieldsCompletos)}`;
+        const response = await chamarZohoApi("GET", endpoint, null, {
+          timeoutMs: 10000,
+        });
+
+        if (response.data && response.data.length > 0) {
+          clienteEncontrado = buscarClientePorCpf(response.data);
+          if (clienteEncontrado) {
+            console.log(
+              "[COMPRA API] ✓ Cliente encontrado via /search:",
+              clienteEncontrado.id,
+            );
+            return res.json({
+              success: true,
+              data: clienteEncontrado,
+            });
+          }
+        }
+      }
+    } catch (error) {
+      console.log("[COMPRA API] Busca via /search falhou:", error.message);
+      const status = error.response?.status;
+      if (
+        error.code === "ETIMEDOUT" ||
+        error.code === "ECONNABORTED" ||
+        status === 429
+      ) {
+        falhaTemporariaNasBuscasRapidas = true;
+      }
+    }
+
+    // Estratégia 2: Tentar busca com critério otimizado (mais eficiente)
     // Usa fields para retornar apenas campos necessários
     // Filtra por CPF E Tipo_de_Lead = "Paciente"
     try {
-      console.log("[COMPRA API] Tentativa 1: Busca com critério otimizado");
+      console.log("[COMPRA API] Tentativa 2: Busca com critério otimizado");
       const criteria = `(CPF:equals:${cpfLimpo}) AND (Tipo_de_Lead:equals:Paciente)`;
       // Campos essenciais para busca rápida
       const fields =
@@ -334,7 +384,9 @@ router.get("/cliente/:cpf", async (req, res) => {
       console.log("[COMPRA API] Critério:", criteria);
       console.log("[COMPRA API] Endpoint:", endpoint);
 
-      const response = await chamarZohoApi("GET", endpoint);
+      const response = await chamarZohoApi("GET", endpoint, null, {
+        timeoutMs: 10000,
+      });
 
       if (response.data && response.data.length > 0) {
         clienteEncontrado = buscarClientePorCpf(response.data);
@@ -351,29 +403,52 @@ router.get("/cliente/:cpf", async (req, res) => {
       }
     } catch (error) {
       console.log("[COMPRA API] Busca com critério falhou:", error.message);
+      const status = error.response?.status;
+      if (
+        error.code === "ETIMEDOUT" ||
+        error.code === "ECONNABORTED" ||
+        status === 429
+      ) {
+        falhaTemporariaNasBuscasRapidas = true;
+      }
+    }
+
+    if (falhaTemporariaNasBuscasRapidas) {
+      console.log(
+        "[COMPRA API] ⚠️ Zoho instável nas buscas rápidas. Encerrando sem fallback pesado",
+      );
+      return res.status(503).json({
+        success: false,
+        error:
+          "Serviço de busca temporariamente indisponível no CRM. Tente novamente em instantes.",
+      });
     }
 
     console.log(
-      "[COMPRA API] Critério não funcionou, iniciando busca paralela otimizada",
+      "[COMPRA API] Critério não funcionou, iniciando fallback controlado",
     );
 
-    // Estratégia 2: Busca paralela otimizada
-    // Busca múltiplas páginas simultaneamente com campos limitados
-    console.log(
-      "[COMPRA API] Tentativa 2: Busca paralela com campos limitados",
-    );
+    // Estratégia 3: Fallback controlado
+    console.log("[COMPRA API] Tentativa 3: Fallback com limite de tempo");
 
-    const perPage = 2000;
-    const paginasParalelas = 50; // Busca 50 páginas em paralelo por vez (otimizado para máxima velocidade)
+    const perPage = 200;
+    const paginasParalelas = 3;
     let page = 1;
     let hasMore = true;
     let totalPaginasProcessadas = 0;
-    const maxPaginas = 500; // Ajustado para 498 páginas + margem de segurança
+    const maxPaginas = 15;
+    const inicioBusca = Date.now();
+    const timeoutBuscaMs = 8000;
 
     // Campos mínimos para busca rápida (id, CPF e Tipo_de_Lead para filtrar)
     const camposMinimos = "id,CPF,Tipo_de_Lead";
 
-    while (hasMore && !clienteEncontrado && page <= maxPaginas) {
+    while (
+      hasMore &&
+      !clienteEncontrado &&
+      page <= maxPaginas &&
+      Date.now() - inicioBusca < timeoutBuscaMs
+    ) {
       try {
         // Prepara array de páginas para buscar em paralelo
         const paginasParaBuscar = [];
@@ -386,20 +461,16 @@ router.get("/cliente/:cpf", async (req, res) => {
         );
 
         // Busca paralela com campos limitados
-        // Tenta primeiro com campos limitados, se falhar tenta sem campos
         const promises = paginasParaBuscar.map((p) => {
           const endpoint = `/${moduleName}?page=${p}&per_page=${perPage}&fields=${encodeURIComponent(camposMinimos)}`;
-          return chamarZohoApi("GET", endpoint).catch((err) => {
+          return chamarZohoApi("GET", endpoint, null, {
+            timeoutMs: 10000,
+          }).catch((err) => {
             console.log(
-              `[COMPRA API] Erro na página ${p} com campos limitados, tentando sem campos:`,
+              `[COMPRA API] Erro na página ${p} no fallback:`,
               err.message,
             );
-            // Se falhar com campos limitados, tenta sem campos
-            const endpointSemCampos = `/${moduleName}?page=${p}&per_page=${perPage}`;
-            return chamarZohoApi("GET", endpointSemCampos).catch((err2) => {
-              console.error(`[COMPRA API] Erro na página ${p}:`, err2.message);
-              return { data: [], info: {} };
-            });
+            return { data: [], info: {} };
           });
         });
 
@@ -438,7 +509,14 @@ router.get("/cliente/:cpf", async (req, res) => {
                 const fieldsCompletos =
                   "id,CPF,First_Name,Last_Name,Email,Mobile,Phone,Date_of_Birth,RG,Other_Street,Outro_Bairro,Other_City,Other_State,Other_Country,Other_Zip,Outra_Correspond_ncia,Tipo_de_Lead";
                 const fullEndpoint = `/${moduleName}/${clienteEncontrado.id}?fields=${encodeURIComponent(fieldsCompletos)}`;
-                const fullResponse = await chamarZohoApi("GET", fullEndpoint);
+                const fullResponse = await chamarZohoApi(
+                  "GET",
+                  fullEndpoint,
+                  null,
+                  {
+                    timeoutMs: 10000,
+                  },
+                );
 
                 if (fullResponse.data && fullResponse.data.length > 0) {
                   clienteEncontrado = fullResponse.data[0];
@@ -504,6 +582,10 @@ router.get("/cliente/:cpf", async (req, res) => {
       }
     }
 
+    if (Date.now() - inicioBusca >= timeoutBuscaMs && !clienteEncontrado) {
+      console.log("[COMPRA API] ⚠️ Timeout do fallback de CPF atingido");
+    }
+
     if (page > maxPaginas && !clienteEncontrado) {
       console.log(
         "[COMPRA API] ⚠️ Limite de páginas atingido sem encontrar o cliente",
@@ -559,6 +641,7 @@ router.post("/", async (req, res) => {
       cep,
       pais,
       complemento,
+      atualizacaoEnderecoViaPortal,
       produtos,
       consultorTegra,
       tipoSolicitacao,
@@ -582,6 +665,8 @@ router.post("/", async (req, res) => {
       negociacaoFeitaPeloConsultor,
       solicitarLinkPagamento,
       tipoLink,
+      // Campanha Diretoria
+      campanhaDiretoria,
       // Campos de pagamento
       formaPagamento,
       termosCondicoesPagamento,
@@ -673,6 +758,25 @@ router.post("/", async (req, res) => {
     const numeroProtocolo = gerarNumeroProtocolo();
     console.log("[COMPRA API] Número de protocolo gerado:", numeroProtocolo);
 
+    const enderecoAtualizadoViaPortal = Boolean(atualizacaoEnderecoViaPortal);
+
+    const formatarZohoDateTime = (data) => {
+      const date = data instanceof Date ? data : new Date(data);
+
+      if (Number.isNaN(date.getTime())) {
+        return null;
+      }
+
+      const pad = (valor) => String(valor).padStart(2, "0");
+      const offsetMinutos = -date.getTimezoneOffset();
+      const sinal = offsetMinutos >= 0 ? "+" : "-";
+      const offsetAbsoluto = Math.abs(offsetMinutos);
+      const horasOffset = pad(Math.floor(offsetAbsoluto / 60));
+      const minutosOffset = pad(offsetAbsoluto % 60);
+
+      return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}${sinal}${horasOffset}:${minutosOffset}`;
+    };
+
     // Prepara os dados para o Zoho
     const dadosZoho = {
       data: [
@@ -693,6 +797,13 @@ router.post("/", async (req, res) => {
           CEP: cep?.replace(/\D/g, "") || "",
           Pa_s: pais || "Brasil",
           Complemento: complemento || "",
+          Atualizacao_Endereco_Via_Portal: enderecoAtualizadoViaPortal,
+          Nome_Usuario_Atualizacao_Endereco: enderecoAtualizadoViaPortal
+            ? consultorTegra || ""
+            : "",
+          Data_Atualizacao_Endereco_ViaPortal: enderecoAtualizadoViaPortal
+            ? formatarZohoDateTime(new Date())
+            : null,
           Tipo_Cliente: "Pessoa Fisica",
           Tipo_de_pedido: tipoSolicitacao || "1ª Compra",
           Consultor_Tegra: consultorTegra || "",
@@ -717,6 +828,8 @@ router.post("/", async (req, res) => {
           Negocia_o_feita_pelo_consultor1: negociacaoFeitaPeloConsultor || false,
           Solicitar_Link_de_Pagamento: solicitarLinkPagamento || "",
           Tipo_de_link: tipoLink || "",
+          // Campanha Diretoria
+          Campanha_Diretoria: campanhaDiretoria || false,
           // Campos de pagamento
           Forma_de_Pagamento: formaPagamento || "",
           Termos_e_condi_es: termosCondicoesPagamento || "",
@@ -738,8 +851,29 @@ router.post("/", async (req, res) => {
     const endpoint = `/${moduleName}`;
     const response = await chamarZohoApi("POST", endpoint, dadosZoho);
 
+    const resultadoZoho = response.data?.[0];
+    const recordId = resultadoZoho?.details?.id;
+
+    if (!resultadoZoho || resultadoZoho.status === "error" || !recordId) {
+      const zohoMessage =
+        resultadoZoho?.message ||
+        response.message ||
+        "Zoho não retornou confirmação de criação do registro";
+
+      console.error("[COMPRA API] ✗ Zoho rejeitou a criação da compra:", {
+        protocolo: numeroProtocolo,
+        response,
+      });
+
+      return res.status(502).json({
+        success: false,
+        error: zohoMessage,
+        protocolo: numeroProtocolo,
+        details: resultadoZoho?.details || response,
+      });
+    }
+
     console.log("[COMPRA API] ✓ Compra criada com sucesso no Zoho");
-    const recordId = response.data?.[0]?.details?.id;
     console.log("[COMPRA API] ID do registro:", recordId);
 
     // Faz upload dos arquivos se houver

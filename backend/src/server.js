@@ -11,6 +11,7 @@ import productsRoutes from "./routes/products.route.js";
 import ocorrenciaRoutes from "./routes/ocorrencia.route.js";
 import salesOrderRoutes from "./routes/salesOrder.route.js";
 import propostaRoutes from "./routes/proposta.route.js";
+import savedFormsRoutes from "./routes/savedForms.route.js";
 import { apiRateLimiter } from "./middleware/rateLimiter.js";
 
 const app = express();
@@ -29,6 +30,13 @@ const allowedOrigins = [
   ENV.FRONTEND_URL,
 ].filter(Boolean);
 
+function isLocalNetworkOrigin(origin) {
+  if (!origin) return false;
+  return /^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+)(:\d+)?$/i.test(
+    origin,
+  );
+}
+
 app.get("/health", (req, res) => {
   res.status(200).json({
     success: true,
@@ -40,7 +48,7 @@ app.use(
   cors({
     origin: function (origin, callback) {
       // Permite requisições sem origin (mobile apps, Postman, etc) ou das origens permitidas
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (!origin || allowedOrigins.includes(origin) || isLocalNetworkOrigin(origin)) {
         callback(null, true);
       } else {
         callback(new Error("Não permitido pelo CORS"));
@@ -78,6 +86,7 @@ app.use("/v1/products", productsRoutes);
 app.use("/v1/ocorrencia", ocorrenciaRoutes);
 app.use("/v1/proposta", propostaRoutes);
 app.use("/v1/sales-orders", salesOrderRoutes);
+app.use("/v1/saved-forms", savedFormsRoutes);
 
 //??Prepare a nossa aplicação para implementação
 if (shouldServeFrontend) {

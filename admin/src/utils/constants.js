@@ -11,6 +11,7 @@ export const ROUTES = {
   OCORRENCIA: "/ocorrencia",
   PROPOSTA: "/proposta",
   AGRADECIMENTO: "/agradecimento",
+  SAVED_FORMS: "/formularios-salvos",
 };
 
 export const API_ENDPOINTS = {
@@ -51,7 +52,7 @@ export const STORAGE_KEYS = {
   PLATFORM_UPDATE_SEEN: "platformUpdateSeen",
 };
 
-export const PLATFORM_UPDATE_VERSION = "2026-03-11";
+export const PLATFORM_UPDATE_VERSION = "2026-03-25.4";
 
 // Parceiro: usuários que veem a seção e opções por usuário
 export const PARCEIRO = {
@@ -82,15 +83,20 @@ export function getNomeUsuario(user) {
 }
 
 export function getPlatformUpdateStorageKey(user) {
-  const userIdentifier =
-    user?.id ||
-    user?.ID ||
+  const rawIdentifier =
     user?.email ||
     user?.Email ||
+    user?.id ||
+    user?.ID ||
     getNomeUsuario(user) ||
     "global";
 
-  return `${STORAGE_KEYS.PLATFORM_UPDATE_SEEN}:${PLATFORM_UPDATE_VERSION}:${String(userIdentifier).trim()}`;
+  const normalizedIdentifier = String(rawIdentifier)
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+
+  return `${STORAGE_KEYS.PLATFORM_UPDATE_SEEN}:${PLATFORM_UPDATE_VERSION}:${normalizedIdentifier}`;
 }
 
 /**

@@ -2,7 +2,7 @@ import axios from "axios";
 import gerarAcessToken from "../zoho/auth.js";
 import { ENV } from "../config/env.js";
 
-export async function chamarZohoApi(method, endpoint, data = null) {
+export async function chamarZohoApi(method, endpoint, data = null, options = {}) {
   console.log("[ZOHO API] Fazendo chamada à API da Zoho...");
   console.log("[ZOHO API] Método:", method);
   console.log("[ZOHO API] Endpoint:", endpoint);
@@ -20,6 +20,10 @@ export async function chamarZohoApi(method, endpoint, data = null) {
 
   const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
   const fullUrl = `${baseUrl}${cleanEndpoint}`;
+  const timeoutMs =
+    typeof options.timeoutMs === "number" && options.timeoutMs > 0
+      ? options.timeoutMs
+      : 60000;
 
   console.log("[ZOHO API] URL completa:", fullUrl);
   console.log("[ZOHO API] Base URL:", baseUrl);
@@ -35,7 +39,7 @@ export async function chamarZohoApi(method, endpoint, data = null) {
         Authorization: `Zoho-oauthtoken ${token}`,
       },
       data,
-      timeout: 60000, // 60 segundos de timeout
+      timeout: timeoutMs,
     });
 
     console.log(

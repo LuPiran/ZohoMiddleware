@@ -7,6 +7,7 @@ import Compra from "../pages/Compra/Compra";
 import Ocorrencia from "../pages/Ocorrencia/Ocorrencia";
 import Proposta from "../pages/Proposta/Proposta";
 import Agradecimento from "../pages/Agradecimento/Agradecimento";
+import SavedForms from "../pages/SavedForms/SavedForms";
 import ProtectedRoute from "../components/auth/ProtectedRoute";
 import AdminRoute from "../components/auth/AdminRoute";
 import { authService } from "../services/auth";
@@ -86,6 +87,14 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute>
             <Agradecimento />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path={ROUTES.SAVED_FORMS}
+        element={
+          <ProtectedRoute>
+            <SavedForms />
           </ProtectedRoute>
         }
       />

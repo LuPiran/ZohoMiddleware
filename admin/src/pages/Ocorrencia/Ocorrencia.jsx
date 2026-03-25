@@ -15,6 +15,7 @@ import api from "../../services/api";
 import { productsService } from "../../services/products";
 import { ocorrenciaService } from "../../services/ocorrencia";
 import { salesOrderService } from "../../services/salesOrder";
+import { salvarFormularioTemporariamente } from "../../services/savedForms";
 import { hasAdminPanelPermission } from "../../utils/permissions";
 import {
   MdPerson,
@@ -34,6 +35,10 @@ export default function Ocorrencia() {
   const { setLoading, isLoading } = useLoading();
   const { showToast } = useToast();
   const [showSplash, setShowSplash] = useState(false);
+  const [showReview, setShowReview] = useState(false);
+
+  const [showDraftBanner, setShowDraftBanner] = useState(false);
+  const DRAFT_KEY = "zoho_draft_ocorrencia";
 
   // Estados do formulário do paciente
   const [nomePaciente, setNomePaciente] = useState("");
@@ -150,6 +155,14 @@ export default function Ocorrencia() {
   // Estados para upload de arquivos
   const [arquivos, setArquivos] = useState([]);
   const [documentosCompletos, setDocumentosCompletos] = useState(false);
+
+  useEffect(() => {
+    if (localStorage.getItem(DRAFT_KEY)) setShowDraftBanner(true);
+    if (sessionStorage.getItem("auto_restaurar_rascunho") === "true") {
+      sessionStorage.removeItem("auto_restaurar_rascunho");
+      handleRestaurarRascunho();
+    }
+  }, []);
 
   // Estado para busca de número do pedido
   const [numeroPedidoBusca, setNumeroPedidoBusca] = useState("");
@@ -421,6 +434,7 @@ export default function Ocorrencia() {
 
   // Função para limpar todos os campos do formulário
   const limparFormulario = () => {
+    localStorage.removeItem(DRAFT_KEY);
     setNomePaciente("");
     setSobrenomePaciente("");
     setCpfPaciente("");
@@ -443,6 +457,84 @@ export default function Ocorrencia() {
     setProdutos([
       { id: 1, nome: "", produtoId: "", quantidade: "1", preco: "" },
     ]);
+  };
+
+  const handleSalvarTemporariamente = () => {
+    try {
+      const draft = {
+        nomePaciente, sobrenomePaciente, cpfPaciente, rgPaciente, celularPaciente,
+        emailPaciente, dataNascimento, telefonePaciente,
+        temRepresentanteLegal, nomeRepresentante, rgRepresentante, cpfRepresentante,
+        emailRepresentante, celularRepresentante, dataNascimentoRepresentante,
+        temNovoMedicoPrescritor, nomeMedico, crmMedico, ufCrm, celularMedico, emailMedico, especialidadeMedico,
+        motivoOcorrencia, observacaoMotivo, observacao,
+        numeroPedido, awb, dataPedido, numeroLote, dataValidade,
+        produtos, documentosCompletos,
+      };
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+      salvarFormularioTemporariamente({
+        tipo: "ocorrencia",
+        titulo: `Ocorrência - ${nomePaciente || "Sem paciente"}`,
+        paciente: nomePaciente,
+        cpf: cpfPaciente,
+        resumo: `Paciente: ${nomePaciente}, Motivo: ${motivoOcorrencia || "Não especificado"}`,
+        dados: draft,
+        rota: "/ocorrencia",
+      });
+      showToast("💾 Formulário salvo temporariamente!", "success");
+    } catch {
+      showToast("❌ Erro ao salvar rascunho.", "error");
+    }
+  };
+
+  const handleRestaurarRascunho = () => {
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if (!raw) return;
+      const d = JSON.parse(raw);
+      if (d.nomePaciente !== undefined) setNomePaciente(d.nomePaciente);
+      if (d.sobrenomePaciente !== undefined) setSobrenomePaciente(d.sobrenomePaciente);
+      if (d.cpfPaciente !== undefined) setCpfPaciente(d.cpfPaciente);
+      if (d.rgPaciente !== undefined) setRgPaciente(d.rgPaciente);
+      if (d.celularPaciente !== undefined) setCelularPaciente(d.celularPaciente);
+      if (d.emailPaciente !== undefined) setEmailPaciente(d.emailPaciente);
+      if (d.dataNascimento !== undefined) setDataNascimento(d.dataNascimento);
+      if (d.telefonePaciente !== undefined) setTelefonePaciente(d.telefonePaciente);
+      if (d.temRepresentanteLegal !== undefined) setTemRepresentanteLegal(d.temRepresentanteLegal);
+      if (d.nomeRepresentante !== undefined) setNomeRepresentante(d.nomeRepresentante);
+      if (d.rgRepresentante !== undefined) setRgRepresentante(d.rgRepresentante);
+      if (d.cpfRepresentante !== undefined) setCpfRepresentante(d.cpfRepresentante);
+      if (d.emailRepresentante !== undefined) setEmailRepresentante(d.emailRepresentante);
+      if (d.celularRepresentante !== undefined) setCelularRepresentante(d.celularRepresentante);
+      if (d.dataNascimentoRepresentante !== undefined) setDataNascimentoRepresentante(d.dataNascimentoRepresentante);
+      if (d.temNovoMedicoPrescritor !== undefined) setTemNovoMedicoPrescritor(d.temNovoMedicoPrescritor);
+      if (d.nomeMedico !== undefined) setNomeMedico(d.nomeMedico);
+      if (d.crmMedico !== undefined) setCrmMedico(d.crmMedico);
+      if (d.ufCrm !== undefined) setUfCrm(d.ufCrm);
+      if (d.celularMedico !== undefined) setCelularMedico(d.celularMedico);
+      if (d.emailMedico !== undefined) setEmailMedico(d.emailMedico);
+      if (d.especialidadeMedico !== undefined) setEspecialidadeMedico(d.especialidadeMedico);
+      if (d.motivoOcorrencia !== undefined) setMotivoOcorrencia(d.motivoOcorrencia);
+      if (d.observacaoMotivo !== undefined) setObservacaoMotivo(d.observacaoMotivo);
+      if (d.observacao !== undefined) setObservacao(d.observacao);
+      if (d.numeroPedido !== undefined) setNumeroPedido(d.numeroPedido);
+      if (d.awb !== undefined) setAwb(d.awb);
+      if (d.dataPedido !== undefined) setDataPedido(d.dataPedido);
+      if (d.numeroLote !== undefined) setNumeroLote(d.numeroLote);
+      if (d.dataValidade !== undefined) setDataValidade(d.dataValidade);
+      if (d.produtos !== undefined) setProdutos(d.produtos);
+      if (d.documentosCompletos !== undefined) setDocumentosCompletos(d.documentosCompletos);
+      setShowDraftBanner(false);
+      showToast("✅ Rascunho restaurado!", "success");
+    } catch {
+      showToast("❌ Erro ao restaurar rascunho.", "error");
+    }
+  };
+
+  const handleDescartarRascunho = () => {
+    localStorage.removeItem(DRAFT_KEY);
+    setShowDraftBanner(false);
+    showToast("🗑️ Rascunho descartado.", "success");
   };
 
   // Função para validar campos obrigatórios
@@ -567,35 +659,20 @@ export default function Ocorrencia() {
           user?.Nome_Completo ||
           "";
 
-        // Prepara os dados do comprovante (Ocorrência tem estrutura diferente)
+        // Inclui todos os campos enviados no formulário (exceto uploads)
+        const dadosSemArquivos = { ...dadosOcorrencia };
+        delete dadosSemArquivos.arquivos;
         const dadosComprovante = {
+          ...dadosSemArquivos,
           protocolo: response.protocolo,
           tipoSolicitacao: "Ocorrência",
           consultorTegra: nomeConsultor,
           assunto: motivoOcorrencia,
-          nomePaciente,
-          sobrenomePaciente,
-          cpfPaciente,
-          emailPaciente,
-          celularPaciente,
-          telefonePaciente,
-          dataNascimento: "", // Ocorrência não tem data de nascimento
-          rua: "", // Ocorrência não tem dados de endereço detalhados
-          numero: "",
-          bairro: "",
-          cidade: "",
-          estado: "",
-          cep: "",
           produtos: produtos.map((produto) => ({
             nome: produto.nome,
             quantidade: produto.quantidade || 1,
             valor: produto.preco || 0,
           })),
-          numeroPedido,
-          awb,
-          dataPedido,
-          numeroLote,
-          dataValidade,
           observacoes: observacao || observacaoMotivo,
           dataCriacao,
           totalCompra: produtos.reduce(
@@ -673,6 +750,20 @@ export default function Ocorrencia() {
           <h1 className="text-xl sm:text-2xl font-bold text-tegra-text-primary mb-4 sm:mb-6">
             Nova Ocorrência
           </h1>
+
+          {/* Banner de rascunho salvo */}
+          {showDraftBanner && (
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-tegra-bg-accent border border-tegra-blue-light rounded-lg px-4 py-3 mb-2">
+              <div>
+                <p className="text-sm font-semibold text-tegra-blue-dark">💾 Você tem um rascunho salvo para este formulário.</p>
+                <p className="text-xs text-tegra-text-secondary">Deseja restaurar os dados preenchidos anteriormente?</p>
+              </div>
+              <div className="flex gap-2 flex-shrink-0">
+                <button type="button" onClick={handleRestaurarRascunho} className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-tegra-blue text-white hover:bg-tegra-blue-dark transition-colors">Restaurar</button>
+                <button type="button" onClick={handleDescartarRascunho} className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-tegra-gray-medium text-tegra-text-primary hover:bg-tegra-gray-dark transition-colors">Descartar</button>
+              </div>
+            </div>
+          )}
 
           <form
             className="space-y-4 sm:space-y-6 md:space-y-8"
@@ -1174,17 +1265,155 @@ export default function Ocorrencia() {
                 Cancelar
               </Button>
               <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setShowReview(true)}
+                className="w-full sm:w-auto"
+              >
+                Rever formulário
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={handleSalvarTemporariamente}
+                className="w-full sm:w-auto"
+              >
+                Salvar formulario
+              </Button>
+              <Button
                 type="submit"
                 variant="primary"
                 loading={false}
                 className="w-full sm:w-auto"
               >
-                Salvar Ocorrência
+                Enviar
               </Button>
             </div>
+
           </form>
         </div>
       </MainLayout>
+
+      {showReview && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-start justify-center overflow-y-auto py-6 px-3">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl my-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-tegra-gray-medium">
+              <h2 className="text-xl font-bold text-tegra-blue-dark">Revisão do Formulário — Ocorrência</h2>
+              <button
+                type="button"
+                onClick={() => setShowReview(false)}
+                className="p-1 rounded-full hover:bg-tegra-gray-light text-tegra-text-secondary hover:text-tegra-blue-dark transition-colors"
+              >
+                <MdClose className="text-2xl" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="px-6 py-5 space-y-6 max-h-[70vh] overflow-y-auto">
+
+              {/* Dados do Paciente */}
+              <div>
+                <h3 className="text-xs font-bold text-tegra-blue uppercase tracking-wide mb-3 pb-1 border-b border-tegra-gray-medium">Dados do Paciente</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div><p className="text-xs text-tegra-text-secondary">Nome completo</p><p className="text-sm font-medium text-tegra-text-primary">{[nomePaciente, sobrenomePaciente].filter(Boolean).join(" ") || "—"}</p></div>
+                  <div><p className="text-xs text-tegra-text-secondary">CPF</p><p className="text-sm font-medium text-tegra-text-primary">{cpfPaciente || "—"}</p></div>
+                  <div><p className="text-xs text-tegra-text-secondary">RG</p><p className="text-sm font-medium text-tegra-text-primary">{rgPaciente || "—"}</p></div>
+                  <div><p className="text-xs text-tegra-text-secondary">Celular</p><p className="text-sm font-medium text-tegra-text-primary">{celularPaciente || "—"}</p></div>
+                  <div><p className="text-xs text-tegra-text-secondary">E-mail</p><p className="text-sm font-medium text-tegra-text-primary">{emailPaciente || "—"}</p></div>
+                  <div><p className="text-xs text-tegra-text-secondary">Data de Nascimento</p><p className="text-sm font-medium text-tegra-text-primary">{dataNascimento || "—"}</p></div>
+                  <div><p className="text-xs text-tegra-text-secondary">Telefone</p><p className="text-sm font-medium text-tegra-text-primary">{telefonePaciente || "—"}</p></div>
+                </div>
+              </div>
+
+              {/* Motivo da Ocorrência */}
+              <div>
+                <h3 className="text-xs font-bold text-tegra-blue uppercase tracking-wide mb-3 pb-1 border-b border-tegra-gray-medium">Motivo da Ocorrência</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div><p className="text-xs text-tegra-text-secondary">Motivo</p><p className="text-sm font-medium text-tegra-text-primary">{motivoOcorrencia || "—"}</p></div>
+                  {observacaoMotivo && (
+                    <div className="sm:col-span-2"><p className="text-xs text-tegra-text-secondary">Observação do motivo</p><p className="text-sm font-medium text-tegra-text-primary whitespace-pre-wrap">{observacaoMotivo}</p></div>
+                  )}
+                </div>
+              </div>
+
+              {/* Dados do Novo Médico Prescritor */}
+              {(nomeMedico || crmMedico) && (
+                <div>
+                  <h3 className="text-xs font-bold text-tegra-blue uppercase tracking-wide mb-3 pb-1 border-b border-tegra-gray-medium">Novo Médico Prescritor</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div><p className="text-xs text-tegra-text-secondary">Nome do médico</p><p className="text-sm font-medium text-tegra-text-primary">{nomeMedico || "—"}</p></div>
+                    <div><p className="text-xs text-tegra-text-secondary">CRM</p><p className="text-sm font-medium text-tegra-text-primary">{crmMedico || "—"}</p></div>
+                    <div><p className="text-xs text-tegra-text-secondary">UF do CRM</p><p className="text-sm font-medium text-tegra-text-primary">{ufCrm || "—"}</p></div>
+                    <div><p className="text-xs text-tegra-text-secondary">Celular</p><p className="text-sm font-medium text-tegra-text-primary">{celularMedico || "—"}</p></div>
+                    <div><p className="text-xs text-tegra-text-secondary">E-mail</p><p className="text-sm font-medium text-tegra-text-primary">{emailMedico || "—"}</p></div>
+                  </div>
+                </div>
+              )}
+
+              {/* Produtos */}
+              <div>
+                <h3 className="text-xs font-bold text-tegra-blue uppercase tracking-wide mb-3 pb-1 border-b border-tegra-gray-medium">Produtos</h3>
+                {produtos.filter(p => p.nome).length === 0 ? (
+                  <p className="text-sm text-tegra-text-secondary">Nenhum produto adicionado.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {produtos.filter(p => p.nome).map((p) => (
+                      <div key={p.id} className="flex items-center justify-between bg-tegra-bg-accent rounded-lg px-4 py-2">
+                        <span className="text-sm font-medium text-tegra-text-primary">{p.nome}</span>
+                        <span className="text-xs text-tegra-text-secondary">Qtd: {p.quantidade}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Registro do Pedido */}
+              {(numeroPedido || awb || dataPedido || numeroLote || dataValidade) && (
+                <div>
+                  <h3 className="text-xs font-bold text-tegra-blue uppercase tracking-wide mb-3 pb-1 border-b border-tegra-gray-medium">Registro do Pedido</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div><p className="text-xs text-tegra-text-secondary">Número do pedido</p><p className="text-sm font-medium text-tegra-text-primary">{numeroPedido || "—"}</p></div>
+                    <div><p className="text-xs text-tegra-text-secondary">AWB</p><p className="text-sm font-medium text-tegra-text-primary">{awb || "—"}</p></div>
+                    <div><p className="text-xs text-tegra-text-secondary">Data do pedido</p><p className="text-sm font-medium text-tegra-text-primary">{dataPedido || "—"}</p></div>
+                    <div><p className="text-xs text-tegra-text-secondary">Número do lote</p><p className="text-sm font-medium text-tegra-text-primary">{numeroLote || "—"}</p></div>
+                    <div><p className="text-xs text-tegra-text-secondary">Data de validade</p><p className="text-sm font-medium text-tegra-text-primary">{dataValidade || "—"}</p></div>
+                  </div>
+                </div>
+              )}
+
+              {/* Observação */}
+              {observacao && (
+                <div>
+                  <h3 className="text-xs font-bold text-tegra-blue uppercase tracking-wide mb-3 pb-1 border-b border-tegra-gray-medium">Observação</h3>
+                  <p className="text-sm text-tegra-text-primary whitespace-pre-wrap">{observacao}</p>
+                </div>
+              )}
+
+              {/* Arquivos */}
+              <div>
+                <h3 className="text-xs font-bold text-tegra-blue uppercase tracking-wide mb-3 pb-1 border-b border-tegra-gray-medium">Arquivos</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div><p className="text-xs text-tegra-text-secondary">Arquivos anexados</p><p className="text-sm font-medium text-tegra-text-primary">{arquivos.length > 0 ? `${arquivos.length} arquivo(s)` : "Nenhum"}</p></div>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end gap-3 px-6 py-4 border-t border-tegra-gray-medium">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setShowReview(false)}
+                className="w-full sm:w-auto"
+              >
+                Fechar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

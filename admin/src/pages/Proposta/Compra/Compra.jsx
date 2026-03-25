@@ -14,6 +14,7 @@ import { ROUTES } from "../../utils/constants";
 import api from "../../services/api";
 import { compraService } from "../../services/compra";
 import { productsService } from "../../services/products";
+import { salvarFormularioTemporariamente } from "../../../services/savedForms";
 import { isAdminPortal, hasAdminPanelPermission } from "../../utils/permissions";
 import {
   MdPerson,
@@ -561,6 +562,19 @@ export default function Compra() {
           response.data?.created_time ||
           new Date().toISOString();
 
+        const totalCompra = produtosValidos.reduce((acc, p) => {
+          return acc + (parseFloat(p.valor) * parseInt(p.quantidade) || 0);
+        }, 0);
+
+        const dadosSemArquivos = { ...dadosCompra };
+        delete dadosSemArquivos.arquivos;
+        const dadosComprovante = {
+          ...dadosSemArquivos,
+          protocolo: response.protocolo,
+          dataCriacao,
+          totalCompra,
+        };
+
         // Oculta splash screen antes de navegar
         setShowSplash(false);
 
@@ -572,6 +586,7 @@ export default function Compra() {
             sobrenomePaciente,
             dataCriacao,
             origem: "compra",
+            dadosComprovante,
           },
         });
       }
@@ -1331,7 +1346,7 @@ export default function Compra() {
                 loading={false}
                 className="w-full sm:w-auto"
               >
-                Salvar Compra
+                Enviar
               </Button>
             </div>
           </form>

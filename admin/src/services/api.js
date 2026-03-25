@@ -1,7 +1,15 @@
 import axios from "axios";
 import { STORAGE_KEYS, ROUTES } from "../utils/constants";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL;
+const envApiBaseUrl = (import.meta.env.VITE_API_URL || "").trim();
+const appHost = typeof window !== "undefined" ? window.location.hostname : "";
+const isAppOnLocalhost = appHost === "localhost" || appHost === "127.0.0.1";
+const isEnvPointingToLocalhost = /https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(
+  envApiBaseUrl,
+);
+
+// If the app is opened from LAN IP on mobile, ignore localhost API URL and use same-origin.
+const API_BASE_URL = !isAppOnLocalhost && isEnvPointingToLocalhost ? "" : envApiBaseUrl;
 
 const api = axios.create({
   baseURL: API_BASE_URL,

@@ -46,7 +46,9 @@ export const compraService = {
   async buscarClientePorCpf(cpf) {
     try {
       const cpfLimpo = String(cpf || "").replace(/\D/g, "");
-      const response = await api.get(`/v1/compra/cliente/${cpfLimpo}`);
+      const response = await api.get(`/v1/compra/cliente/${cpfLimpo}`, {
+        timeout: 20000,
+      });
       return {
         success: true,
         data: response.data.data || null,

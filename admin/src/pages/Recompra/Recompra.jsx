@@ -14,6 +14,7 @@ import { ROUTES, getNomeUsuario, podeVerSecaoParceiro, getOpcoesParceiro } from 
 import api from "../../services/api";
 import { compraService } from "../../services/compra";
 import { productsService } from "../../services/products";
+import { salvarFormularioTemporariamente } from "../../services/savedForms";
 import { hasAdminPanelPermission } from "../../utils/permissions";
 import {
   MdPerson,
@@ -34,6 +35,12 @@ export default function Recompra() {
   const { setLoading, isLoading } = useLoading();
   const { showToast } = useToast();
   const [showSplash, setShowSplash] = useState(false);
+  const [showReview, setShowReview] = useState(false);
+  const [showAddressConfirmModal, setShowAddressConfirmModal] = useState(false);
+  const [enderecoSugeridoCliente, setEnderecoSugeridoCliente] = useState(null);
+    const [showDraftBanner, setShowDraftBanner] = useState(false);
+
+    const DRAFT_KEY = "zoho_draft_recompra";
 
   // Estados do formulário do paciente
   const [nomePaciente, setNomePaciente] = useState("");
@@ -104,16 +111,80 @@ export default function Recompra() {
   const [numero, setNumero] = useState("");
   const [complemento, setComplemento] = useState("");
   const [cep, setCep] = useState("");
+  const [atualizacaoEnderecoViaPortal, setAtualizacaoEnderecoViaPortal] =
+    useState(false);
+  const [enderecoPreenchidoViaCep, setEnderecoPreenchidoViaCep] =
+    useState(false);
+  const [enderecoBaseViaCep, setEnderecoBaseViaCep] = useState(null);
 
   // Estado para busca de CEP
   const [buscarCep, setBuscarCep] = useState("");
   const [buscandoCep, setBuscandoCep] = useState(false);
+  const enderecoAguardandoConfirmacao =
+    enderecoPreenchidoViaCep && !atualizacaoEnderecoViaPortal;
+  const estiloCampoEndereco = enderecoAguardandoConfirmacao
+      ? "border-2 border-tegra-blue-light bg-tegra-bg-accent text-tegra-blue-dark"
+      : "";
+
+  const marcarAtualizacaoEnderecoSeNecessario = () => {
+    if (!atualizacaoEnderecoViaPortal) {
+      setAtualizacaoEnderecoViaPortal(true);
+    }
+  };
+
+  const handleEnderecoChange = (setter) => (e) => {
+    setter(e.target.value);
+    marcarAtualizacaoEnderecoSeNecessario();
+  };
+
+  const handleCepEnderecoChange = (e) => {
+    const valor = e.target.value.replace(/\D/g, "");
+    if (valor.length <= 8) {
+      setCep(formatarCep(valor));
+      marcarAtualizacaoEnderecoSeNecessario();
+    }
+  };
+
+  useEffect(() => {
+    if (
+      !enderecoPreenchidoViaCep ||
+      !enderecoBaseViaCep ||
+      atualizacaoEnderecoViaPortal
+    ) {
+      return;
+    }
+
+    const houveAlteracaoManual =
+      (rua || "") !== (enderecoBaseViaCep.rua || "") ||
+      (bairro || "") !== (enderecoBaseViaCep.bairro || "") ||
+      (cidade || "") !== (enderecoBaseViaCep.cidade || "") ||
+      (estado || "") !== (enderecoBaseViaCep.estado || "") ||
+      (pais || "") !== (enderecoBaseViaCep.pais || "") ||
+      (cep || "") !== (enderecoBaseViaCep.cep || "");
+
+    if (houveAlteracaoManual) {
+      setAtualizacaoEnderecoViaPortal(true);
+    }
+  }, [
+    rua,
+    bairro,
+    cidade,
+    estado,
+    pais,
+    cep,
+    enderecoPreenchidoViaCep,
+    enderecoBaseViaCep,
+    atualizacaoEnderecoViaPortal,
+  ]);
 
   // Estado para negociação feita pelo consultor
   const [negociacaoFeitaPeloConsultor, setNegociacaoFeitaPeloConsultor] =
     useState(false);
   const [solicitarLinkPagamento, setSolicitarLinkPagamento] = useState("");
   const [tipoLink, setTipoLink] = useState("");
+
+  // Estado para campanha diretoria
+  const [campanhaDiretoria, setCampanhaDiretoria] = useState(false);
 
   // Estado para busca de cliente
   const [cpfBusca, setCpfBusca] = useState("");
@@ -143,10 +214,22 @@ export default function Recompra() {
   const [realizarProcessoComParceiro, setRealizarProcessoComParceiro] =
     useState(false);
   const [parceiroSelecionado, setParceiroSelecionado] = useState("");
+  const consultorEndereco =
+    (realizarProcessoComParceiro && parceiroSelecionado) ||
+    getNomeUsuario(authService.getUser()) ||
+    "Consultor não identificado";
 
   // Estados para upload de arquivos
   const [arquivos, setArquivos] = useState([]);
   const [documentosCompletos, setDocumentosCompletos] = useState(false);
+
+    useEffect(() => {
+      if (localStorage.getItem(DRAFT_KEY)) setShowDraftBanner(true);
+      if (sessionStorage.getItem("auto_restaurar_rascunho") === "true") {
+        sessionStorage.removeItem("auto_restaurar_rascunho");
+        handleRestaurarRascunho();
+      }
+    }, []);
 
   useEffect(() => {
     if (!authService.isAuthenticated()) {
@@ -298,11 +381,23 @@ export default function Recompra() {
     setTelefonePaciente(cliente.Phone ? formatarTelefone(cliente.Phone) : "");
 
     // Preenche endereço (campos Other_* do Contacts)
-    setRua(cliente.Other_Street || "");
-    setBairro(cliente.Outro_Bairro || "");
-    setCidade(cliente.Other_City || "");
-    setEstado(cliente.Other_State || "");
-    setPais(cliente.Other_Country || "Brasil");
+    const enderecoCliente = {
+      rua: cliente.Other_Street || "",
+      bairro: cliente.Outro_Bairro || "",
+      cidade: cliente.Other_City || "",
+      estado: cliente.Other_State || "",
+      pais: cliente.Other_Country || "Brasil",
+      cep: "",
+    };
+
+    setRua(enderecoCliente.rua);
+    setBairro(enderecoCliente.bairro);
+    setCidade(enderecoCliente.cidade);
+    setEstado(enderecoCliente.estado);
+    setPais(enderecoCliente.pais);
+    setEnderecoPreenchidoViaCep(false);
+    setEnderecoBaseViaCep(null);
+    setAtualizacaoEnderecoViaPortal(false);
 
     // Formata CEP (prioriza Other_Zip, fallback para Outra_Correspond_ncia)
     const cepDoCliente = cliente.Other_Zip || cliente.Outra_Correspond_ncia;
@@ -311,11 +406,49 @@ export default function Recompra() {
       const cepFormatado = formatarCep(cepLimpo);
       setBuscarCep(cepFormatado);
       setCep(cepFormatado);
+      enderecoCliente.cep = cepFormatado;
     }
+
+    setEnderecoSugeridoCliente(enderecoCliente);
+    setShowAddressConfirmModal(true);
 
     // Limpa a lista de clientes encontrados após selecionar
     setClientesEncontrados([]);
     showToast("✅ Cliente selecionado e dados preenchidos!", "success", 2000);
+  };
+
+  const handleConfirmarEnderecoSugerido = () => {
+    setAtualizacaoEnderecoViaPortal(false);
+    setShowAddressConfirmModal(false);
+    showToast("✅ Endereço confirmado.", "success", 2000);
+  };
+
+  const handleQueroAlterarEndereco = () => {
+    setShowAddressConfirmModal(false);
+
+    const cepAnterior = enderecoSugeridoCliente?.cep || cep || "";
+
+    setRua("");
+    setNumero("");
+    setComplemento("");
+    setBairro("");
+    setCep("");
+    setCidade("");
+    setEstado("");
+    setPais("Brasil");
+    setBuscarCep(cepAnterior);
+    setEnderecoPreenchidoViaCep(false);
+    setEnderecoBaseViaCep(null);
+    setAtualizacaoEnderecoViaPortal(true);
+
+    setTimeout(() => {
+      const buscarCepSection = document.getElementById("secao-busca-cep-recompra");
+      if (buscarCepSection) {
+        buscarCepSection.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }, 80);
+
+    showToast("✏️ Endereço limpo. CEP mantido para nova busca/validação.", "success", 2500);
   };
 
   // Função para formatar CEP
@@ -327,6 +460,7 @@ export default function Recompra() {
   // Função para buscar CEP na API ViaCEP (via backend proxy)
   const handleBuscarCep = async (e) => {
     e.preventDefault();
+
     const cepLimpo = buscarCep.replace(/\D/g, "");
 
     if (!cepLimpo || cepLimpo.length !== 8) {
@@ -353,7 +487,18 @@ export default function Recompra() {
       setEstado(data.uf || "");
       setPais("Brasil");
       // Preenche o campo CEP do formulário com o CEP encontrado
-      setCep(formatarCep(cepLimpo));
+      const cepFormatado = formatarCep(cepLimpo);
+      setCep(cepFormatado);
+      setEnderecoBaseViaCep({
+        rua: data.logradouro || "",
+        bairro: data.bairro || "",
+        cidade: data.localidade || "",
+        estado: data.uf || "",
+        pais: "Brasil",
+        cep: cepFormatado,
+      });
+      setEnderecoPreenchidoViaCep(true);
+      setAtualizacaoEnderecoViaPortal(false);
 
       showToast("✅ CEP encontrado com sucesso", "success", 2000);
       setBuscandoCep(false);
@@ -425,7 +570,97 @@ export default function Recompra() {
   };
 
   // Função para limpar todos os campos do formulário
+    // --- Rascunho (Salvar Temporariamente) ---
+    const handleSalvarTemporariamente = () => {
+      const draft = {
+        nomePaciente, sobrenomePaciente, cpfPaciente, rgPaciente, celularPaciente,
+        emailPaciente, dataNascimento, telefonePaciente,
+        temRepresentanteLegal, nomeRepresentante, rgRepresentante, cpfRepresentante,
+        emailRepresentante, celularRepresentante, dataNascimentoRepresentante,
+        temNovoMedicoPrescritor, nomeMedico, crmMedico, ufCrm,
+        celularMedico, emailMedico, especialidadeMedico,
+        atualizacaoEnderecoViaPortal,
+        rua, numero, complemento, bairro, cep, cidade, estado, pais,
+        negociacaoFeitaPeloConsultor, solicitarLinkPagamento, tipoLink,
+        campanhaDiretoria, produtos,
+        formaPagamento, termosCondicoesPagamento, observacao,
+        realizarProcessoComParceiro, parceiroSelecionado, documentosCompletos,
+        salvoEm: new Date().toLocaleString("pt-BR"),
+      };
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+      salvarFormularioTemporariamente({
+        tipo: "recompra",
+        titulo: `Recompra - ${nomePaciente || "Sem paciente"}`,
+        paciente: nomePaciente,
+        cpf: cpfPaciente,
+        resumo: `Paciente: ${nomePaciente}, Produtos: ${produtos.filter(p => p.nome).length}`,
+        dados: draft,
+        rota: "/recompra",
+      });
+      showToast("💾 Formulário salvo temporariamente!", "success");
+    };
+
+    const handleRestaurarRascunho = () => {
+      try {
+        const raw = localStorage.getItem(DRAFT_KEY);
+        if (!raw) return;
+        const d = JSON.parse(raw);
+        setNomePaciente(d.nomePaciente || "");
+        setSobrenomePaciente(d.sobrenomePaciente || "");
+        setCpfPaciente(d.cpfPaciente || "");
+        setRgPaciente(d.rgPaciente || "");
+        setCelularPaciente(d.celularPaciente || "");
+        setEmailPaciente(d.emailPaciente || "");
+        setDataNascimento(d.dataNascimento || "");
+        setTelefonePaciente(d.telefonePaciente || "");
+        setTemRepresentanteLegal(d.temRepresentanteLegal || false);
+        setNomeRepresentante(d.nomeRepresentante || "");
+        setRgRepresentante(d.rgRepresentante || "");
+        setCpfRepresentante(d.cpfRepresentante || "");
+        setEmailRepresentante(d.emailRepresentante || "");
+        setCelularRepresentante(d.celularRepresentante || "");
+        setDataNascimentoRepresentante(d.dataNascimentoRepresentante || "");
+        setTemNovoMedicoPrescritor(d.temNovoMedicoPrescritor || false);
+        setNomeMedico(d.nomeMedico || "");
+        setCrmMedico(d.crmMedico || "");
+        setUfCrm(d.ufCrm || "");
+        setCelularMedico(d.celularMedico || "");
+        setEmailMedico(d.emailMedico || "");
+        setEspecialidadeMedico(d.especialidadeMedico || "");
+        setAtualizacaoEnderecoViaPortal(d.atualizacaoEnderecoViaPortal || false);
+        setRua(d.rua || "");
+        setNumero(d.numero || "");
+        setComplemento(d.complemento || "");
+        setBairro(d.bairro || "");
+        setCep(d.cep || "");
+        setCidade(d.cidade || "");
+        setEstado(d.estado || "");
+        setPais(d.pais || "Brasil");
+        setNegociacaoFeitaPeloConsultor(d.negociacaoFeitaPeloConsultor || false);
+        setSolicitarLinkPagamento(d.solicitarLinkPagamento || "");
+        setTipoLink(d.tipoLink || "");
+        setCampanhaDiretoria(d.campanhaDiretoria || false);
+        if (d.produtos?.length) setProdutos(d.produtos);
+        setFormaPagamento(d.formaPagamento || "");
+        setTermosCondicoesPagamento(d.termosCondicoesPagamento || "");
+        setObservacao(d.observacao || "");
+        setRealizarProcessoComParceiro(d.realizarProcessoComParceiro || false);
+        setParceiroSelecionado(d.parceiroSelecionado || "");
+        setDocumentosCompletos(d.documentosCompletos || false);
+        setShowDraftBanner(false);
+        showToast("✅ Rascunho restaurado!", "success");
+      } catch {
+        showToast("❌ Erro ao restaurar rascunho.", "error");
+      }
+    };
+
+    const handleDescartarRascunho = () => {
+      localStorage.removeItem(DRAFT_KEY);
+      setShowDraftBanner(false);
+    };
+
   const limparFormulario = () => {
+      localStorage.removeItem(DRAFT_KEY);
     setNomePaciente("");
     setSobrenomePaciente("");
     setCpfPaciente("");
@@ -442,6 +677,11 @@ export default function Recompra() {
     setNumero("");
     setComplemento("");
     setCep("");
+    setAtualizacaoEnderecoViaPortal(false);
+    setEnderecoPreenchidoViaCep(false);
+    setEnderecoBaseViaCep(null);
+    setEnderecoSugeridoCliente(null);
+    setShowAddressConfirmModal(false);
     setBuscarCep("");
     setTemRepresentanteLegal(false);
     setNomeRepresentante("");
@@ -460,6 +700,7 @@ export default function Recompra() {
     setNegociacaoFeitaPeloConsultor(false);
     setSolicitarLinkPagamento("");
     setTipoLink("");
+    setCampanhaDiretoria(false);
     setFormaPagamento("");
     setTermosCondicoesPagamento("");
     setObservacao("");
@@ -614,6 +855,7 @@ export default function Recompra() {
         cep: cep || "",
         pais,
         complemento,
+        atualizacaoEnderecoViaPortal,
         produtos: produtosValidos,
         consultorTegra,
         tipoSolicitacao: tipoSolicitacao, // Valor fixo "Recompra"
@@ -637,6 +879,8 @@ export default function Recompra() {
         negociacaoFeitaPeloConsultor,
         solicitarLinkPagamento,
         tipoLink,
+        // Campanha Diretoria
+        campanhaDiretoria,
         // Campos de pagamento
         formaPagamento,
         termosCondicoesPagamento,
@@ -669,29 +913,13 @@ export default function Recompra() {
             ? parceiroSelecionado
             : getNomeUsuario(authService.getUser());
 
-        // Prepara os dados do comprovante
+        // Inclui todos os campos enviados no formulário (exceto uploads)
+        const dadosSemArquivos = { ...dadosCompra };
+        delete dadosSemArquivos.arquivos;
         const dadosComprovante = {
+          ...dadosSemArquivos,
           protocolo: response.protocolo,
-          tipoSolicitacao: tipoSolicitacao || "Recompra",
           consultorTegra: nomeConsultor,
-          nomePaciente,
-          sobrenomePaciente,
-          cpfPaciente,
-          emailPaciente,
-          celularPaciente,
-          dataNascimento,
-          rua,
-          numero,
-          bairro,
-          cidade,
-          estado,
-          cep,
-          pais,
-          produtos: produtosValidos.map(p => ({
-            nome: p.nome,
-            quantidade: p.quantidade,
-            valor: p.valor,
-          })),
           dataCriacao,
           totalCompra: totalRecompra,
         };
@@ -759,12 +987,26 @@ export default function Recompra() {
             Nova Recompra
           </h1>
 
+          {/* Banner de rascunho salvo */}
+          {showDraftBanner && (
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-tegra-bg-accent border border-tegra-blue-light rounded-lg px-4 py-3 mb-2">
+              <div>
+                <p className="text-sm font-semibold text-tegra-blue-dark">💾 Você tem um rascunho salvo para este formulário.</p>
+                <p className="text-xs text-tegra-text-secondary">Deseja restaurar os dados preenchidos anteriormente?</p>
+              </div>
+              <div className="flex gap-2 flex-shrink-0">
+                <button type="button" onClick={handleRestaurarRascunho} className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-tegra-blue text-white hover:bg-tegra-blue-dark transition-colors">Restaurar</button>
+                <button type="button" onClick={handleDescartarRascunho} className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-tegra-gray-medium text-tegra-text-primary hover:bg-tegra-gray-dark transition-colors">Descartar</button>
+              </div>
+            </div>
+          )}
+
           <form
             className="space-y-4 sm:space-y-6 md:space-y-8"
             onSubmit={handleSubmit}
           >
             {/* Seção: Buscar Cliente */}
-            <div className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6">
+            <div id="secao-busca-cliente-recompra" className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6">
               <h2 className="text-base sm:text-lg font-semibold text-tegra-text-primary mb-3 sm:mb-4">
                 Buscar cliente
               </h2>
@@ -1033,6 +1275,20 @@ export default function Recompra() {
               </div>
             )}
 
+            {/* Seção: Campanha Diretoria */}
+            <div className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6">
+              <Checkbox
+                id="campanha-diretoria"
+                label={
+                  <span className="font-bold text-tegra-blue-dark">
+                    Campanha Diretoria
+                  </span>
+                }
+                checked={campanhaDiretoria}
+                onChange={(e) => setCampanhaDiretoria(e.target.checked)}
+              />
+            </div>
+
             {/* Seção: Dados do Novo Médico Prescritor */}
             <div className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6">
               <div className="mb-4">
@@ -1107,7 +1363,7 @@ export default function Recompra() {
             </div>
 
             {/* Seção: Busca CEP */}
-            <div className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6">
+            <div id="secao-busca-cep-recompra" className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6">
               <h2 className="text-base sm:text-lg font-semibold text-tegra-text-primary mb-3 sm:mb-4">
                 Buscar CEP
               </h2>
@@ -1139,7 +1395,8 @@ export default function Recompra() {
                     type="button"
                     onClick={handleBuscarCep}
                     disabled={
-                      buscandoCep || buscarCep.replace(/\D/g, "").length !== 8
+                      buscandoCep ||
+                      buscarCep.replace(/\D/g, "").length !== 8
                     }
                     loading={buscandoCep}
                     className="w-full sm:w-auto py-2 sm:py-2.5"
@@ -1151,76 +1408,120 @@ export default function Recompra() {
             </div>
 
             {/* Seção: Endereço */}
-            <div className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6">
+            <div
+              id="secao-endereco-recompra"
+              className={`bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6 border ${
+                atualizacaoEnderecoViaPortal
+                  ? "border-tegra-teal"
+                  : "border-transparent"
+              }`}
+            >
               <h2 className="text-base sm:text-lg font-semibold text-tegra-text-primary mb-3 sm:mb-4 flex items-center gap-2">
                 <MdLocationOn className="text-lg sm:text-xl" />
                 Endereço
               </h2>
+              <div className="mb-4 sm:mb-5 rounded-xl border border-tegra-gray-medium/70 bg-tegra-bg-secondary/40 p-3 sm:p-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+                  <div>
+                    <p className="text-xs sm:text-sm font-bold uppercase tracking-wide text-tegra-blue-dark">
+                      Atualização de endereço
+                    </p>
+                  </div>
+                  <span
+                    className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold w-fit shadow-sm ${
+                      atualizacaoEnderecoViaPortal
+                        ? "bg-tegra-teal text-white"
+                        : "bg-tegra-gray-light text-tegra-text-secondary"
+                    }`}
+                  >
+                    {atualizacaoEnderecoViaPortal
+                      ? "Atualização via portal ativa"
+                      : "Sem alteração manual detectada"}
+                  </span>
+                </div>
+
+                {enderecoAguardandoConfirmacao && (
+                  <div className="mt-3 rounded-md border-2 border-tegra-blue-light bg-tegra-bg-accent px-3 py-2 text-xs sm:text-sm font-semibold text-tegra-blue-dark">
+                    Endereço preenchido via CEP. Ao editar qualquer campo abaixo,
+                    a atualização via portal será ativada automaticamente.
+                  </div>
+                )}
+
+                {atualizacaoEnderecoViaPortal && (
+                  <div className="mt-3 rounded-md bg-tegra-teal/10 px-3 py-2 text-xs sm:text-sm text-tegra-blue-dark">
+                    As alterações serão registradas no CRM como atualização via
+                    portal. Responsável: <strong>{consultorEndereco}</strong>.
+                  </div>
+                )}
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                 <div className="md:col-span-2">
                   <Input
                     label="Rua"
                     type="text"
                     value={rua}
-                    onChange={(e) => setRua(e.target.value)}
+                    onChange={handleEnderecoChange(setRua)}
                     placeholder="Nome da rua"
+                    className={estiloCampoEndereco}
                   />
                 </div>
                 <Input
-                  label="Número"
+                  label="Numero"
                   type="text"
                   value={numero}
-                  onChange={(e) => setNumero(e.target.value)}
+                  onChange={handleEnderecoChange(setNumero)}
                   placeholder="Número"
+                  className={estiloCampoEndereco}
                 />
                 <Input
                   label="Complemento"
                   type="text"
                   value={complemento}
-                  onChange={(e) => setComplemento(e.target.value)}
+                  onChange={handleEnderecoChange(setComplemento)}
                   placeholder="Apto, Bloco, etc."
+                  className={estiloCampoEndereco}
                 />
                 <Input
                   label="Bairro"
                   type="text"
                   value={bairro}
-                  onChange={(e) => setBairro(e.target.value)}
+                  onChange={handleEnderecoChange(setBairro)}
                   placeholder="Bairro"
+                  className={estiloCampoEndereco}
                 />
                 <Input
                   label="CEP"
                   type="text"
                   value={cep}
-                  onChange={(e) => {
-                    const valor = e.target.value.replace(/\D/g, "");
-                    if (valor.length <= 8) {
-                      setCep(formatarCep(valor));
-                    }
-                  }}
+                  onChange={handleCepEnderecoChange}
                   placeholder="00000-000"
                   maxLength={9}
+                  className={estiloCampoEndereco}
                 />
                 <Input
                   label="Cidade"
                   type="text"
                   value={cidade}
-                  onChange={(e) => setCidade(e.target.value)}
+                  onChange={handleEnderecoChange(setCidade)}
                   placeholder="Cidade"
+                  className={estiloCampoEndereco}
                 />
                 <Input
                   label="Estado"
                   type="text"
                   value={estado}
-                  onChange={(e) => setEstado(e.target.value)}
+                  onChange={handleEnderecoChange(setEstado)}
                   placeholder="Estado (UF)"
                   maxLength={2}
+                  className={estiloCampoEndereco}
                 />
                 <Input
-                  label="País"
+                  label="Pais"
                   type="text"
                   value={pais}
-                  onChange={(e) => setPais(e.target.value)}
+                  onChange={handleEnderecoChange(setPais)}
                   placeholder="País"
+                  className={estiloCampoEndereco}
                 />
               </div>
             </div>
@@ -1578,17 +1879,270 @@ export default function Recompra() {
                 Cancelar
               </Button>
               <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setShowReview(true)}
+                className="w-full sm:w-auto"
+              >
+                Rever formulário
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={handleSalvarTemporariamente}
+                className="w-full sm:w-auto"
+              >
+                Salvar formulario
+              </Button>
+              <Button
                 type="submit"
                 variant="primary"
                 loading={false}
                 className="w-full sm:w-auto"
               >
-                Salvar Recompra
+                Enviar
               </Button>
             </div>
           </form>
         </div>
       </MainLayout>
+
+      {/* Modal: Confirmar endereço puxado do CPF */}
+      {showAddressConfirmModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-start justify-center overflow-y-auto py-6 px-3">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl my-auto">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-tegra-gray-medium">
+              <h2 className="text-lg sm:text-xl font-bold text-tegra-blue-dark">
+                Confirmar endereço do paciente
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowAddressConfirmModal(false)}
+                className="p-1 rounded-full hover:bg-tegra-gray-light text-tegra-text-secondary hover:text-tegra-blue-dark transition-colors"
+                aria-label="Fechar confirmação de endereço"
+              >
+                <MdClose className="text-2xl" />
+              </button>
+            </div>
+
+            <div className="px-6 py-5">
+              <p className="text-sm text-tegra-text-secondary mb-4">
+                Este endereço foi preenchido a partir dos dados do cliente. Confira abaixo e escolha como deseja continuar.
+              </p>
+
+              <div className="rounded-lg border border-tegra-gray-medium bg-tegra-bg-secondary/40 p-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                  <div><p className="text-xs text-tegra-text-secondary">Rua</p><p className="font-medium text-tegra-text-primary">{enderecoSugeridoCliente?.rua || "—"}</p></div>
+                  <div><p className="text-xs text-tegra-text-secondary">Bairro</p><p className="font-medium text-tegra-text-primary">{enderecoSugeridoCliente?.bairro || "—"}</p></div>
+                  <div><p className="text-xs text-tegra-text-secondary">Cidade</p><p className="font-medium text-tegra-text-primary">{enderecoSugeridoCliente?.cidade || "—"}</p></div>
+                  <div><p className="text-xs text-tegra-text-secondary">Estado</p><p className="font-medium text-tegra-text-primary">{enderecoSugeridoCliente?.estado || "—"}</p></div>
+                  <div><p className="text-xs text-tegra-text-secondary">CEP</p><p className="font-medium text-tegra-text-primary">{enderecoSugeridoCliente?.cep || "—"}</p></div>
+                  <div><p className="text-xs text-tegra-text-secondary">País</p><p className="font-medium text-tegra-text-primary">{enderecoSugeridoCliente?.pais || "—"}</p></div>
+                </div>
+              </div>
+
+              <div className="mt-5 flex flex-col-reverse sm:flex-row justify-end gap-3">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={handleConfirmarEnderecoSugerido}
+                  className="w-full sm:w-auto"
+                >
+                  Confirmar endereço
+                </Button>
+                <Button
+                  type="button"
+                  variant="primary"
+                  onClick={handleQueroAlterarEndereco}
+                  className="w-full sm:w-auto"
+                >
+                  Quero alterar endereço
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Rever formulário */}
+      {showReview && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-start justify-center overflow-y-auto py-6 px-3">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl my-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-tegra-gray-medium">
+              <h2 className="text-xl font-bold text-tegra-blue-dark">Revisão do Formulário — Recompra</h2>
+              <button
+                type="button"
+                onClick={() => setShowReview(false)}
+                className="p-1 rounded-full hover:bg-tegra-gray-light text-tegra-text-secondary hover:text-tegra-blue-dark transition-colors"
+              >
+                <MdClose className="text-2xl" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="px-6 py-5 space-y-6 max-h-[70vh] overflow-y-auto">
+
+              {/* Parceiro */}
+              {realizarProcessoComParceiro && (
+                <div>
+                  <h3 className="text-xs font-bold text-tegra-blue uppercase tracking-wide mb-3 pb-1 border-b border-tegra-gray-medium">Parceiro</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div><p className="text-xs text-tegra-text-secondary">Parceiro selecionado</p><p className="text-sm font-medium text-tegra-text-primary">{parceiroSelecionado || "—"}</p></div>
+                  </div>
+                </div>
+              )}
+
+              {/* Dados do Paciente */}
+              <div>
+                <h3 className="text-xs font-bold text-tegra-blue uppercase tracking-wide mb-3 pb-1 border-b border-tegra-gray-medium">Dados do Paciente</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div><p className="text-xs text-tegra-text-secondary">Nome completo</p><p className="text-sm font-medium text-tegra-text-primary">{[nomePaciente, sobrenomePaciente].filter(Boolean).join(" ") || "—"}</p></div>
+                  <div><p className="text-xs text-tegra-text-secondary">CPF</p><p className="text-sm font-medium text-tegra-text-primary">{cpfPaciente || "—"}</p></div>
+                  <div><p className="text-xs text-tegra-text-secondary">RG</p><p className="text-sm font-medium text-tegra-text-primary">{rgPaciente || "—"}</p></div>
+                  <div><p className="text-xs text-tegra-text-secondary">Celular</p><p className="text-sm font-medium text-tegra-text-primary">{celularPaciente || "—"}</p></div>
+                  <div><p className="text-xs text-tegra-text-secondary">E-mail</p><p className="text-sm font-medium text-tegra-text-primary">{emailPaciente || "—"}</p></div>
+                  <div><p className="text-xs text-tegra-text-secondary">Data de Nascimento</p><p className="text-sm font-medium text-tegra-text-primary">{dataNascimento || "—"}</p></div>
+                  <div><p className="text-xs text-tegra-text-secondary">Telefone</p><p className="text-sm font-medium text-tegra-text-primary">{telefonePaciente || "—"}</p></div>
+                </div>
+              </div>
+
+              {/* Representante Legal */}
+              {temRepresentanteLegal && (
+                <div>
+                  <h3 className="text-xs font-bold text-tegra-blue uppercase tracking-wide mb-3 pb-1 border-b border-tegra-gray-medium">Representante Legal</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div><p className="text-xs text-tegra-text-secondary">Nome</p><p className="text-sm font-medium text-tegra-text-primary">{nomeRepresentante || "—"}</p></div>
+                    <div><p className="text-xs text-tegra-text-secondary">CPF</p><p className="text-sm font-medium text-tegra-text-primary">{cpfRepresentante || "—"}</p></div>
+                    <div><p className="text-xs text-tegra-text-secondary">RG</p><p className="text-sm font-medium text-tegra-text-primary">{rgRepresentante || "—"}</p></div>
+                    <div><p className="text-xs text-tegra-text-secondary">E-mail</p><p className="text-sm font-medium text-tegra-text-primary">{emailRepresentante || "—"}</p></div>
+                    <div><p className="text-xs text-tegra-text-secondary">Celular</p><p className="text-sm font-medium text-tegra-text-primary">{celularRepresentante || "—"}</p></div>
+                    <div><p className="text-xs text-tegra-text-secondary">Data de Nascimento</p><p className="text-sm font-medium text-tegra-text-primary">{dataNascimentoRepresentante || "—"}</p></div>
+                  </div>
+                </div>
+              )}
+
+              {/* Campanha Diretoria */}
+              <div>
+                <h3 className="text-xs font-bold text-tegra-blue uppercase tracking-wide mb-3 pb-1 border-b border-tegra-gray-medium">Campanha Diretoria</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div><p className="text-xs text-tegra-text-secondary">Campanha Diretoria</p><p className="text-sm font-medium text-tegra-text-primary">{campanhaDiretoria ? "Sim" : "Não"}</p></div>
+                </div>
+              </div>
+
+              {/* Novo Médico Prescritor */}
+              {temNovoMedicoPrescritor && (
+                <div>
+                  <h3 className="text-xs font-bold text-tegra-blue uppercase tracking-wide mb-3 pb-1 border-b border-tegra-gray-medium">Novo Médico Prescritor</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div><p className="text-xs text-tegra-text-secondary">Nome do médico</p><p className="text-sm font-medium text-tegra-text-primary">{nomeMedico || "—"}</p></div>
+                    <div><p className="text-xs text-tegra-text-secondary">CRM</p><p className="text-sm font-medium text-tegra-text-primary">{crmMedico || "—"}</p></div>
+                    <div><p className="text-xs text-tegra-text-secondary">UF do CRM</p><p className="text-sm font-medium text-tegra-text-primary">{ufCrm || "—"}</p></div>
+                    <div><p className="text-xs text-tegra-text-secondary">Celular</p><p className="text-sm font-medium text-tegra-text-primary">{celularMedico || "—"}</p></div>
+                    <div><p className="text-xs text-tegra-text-secondary">E-mail</p><p className="text-sm font-medium text-tegra-text-primary">{emailMedico || "—"}</p></div>
+                    <div><p className="text-xs text-tegra-text-secondary">Especialidade</p><p className="text-sm font-medium text-tegra-text-primary">{especialidadeMedico || "—"}</p></div>
+                  </div>
+                </div>
+              )}
+
+              {/* Endereço */}
+              <div>
+                <h3 className="text-xs font-bold text-tegra-blue uppercase tracking-wide mb-3 pb-1 border-b border-tegra-gray-medium">Endereço</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {atualizacaoEnderecoViaPortal && (
+                    <div className="sm:col-span-2">
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-tegra-teal text-white">Atualização de endereço Via Portal ativa</span>
+                    </div>
+                  )}
+                  <div><p className="text-xs text-tegra-text-secondary">Rua</p><p className="text-sm font-medium text-tegra-text-primary">{rua || "—"}</p></div>
+                  <div><p className="text-xs text-tegra-text-secondary">Número</p><p className="text-sm font-medium text-tegra-text-primary">{numero || "—"}</p></div>
+                  <div><p className="text-xs text-tegra-text-secondary">Complemento</p><p className="text-sm font-medium text-tegra-text-primary">{complemento || "—"}</p></div>
+                  <div><p className="text-xs text-tegra-text-secondary">Bairro</p><p className="text-sm font-medium text-tegra-text-primary">{bairro || "—"}</p></div>
+                  <div><p className="text-xs text-tegra-text-secondary">CEP</p><p className="text-sm font-medium text-tegra-text-primary">{cep || "—"}</p></div>
+                  <div><p className="text-xs text-tegra-text-secondary">Cidade</p><p className="text-sm font-medium text-tegra-text-primary">{cidade || "—"}</p></div>
+                  <div><p className="text-xs text-tegra-text-secondary">Estado</p><p className="text-sm font-medium text-tegra-text-primary">{estado || "—"}</p></div>
+                  <div><p className="text-xs text-tegra-text-secondary">País</p><p className="text-sm font-medium text-tegra-text-primary">{pais || "—"}</p></div>
+                </div>
+              </div>
+
+              {/* Negociação */}
+              {negociacaoFeitaPeloConsultor && (
+                <div>
+                  <h3 className="text-xs font-bold text-tegra-blue uppercase tracking-wide mb-3 pb-1 border-b border-tegra-gray-medium">Negociação</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div><p className="text-xs text-tegra-text-secondary">Solicitar link de pagamento</p><p className="text-sm font-medium text-tegra-text-primary">{solicitarLinkPagamento || "—"}</p></div>
+                    {tipoLink && <div><p className="text-xs text-tegra-text-secondary">Tipo de link</p><p className="text-sm font-medium text-tegra-text-primary">{tipoLink}</p></div>}
+                  </div>
+                </div>
+              )}
+
+              {/* Tipo de Solicitação */}
+              <div>
+                <h3 className="text-xs font-bold text-tegra-blue uppercase tracking-wide mb-3 pb-1 border-b border-tegra-gray-medium">Tipo de Solicitação</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div><p className="text-xs text-tegra-text-secondary">Tipo</p><p className="text-sm font-medium text-tegra-text-primary">{tipoSolicitacao || "—"}</p></div>
+                </div>
+              </div>
+
+              {/* Produtos */}
+              <div>
+                <h3 className="text-xs font-bold text-tegra-blue uppercase tracking-wide mb-3 pb-1 border-b border-tegra-gray-medium">Produtos</h3>
+                {produtos.filter(p => p.nome).length === 0 ? (
+                  <p className="text-sm text-tegra-text-secondary">Nenhum produto adicionado.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {produtos.filter(p => p.nome).map((p) => (
+                      <div key={p.id} className="flex items-center justify-between bg-tegra-bg-accent rounded-lg px-4 py-2">
+                        <span className="text-sm font-medium text-tegra-text-primary">{p.nome}</span>
+                        <span className="text-xs text-tegra-text-secondary">Qtd: {p.quantidade}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Pagamento */}
+              <div>
+                <h3 className="text-xs font-bold text-tegra-blue uppercase tracking-wide mb-3 pb-1 border-b border-tegra-gray-medium">Pagamento</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div><p className="text-xs text-tegra-text-secondary">Forma de pagamento</p><p className="text-sm font-medium text-tegra-text-primary">{formaPagamento || "—"}</p></div>
+                  <div><p className="text-xs text-tegra-text-secondary">Termos e condições</p><p className="text-sm font-medium text-tegra-text-primary">{termosCondicoesPagamento || "—"}</p></div>
+                </div>
+              </div>
+
+              {/* Observação */}
+              {observacao && (
+                <div>
+                  <h3 className="text-xs font-bold text-tegra-blue uppercase tracking-wide mb-3 pb-1 border-b border-tegra-gray-medium">Observação</h3>
+                  <p className="text-sm text-tegra-text-primary whitespace-pre-wrap">{observacao}</p>
+                </div>
+              )}
+
+              {/* Arquivos e Documentos */}
+              <div>
+                <h3 className="text-xs font-bold text-tegra-blue uppercase tracking-wide mb-3 pb-1 border-b border-tegra-gray-medium">Documentos</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div><p className="text-xs text-tegra-text-secondary">Documentos completos</p><p className="text-sm font-medium text-tegra-text-primary">{documentosCompletos ? "Sim" : "Não"}</p></div>
+                  <div><p className="text-xs text-tegra-text-secondary">Arquivos anexados</p><p className="text-sm font-medium text-tegra-text-primary">{arquivos.length > 0 ? `${arquivos.length} arquivo(s)` : "Nenhum"}</p></div>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end gap-3 px-6 py-4 border-t border-tegra-gray-medium">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setShowReview(false)}
+                className="w-full sm:w-auto"
+              >
+                Fechar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

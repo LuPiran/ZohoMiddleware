@@ -1,13 +1,34 @@
 import jsPDF from 'jspdf';
 
-// Logo da TegraCorp em base64
-const LOGO_TEGRA = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAA8AAAACAYAAAD4xJHFAAAACXBIWXMAAA7DAAAOwwHHb6thAAAgAElEQVR4nO3dd3gc1bkG8BfVN1apIMskG4ppsXGHtNPbbgqEkIQWIAFSIIRcLpTkhrRLArk3hZJLIKRcSLmGAIQWQgoQWugdgwHTwRgbg7HBVLCNZVsqVll7949vZ7VaiLRSd2d29vl9n0+MvbuzM2f2zO7O973v+3mSJEmSJEmSJEmSJEmSJEmSJEmSJEmSJEmSJEmSJEmSJEmSJEmSJEmSJEmSJEmSJEmSJEmSJEmSJEmSJEmSJEmSJEmSJEmSJEmSJEmSJEmSJEmSJEmSJEmSJEmSJEmSJEmSJEmSJEmSJEmSJEmSJEmSJEmSJEmSJEmSJEmSJEmSJEmSJEmSJEmSJEmSJEmSJEmSjigGCggGCAYIBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYIBggGCAYAA/f/zzf/7pn/85p9N2v+RyuQaLxfz/8XgUTqdzMpnM/Pz8/kHKZDJ/+tOf/vKXv/z1r3/967/+61/+8pe//PVvf/vbX//+97/+9a9/+VvW+a1v+D6G72P4PoHvk/k+hu9tGL6PoXvj+xl6N45vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47vN47=';
+// Logo pública servida pelo Vite em /public
+const LOGO_TEGRA = '/LogoTegra.png';
+
+function carregarImagem(url) {
+  return new Promise((resolve, reject) => {
+    const imagem = new Image();
+    imagem.onload = () => resolve(imagem);
+    imagem.onerror = reject;
+    imagem.src = url;
+  });
+}
+
+function calcularDimensoesContain(larguraOriginal, alturaOriginal, maxLargura, maxAltura) {
+  if (!larguraOriginal || !alturaOriginal) {
+    return { largura: maxLargura, altura: maxAltura };
+  }
+
+  const proporcao = Math.min(maxLargura / larguraOriginal, maxAltura / alturaOriginal);
+  return {
+    largura: larguraOriginal * proporcao,
+    altura: alturaOriginal * proporcao,
+  };
+}
 
 /**
  * Gera um PDF de comprovante com as informações da solicitação
  * @param {Object} dados - Dados da solicitação
  */
-export const gerarComprovantePDF = (dados) => {
+export const gerarComprovantePDF = async (dados) => {
   const doc = new jsPDF('p', 'mm', 'a4');
 
   // Cores da marca - Paleta profissional
@@ -17,6 +38,8 @@ export const gerarComprovantePDF = (dados) => {
   const corTexto = [33, 33, 33];            // Cinza escuro
   const corTextoClaro = [102, 102, 102];    // Cinza médio
   const corBranco = [255, 255, 255];        // Branco
+  const corFundoSecao = [240, 246, 255];    // Azul muito claro
+  const corBordaCard = [214, 228, 248];     // Azul suave
 
   const pageWidth = doc.internal.pageSize.width;
   const pageHeight = doc.internal.pageSize.height;
@@ -26,27 +49,79 @@ export const gerarComprovantePDF = (dados) => {
 
   let yPosition = 0;
 
+  const garantirEspaco = (alturaMinima = 10) => {
+    if (yPosition + alturaMinima > pageHeight - 35) {
+      doc.addPage();
+      yPosition = 20;
+    }
+  };
+
+  const desenharTituloSecao = (titulo) => {
+    garantirEspaco(12);
+    doc.setFillColor(...corFundoSecao);
+    doc.roundedRect(margemEsquerda, yPosition - 4, larguraPagina, 8, 1.5, 1.5, 'F');
+    doc.setTextColor(...corPrincipal);
+    doc.setFontSize(9.5);
+    doc.setFont(undefined, 'bold');
+    doc.text(titulo, margemEsquerda + 3, yPosition + 1.2);
+    yPosition += 9;
+  };
+
+  const desenharLinhaInfo = (label, valor) => {
+    const valorFinal = valor || 'N/A';
+    const linhas = doc.splitTextToSize(String(valorFinal), larguraPagina - 52);
+    const altura = Math.max(5.5, linhas.length * 4.2);
+
+    garantirEspaco(altura + 1);
+    doc.setFontSize(8.8);
+    doc.setTextColor(...corTextoClaro);
+    doc.setFont(undefined, 'bold');
+    doc.text(label, margemEsquerda, yPosition);
+    doc.setTextColor(...corTexto);
+    doc.setFont(undefined, 'normal');
+    doc.text(linhas, margemEsquerda + 50, yPosition);
+    yPosition += altura;
+  };
+
   // ========== CABEÇALHO PRINCIPAL ==========
   // Fundo gradiente simulado com retângulo azul forte
   doc.setFillColor(...corPrincipal);
   doc.rect(0, 0, pageWidth, 50, 'F');
 
+  let logoX = margemEsquerda;
+  let logoY = 6;
+  let logoLargura = 25;
+  let logoAltura = 18;
+
   // Logo da TegraCorp
   try {
-    doc.addImage(LOGO_TEGRA, 'PNG', margemEsquerda, 5, 25, 25);
+    const logoImagem = await carregarImagem(LOGO_TEGRA);
+    const dimensoesLogo = calcularDimensoesContain(
+      logoImagem.width,
+      logoImagem.height,
+      32,
+      18,
+    );
+    logoLargura = dimensoesLogo.largura;
+    logoAltura = dimensoesLogo.altura;
+    doc.addImage(logoImagem, 'PNG', logoX, logoY, logoLargura, logoAltura);
   } catch (e) {
     // Se a imagem não carregar, usar texto como fallback
     doc.setTextColor(...corBranco);
     doc.setFontSize(20);
     doc.setFont(undefined, 'bold');
     doc.text('Tegra', margemEsquerda, 20);
+    logoLargura = 20;
+    logoAltura = 12;
   }
 
   // Texto branco no cabeçalho
   doc.setTextColor(...corBranco);
   doc.setFontSize(11);
   doc.setFont(undefined, 'normal');
-  doc.text('Comprovante de Solicitação', margemEsquerda + 30, 20);
+  const tituloX = logoX + logoLargura + 6;
+  const tituloY = logoY + logoAltura * 0.65;
+  doc.text('Comprovante de Solicitação', tituloX, tituloY);
 
   // Protocolo em destaque no cabeçalho
   const numeroProtocolo = dados.protocolo || 'N/A';
@@ -63,7 +138,37 @@ export const gerarComprovantePDF = (dados) => {
 
   const dataFormatada = formatarDataComHora(dados.dataCriacao);
   doc.text(`Inserido no dia: ${dataFormatada}`, margemEsquerda, yPosition);
-  yPosition += 8;
+  yPosition += 7;
+
+  // Cards resumo para leitura rapida
+  const cardsResumo = [
+    { label: 'Tipo', valor: dados.tipoSolicitacao || 'N/A' },
+    { label: 'Paciente', valor: `${dados.nomePaciente || ''} ${dados.sobrenomePaciente || ''}`.trim() || 'N/A' },
+    { label: 'Consultor', valor: dados.consultorTegra || 'N/A' },
+  ];
+
+  const gapCard = 3;
+  const larguraCard = (larguraPagina - gapCard * 2) / 3;
+  const yCards = yPosition;
+
+  for (let i = 0; i < cardsResumo.length; i += 1) {
+    const x = margemEsquerda + i * (larguraCard + gapCard);
+    const card = cardsResumo[i];
+    doc.setFillColor(248, 251, 255);
+    doc.setDrawColor(...corBordaCard);
+    doc.roundedRect(x, yCards, larguraCard, 14, 2, 2, 'FD');
+    doc.setFontSize(7.5);
+    doc.setTextColor(...corTextoClaro);
+    doc.setFont(undefined, 'bold');
+    doc.text(card.label.toUpperCase(), x + 2, yCards + 4);
+    doc.setFontSize(8.5);
+    doc.setTextColor(...corTexto);
+    doc.setFont(undefined, 'normal');
+    const valorCard = doc.splitTextToSize(String(card.valor), larguraCard - 4);
+    doc.text(valorCard[0] || 'N/A', x + 2, yCards + 10);
+  }
+
+  yPosition += 18;
 
   // Linha divisória
   doc.setDrawColor(...corLinha);
@@ -72,14 +177,7 @@ export const gerarComprovantePDF = (dados) => {
   yPosition += 8;
 
   // ========== TIPO DE SOLICITAÇÃO E CONSULTOR ==========
-  doc.setTextColor(...corTexto);
-  doc.setFontSize(10);
-  doc.setFont(undefined, 'bold');
-  doc.text('INFORMAÇÕES GERAIS', margemEsquerda, yPosition);
-  yPosition += 7;
-
-  doc.setFontSize(9);
-  doc.setFont(undefined, 'normal');
+  desenharTituloSecao('INFORMACOES GERAIS');
 
   const infoGeral = [
     { label: 'Tipo de solicitação:', valor: dados.tipoSolicitacao || 'N/A' },
@@ -87,24 +185,13 @@ export const gerarComprovantePDF = (dados) => {
   ];
 
   for (const info of infoGeral) {
-    doc.setFont(undefined, 'bold');
-    doc.text(info.label, margemEsquerda, yPosition);
-    doc.setFont(undefined, 'normal');
-    doc.text(info.valor, margemEsquerda + 50, yPosition);
-    yPosition += 5;
+    desenharLinhaInfo(info.label, info.valor);
   }
 
   yPosition += 3;
 
   // ========== DADOS DO PACIENTE ==========
-  doc.setTextColor(...corTexto);
-  doc.setFontSize(10);
-  doc.setFont(undefined, 'bold');
-  doc.text('DADOS DO PACIENTE', margemEsquerda, yPosition);
-  yPosition += 7;
-
-  doc.setFontSize(9);
-  doc.setFont(undefined, 'normal');
+  desenharTituloSecao('DADOS DO PACIENTE');
 
   const dadosPaciente = [
     { label: 'Primeiro Nome:', valor: dados.nomePaciente || 'N/A' },
@@ -118,25 +205,14 @@ export const gerarComprovantePDF = (dados) => {
   ];
 
   for (const dado of dadosPaciente) {
-    doc.setFont(undefined, 'bold');
-    doc.text(dado.label, margemEsquerda, yPosition);
-    doc.setFont(undefined, 'normal');
-    doc.text(dado.valor, margemEsquerda + 50, yPosition);
-    yPosition += 5;
+    desenharLinhaInfo(dado.label, dado.valor);
   }
 
   yPosition += 3;
 
   // ========== REPRESENTANTE LEGAL (se houver) ==========
   if (dados.temRepresentanteLegal || dados.nomeRepresentanteLegal) {
-    doc.setTextColor(...corTexto);
-    doc.setFontSize(10);
-    doc.setFont(undefined, 'bold');
-    doc.text('REPRESENTANTE LEGAL', margemEsquerda, yPosition);
-    yPosition += 7;
-
-    doc.setFontSize(9);
-    doc.setFont(undefined, 'normal');
+    desenharTituloSecao('REPRESENTANTE LEGAL');
 
     const dadosRepresentante = [
       { label: 'Nome do representante:', valor: dados.nomeRepresentanteLegal || 'N/A' },
@@ -147,11 +223,7 @@ export const gerarComprovantePDF = (dados) => {
     ];
 
     for (const dado of dadosRepresentante) {
-      doc.setFont(undefined, 'bold');
-      doc.text(dado.label, margemEsquerda, yPosition);
-      doc.setFont(undefined, 'normal');
-      doc.text(dado.valor, margemEsquerda + 50, yPosition);
-      yPosition += 5;
+      desenharLinhaInfo(dado.label, dado.valor);
     }
 
     yPosition += 3;
@@ -159,14 +231,7 @@ export const gerarComprovantePDF = (dados) => {
 
   // ========== NOVO MÉDICO PRESCRITOR (se houver) ==========
   if (dados.temNovoMedicoPrescritor || dados.nomeMedico) {
-    doc.setTextColor(...corTexto);
-    doc.setFontSize(10);
-    doc.setFont(undefined, 'bold');
-    doc.text('NOVO MÉDICO PRESCRITOR', margemEsquerda, yPosition);
-    yPosition += 7;
-
-    doc.setFontSize(9);
-    doc.setFont(undefined, 'normal');
+    desenharTituloSecao('NOVO MEDICO PRESCRITOR');
 
     const dadosMedico = [
       { label: 'Nome do Médico:', valor: dados.nomeMedico || 'N/A' },
@@ -177,11 +242,7 @@ export const gerarComprovantePDF = (dados) => {
     ];
 
     for (const dado of dadosMedico) {
-      doc.setFont(undefined, 'bold');
-      doc.text(dado.label, margemEsquerda, yPosition);
-      doc.setFont(undefined, 'normal');
-      doc.text(dado.valor, margemEsquerda + 50, yPosition);
-      yPosition += 5;
+      desenharLinhaInfo(dado.label, dado.valor);
     }
 
     yPosition += 3;
@@ -201,11 +262,7 @@ export const gerarComprovantePDF = (dados) => {
     doc.line(margemEsquerda, yPosition, pageWidth - margemDireita, yPosition);
     yPosition += 8;
 
-    doc.setTextColor(...corTexto);
-    doc.setFontSize(10);
-    doc.setFont(undefined, 'bold');
-    doc.text('PRODUTOS SOLICITADOS', margemEsquerda, yPosition);
-    yPosition += 8;
+    desenharTituloSecao('PRODUTOS SOLICITADOS');
 
     // Cabeçalho da tabela
     doc.setFillColor(...corSecundaria);
@@ -218,7 +275,7 @@ export const gerarComprovantePDF = (dados) => {
     const colunaValor = margemEsquerda + 120;
 
     // Retângulo do cabeçalho
-    doc.rect(margemEsquerda, yPosition - 5, larguraPagina, 7, 'F');
+    doc.roundedRect(margemEsquerda, yPosition - 5, larguraPagina, 7, 1.2, 1.2, 'F');
 
     doc.text('Produto', colunaProduto + 2, yPosition);
     doc.text('Qtd', colunaQuantidade + 2, yPosition);
@@ -233,7 +290,7 @@ export const gerarComprovantePDF = (dados) => {
     for (const produto of dados.produtos) {
       // Fundo alternado para melhor leitura
       if (dados.produtos.indexOf(produto) % 2 === 0) {
-        doc.setFillColor(248, 248, 248);
+        doc.setFillColor(248, 250, 253);
         doc.rect(margemEsquerda, yPosition - 4, larguraPagina, 6, 'F');
       }
 
@@ -268,14 +325,7 @@ export const gerarComprovantePDF = (dados) => {
   doc.line(margemEsquerda, yPosition, pageWidth - margemDireita, yPosition);
   yPosition += 8;
 
-  doc.setTextColor(...corTexto);
-  doc.setFontSize(10);
-  doc.setFont(undefined, 'bold');
-  doc.text('ENDEREÇO DE ENTREGA', margemEsquerda, yPosition);
-  yPosition += 7;
-
-  doc.setFontSize(9);
-  doc.setFont(undefined, 'normal');
+  desenharTituloSecao('ENDERECO DE ENTREGA');
 
   const endereco = [
     { label: 'Rua:', valor: dados.rua || 'N/A' },
@@ -287,24 +337,13 @@ export const gerarComprovantePDF = (dados) => {
   ];
 
   for (const dado of endereco) {
-    doc.setFont(undefined, 'bold');
-    doc.text(dado.label, margemEsquerda, yPosition);
-    doc.setFont(undefined, 'normal');
-    doc.text(dado.valor, margemEsquerda + 50, yPosition);
-    yPosition += 5;
+    desenharLinhaInfo(dado.label, dado.valor);
   }
 
   yPosition += 5;
 
   // ========== INFORMAÇÕES DE PAGAMENTO ==========
-  doc.setTextColor(...corTexto);
-  doc.setFontSize(10);
-  doc.setFont(undefined, 'bold');
-  doc.text('INFORMAÇÕES DE PAGAMENTO', margemEsquerda, yPosition);
-  yPosition += 7;
-
-  doc.setFontSize(9);
-  doc.setFont(undefined, 'normal');
+  desenharTituloSecao('INFORMACOES DE PAGAMENTO');
 
   const pagamento = [
     { label: 'Forma de pagamento:', valor: dados.formaPagamento || 'N/A' },
@@ -312,14 +351,7 @@ export const gerarComprovantePDF = (dados) => {
   ];
 
   for (const dado of pagamento) {
-    doc.setFont(undefined, 'bold');
-    doc.text(dado.label, margemEsquerda, yPosition);
-    doc.setFont(undefined, 'normal');
-    
-    // text com quebra de linha se necessário
-    const linhas = doc.splitTextToSize(dado.valor, larguraPagina - 50);
-    doc.text(linhas, margemEsquerda + 50, yPosition);
-    yPosition += linhas.length * 4 + 2;
+    desenharLinhaInfo(dado.label, dado.valor);
   }
 
   // ========== OBSERVAÇÕES ==========
@@ -336,6 +368,56 @@ export const gerarComprovantePDF = (dados) => {
     const linhasObs = doc.splitTextToSize(dados.observacao, larguraPagina - 4);
     doc.text(linhasObs, margemEsquerda + 2, yPosition);
     yPosition += linhasObs.length * 4 + 3;
+  }
+
+  // ========== RESUMO COMPLETO DOS CAMPOS PREENCHIDOS ==========
+  const camposIgnorados = new Set([
+    'arquivos',
+    'attachment',
+    'attachments',
+  ]);
+
+  const camposCompletos = Object.entries(dados || {})
+    .filter(([chave, valor]) => {
+      const chaveNormalizada = String(chave || '').toLowerCase();
+      if (camposIgnorados.has(chaveNormalizada)) return false;
+      if (/busca|buscar|pesquisa|search|base64|arquivo/i.test(chaveNormalizada)) return false;
+      return temValorParaPDF(valor);
+    })
+    .sort(([a], [b]) => String(a).localeCompare(String(b), 'pt-BR'));
+
+  if (camposCompletos.length > 0) {
+    garantirEspaco(18);
+    yPosition += 4;
+
+    doc.setDrawColor(...corLinha);
+    doc.setLineWidth(0.5);
+    doc.line(margemEsquerda, yPosition, pageWidth - margemDireita, yPosition);
+    yPosition += 8;
+
+    doc.setTextColor(...corTexto);
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'bold');
+    doc.text('RESUMO COMPLETO DOS CAMPOS PREENCHIDOS', margemEsquerda, yPosition);
+    yPosition += 7;
+
+    doc.setFontSize(9);
+    doc.setFont(undefined, 'normal');
+
+    for (const [chave, valor] of camposCompletos) {
+      const valorFormatado = formatarValorGenericoPDF(chave, valor);
+      if (!temValorParaPDF(valorFormatado)) continue;
+
+      const linhasValor = doc.splitTextToSize(String(valorFormatado), larguraPagina - 50);
+      const alturaCampo = Math.max(6, linhasValor.length * 4 + 1);
+      garantirEspaco(alturaCampo + 3);
+
+      doc.setFont(undefined, 'bold');
+      doc.text(`${formatarNomeCampoPDF(chave)}:`, margemEsquerda, yPosition);
+      doc.setFont(undefined, 'normal');
+      doc.text(linhasValor, margemEsquerda + 50, yPosition);
+      yPosition += alturaCampo;
+    }
   }
 
   // ========== RODAPÉ ==========
@@ -444,4 +526,59 @@ function formatarTelefone(telefone) {
     return `(${telLimpo.substring(0, 2)}) ${telLimpo.substring(2, 6)}-${telLimpo.substring(6)}`;
   }
   return telefone;
+}
+
+function temValorParaPDF(valor) {
+  if (valor === null || valor === undefined) return false;
+  if (typeof valor === 'string') return valor.trim() !== '';
+  if (Array.isArray(valor)) return valor.some((item) => temValorParaPDF(item));
+  if (typeof valor === 'object') {
+    return Object.values(valor).some((item) => temValorParaPDF(item));
+  }
+  return true;
+}
+
+function formatarNomeCampoPDF(chave) {
+  const texto = String(chave)
+    .replace(/_/g, ' ')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .trim();
+  return texto.charAt(0).toUpperCase() + texto.slice(1);
+}
+
+function formatarValorGenericoPDF(chave, valor) {
+  if (!temValorParaPDF(valor)) return '';
+
+  if (typeof valor === 'boolean') {
+    return valor ? 'Sim' : 'Não';
+  }
+
+  if (Array.isArray(valor)) {
+    return valor
+      .map((item, index) => {
+        if (!temValorParaPDF(item)) return null;
+        if (typeof item === 'object' && !Array.isArray(item)) {
+          const pares = Object.entries(item)
+            .filter(([, v]) => temValorParaPDF(v))
+            .map(([k, v]) => `${formatarNomeCampoPDF(k)}: ${v}`);
+          return pares.length > 0 ? `${index + 1}. ${pares.join(' | ')}` : null;
+        }
+        return `${index + 1}. ${item}`;
+      })
+      .filter(Boolean)
+      .join('\n');
+  }
+
+  if (typeof valor === 'object') {
+    return Object.entries(valor)
+      .filter(([, v]) => temValorParaPDF(v))
+      .map(([k, v]) => `${formatarNomeCampoPDF(k)}: ${v}`)
+      .join(' | ');
+  }
+
+  if (/cpf/i.test(chave)) return formatarCPF(String(valor));
+  if (/cep/i.test(chave)) return formatarCEP(String(valor));
+  if (/telefone|celular/i.test(chave)) return formatarTelefone(String(valor));
+
+  return String(valor);
 }

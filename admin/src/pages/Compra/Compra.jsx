@@ -14,6 +14,7 @@ import { ROUTES, getNomeUsuario, podeVerSecaoParceiro, getOpcoesParceiro } from 
 import api from "../../services/api";
 import { compraService } from "../../services/compra";
 import { productsService } from "../../services/products";
+import { salvarFormularioTemporariamente } from "../../services/savedForms";
 import { isAdminPortal, hasAdminPanelPermission } from "../../utils/permissions";
 import {
   MdPerson,
@@ -33,6 +34,10 @@ export default function Compra() {
   const { setLoading, isLoading } = useLoading();
   const { showToast } = useToast();
   const [showSplash, setShowSplash] = useState(false);
+  const [showReview, setShowReview] = useState(false);
+    const [showDraftBanner, setShowDraftBanner] = useState(false);
+
+    const DRAFT_KEY = "zoho_draft_compra";
 
   // Estados do formulário do paciente
   const [nomePaciente, setNomePaciente] = useState("");
@@ -114,6 +119,9 @@ export default function Compra() {
   const [solicitarLinkPagamento, setSolicitarLinkPagamento] = useState("");
   const [tipoLink, setTipoLink] = useState("");
 
+  // Estado para campanha diretoria
+  const [campanhaDiretoria, setCampanhaDiretoria] = useState(false);
+
   // Estado para produtos
   const [produtos, setProdutos] = useState([
     { id: 1, nome: "", produtoId: "", quantidade: "1" },
@@ -141,6 +149,14 @@ export default function Compra() {
   // Estados para upload de arquivos
   const [arquivos, setArquivos] = useState([]);
   const [documentosCompletos, setDocumentosCompletos] = useState(false);
+
+    useEffect(() => {
+      if (localStorage.getItem(DRAFT_KEY)) setShowDraftBanner(true);
+      if (sessionStorage.getItem("auto_restaurar_rascunho") === "true") {
+        sessionStorage.removeItem("auto_restaurar_rascunho");
+        handleRestaurarRascunho();
+      }
+    }, []);
 
   useEffect(() => {
     if (!authService.isAuthenticated()) {
@@ -336,7 +352,95 @@ export default function Compra() {
   };
 
   // Função para limpar todos os campos do formulário
+    // --- Rascunho (Salvar Temporariamente) ---
+    const handleSalvarTemporariamente = () => {
+      const draft = {
+        nomePaciente, sobrenomePaciente, cpfPaciente, rgPaciente, celularPaciente,
+        emailPaciente, dataNascimento, telefonePaciente,
+        temRepresentanteLegal, nomeRepresentante, rgRepresentante, cpfRepresentante,
+        emailRepresentante, celularRepresentante, dataNascimentoRepresentante,
+        temNovoMedicoPrescritor, nomeMedico, crmMedico, ufCrm,
+        celularMedico, emailMedico, especialidadeMedico,
+        rua, numero, complemento, bairro, cep, cidade, estado, pais,
+        negociacaoFeitaPeloConsultor, solicitarLinkPagamento, tipoLink,
+        campanhaDiretoria, produtos,
+        formaPagamento, termosCondicoesPagamento, observacao,
+        realizarProcessoComParceiro, parceiroSelecionado, documentosCompletos,
+        salvoEm: new Date().toLocaleString("pt-BR"),
+      };
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+      salvarFormularioTemporariamente({
+        tipo: "compra",
+        titulo: `Compra - ${nomePaciente || "Sem paciente"}`,
+        paciente: nomePaciente,
+        cpf: cpfPaciente,
+        resumo: `Paciente: ${nomePaciente}, Produtos: ${produtos.filter(p => p.nome).length}`,
+        dados: draft,
+        rota: "/compra",
+      });
+      showToast("💾 Formulário salvo temporariamente!", "success");
+    };
+
+    const handleRestaurarRascunho = () => {
+      try {
+        const raw = localStorage.getItem(DRAFT_KEY);
+        if (!raw) return;
+        const d = JSON.parse(raw);
+        setNomePaciente(d.nomePaciente || "");
+        setSobrenomePaciente(d.sobrenomePaciente || "");
+        setCpfPaciente(d.cpfPaciente || "");
+        setRgPaciente(d.rgPaciente || "");
+        setCelularPaciente(d.celularPaciente || "");
+        setEmailPaciente(d.emailPaciente || "");
+        setDataNascimento(d.dataNascimento || "");
+        setTelefonePaciente(d.telefonePaciente || "");
+        setTemRepresentanteLegal(d.temRepresentanteLegal || false);
+        setNomeRepresentante(d.nomeRepresentante || "");
+        setRgRepresentante(d.rgRepresentante || "");
+        setCpfRepresentante(d.cpfRepresentante || "");
+        setEmailRepresentante(d.emailRepresentante || "");
+        setCelularRepresentante(d.celularRepresentante || "");
+        setDataNascimentoRepresentante(d.dataNascimentoRepresentante || "");
+        setTemNovoMedicoPrescritor(d.temNovoMedicoPrescritor || false);
+        setNomeMedico(d.nomeMedico || "");
+        setCrmMedico(d.crmMedico || "");
+        setUfCrm(d.ufCrm || "");
+        setCelularMedico(d.celularMedico || "");
+        setEmailMedico(d.emailMedico || "");
+        setEspecialidadeMedico(d.especialidadeMedico || "");
+        setRua(d.rua || "");
+        setNumero(d.numero || "");
+        setComplemento(d.complemento || "");
+        setBairro(d.bairro || "");
+        setCep(d.cep || "");
+        setCidade(d.cidade || "");
+        setEstado(d.estado || "");
+        setPais(d.pais || "Brasil");
+        setNegociacaoFeitaPeloConsultor(d.negociacaoFeitaPeloConsultor || false);
+        setSolicitarLinkPagamento(d.solicitarLinkPagamento || "");
+        setTipoLink(d.tipoLink || "");
+        setCampanhaDiretoria(d.campanhaDiretoria || false);
+        if (d.produtos?.length) setProdutos(d.produtos);
+        setFormaPagamento(d.formaPagamento || "");
+        setTermosCondicoesPagamento(d.termosCondicoesPagamento || "");
+        setObservacao(d.observacao || "");
+        setRealizarProcessoComParceiro(d.realizarProcessoComParceiro || false);
+        setParceiroSelecionado(d.parceiroSelecionado || "");
+        setDocumentosCompletos(d.documentosCompletos || false);
+        setShowDraftBanner(false);
+        showToast("✅ Rascunho restaurado!", "success");
+      } catch {
+        showToast("❌ Erro ao restaurar rascunho.", "error");
+      }
+    };
+
+    const handleDescartarRascunho = () => {
+      localStorage.removeItem(DRAFT_KEY);
+      setShowDraftBanner(false);
+    };
+
   const limparFormulario = () => {
+      localStorage.removeItem(DRAFT_KEY);
     setNomePaciente("");
     setSobrenomePaciente("");
     setCpfPaciente("");
@@ -371,6 +475,7 @@ export default function Compra() {
     setNegociacaoFeitaPeloConsultor(false);
     setSolicitarLinkPagamento("");
     setTipoLink("");
+    setCampanhaDiretoria(false);
     setFormaPagamento("");
     setTermosCondicoesPagamento("");
     setObservacao("");
@@ -544,6 +649,8 @@ export default function Compra() {
         negociacaoFeitaPeloConsultor,
         solicitarLinkPagamento,
         tipoLink,
+        // Campanha Diretoria
+        campanhaDiretoria,
         // Campos de pagamento
         formaPagamento,
         termosCondicoesPagamento,
@@ -576,29 +683,13 @@ export default function Compra() {
             ? parceiroSelecionado
             : getNomeUsuario(authService.getUser());
 
-        // Prepara os dados do comprovante
+        // Inclui todos os campos enviados no formulário (exceto uploads)
+        const dadosSemArquivos = { ...dadosCompra };
+        delete dadosSemArquivos.arquivos;
         const dadosComprovante = {
+          ...dadosSemArquivos,
           protocolo: response.protocolo,
-          tipoSolicitacao: tipoSolicitacao || "1ª Compra",
           consultorTegra: nomeConsultor,
-          nomePaciente,
-          sobrenomePaciente,
-          cpfPaciente,
-          emailPaciente,
-          celularPaciente,
-          dataNascimento,
-          rua,
-          numero,
-          bairro,
-          cidade,
-          estado,
-          cep,
-          pais,
-          produtos: produtosValidos.map(p => ({
-            nome: p.nome,
-            quantidade: p.quantidade,
-            valor: p.valor,
-          })),
           dataCriacao,
           totalCompra,
         };
@@ -655,6 +746,20 @@ export default function Compra() {
           <h1 className="text-xl sm:text-2xl font-bold text-tegra-text-primary mb-4 sm:mb-6">
             Nova Compra
           </h1>
+
+          {/* Banner de rascunho salvo */}
+          {showDraftBanner && (
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-tegra-bg-accent border border-tegra-blue-light rounded-lg px-4 py-3 mb-2">
+              <div>
+                <p className="text-sm font-semibold text-tegra-blue-dark">💾 Você tem um rascunho salvo para este formulário.</p>
+                <p className="text-xs text-tegra-text-secondary">Deseja restaurar os dados preenchidos anteriormente?</p>
+              </div>
+              <div className="flex gap-2 flex-shrink-0">
+                <button type="button" onClick={handleRestaurarRascunho} className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-tegra-blue text-white hover:bg-tegra-blue-dark transition-colors">Restaurar</button>
+                <button type="button" onClick={handleDescartarRascunho} className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-tegra-gray-medium text-tegra-text-primary hover:bg-tegra-gray-dark transition-colors">Descartar</button>
+              </div>
+            </div>
+          )}
 
           <form
             className="space-y-4 sm:space-y-6 md:space-y-8"
@@ -850,6 +955,20 @@ export default function Compra() {
                 </div>
               </div>
             )}
+
+            {/* Seção: Campanha Diretoria */}
+            <div className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6">
+              <Checkbox
+                id="campanha-diretoria"
+                label={
+                  <span className="font-bold text-tegra-blue-dark">
+                    Campanha Diretoria
+                  </span>
+                }
+                checked={campanhaDiretoria}
+                onChange={(e) => setCampanhaDiretoria(e.target.checked)}
+              />
+            </div>
 
             {/* Seção: Dados do Novo Médico Prescritor */}
             <div className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6">
@@ -1093,6 +1212,20 @@ export default function Compra() {
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* Seção: Campanha Diretoria */}
+            <div className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6">
+              <Checkbox
+                id="campanha-diretoria"
+                label={
+                  <span className="font-bold text-tegra-blue-dark">
+                    Campanha Diretoria
+                  </span>
+                }
+                checked={campanhaDiretoria}
+                onChange={(e) => setCampanhaDiretoria(e.target.checked)}
+              />
             </div>
 
             {/* Campo: Tipo de Solicitação (fixo como "1ª Compra") */}
@@ -1396,17 +1529,208 @@ export default function Compra() {
                 Cancelar
               </Button>
               <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setShowReview(true)}
+                className="w-full sm:w-auto"
+              >
+                Rever formulário
+              </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={handleSalvarTemporariamente}
+                  className="w-full sm:w-auto"
+                >
+                  Salvar formulario
+                </Button>
+              <Button
                 type="submit"
                 variant="primary"
                 loading={false}
                 className="w-full sm:w-auto"
               >
-                Salvar Compra
+                Enviar
               </Button>
             </div>
           </form>
         </div>
       </MainLayout>
+
+      {/* Modal: Rever formulário */}
+      {showReview && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-start justify-center overflow-y-auto py-6 px-3">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl my-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-tegra-gray-medium">
+              <h2 className="text-xl font-bold text-tegra-blue-dark">Revisão do Formulário — Compra</h2>
+              <button
+                type="button"
+                onClick={() => setShowReview(false)}
+                className="p-1 rounded-full hover:bg-tegra-gray-light text-tegra-text-secondary hover:text-tegra-blue-dark transition-colors"
+              >
+                <MdClose className="text-2xl" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="px-6 py-5 space-y-6 max-h-[70vh] overflow-y-auto">
+
+              {/* Parceiro */}
+              {realizarProcessoComParceiro && (
+                <div>
+                  <h3 className="text-xs font-bold text-tegra-blue uppercase tracking-wide mb-3 pb-1 border-b border-tegra-gray-medium">Parceiro</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div><p className="text-xs text-tegra-text-secondary">Parceiro selecionado</p><p className="text-sm font-medium text-tegra-text-primary">{parceiroSelecionado || "—"}</p></div>
+                  </div>
+                </div>
+              )}
+
+              {/* Dados do Paciente */}
+              <div>
+                <h3 className="text-xs font-bold text-tegra-blue uppercase tracking-wide mb-3 pb-1 border-b border-tegra-gray-medium">Dados do Paciente</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div><p className="text-xs text-tegra-text-secondary">Nome completo</p><p className="text-sm font-medium text-tegra-text-primary">{[nomePaciente, sobrenomePaciente].filter(Boolean).join(" ") || "—"}</p></div>
+                  <div><p className="text-xs text-tegra-text-secondary">CPF</p><p className="text-sm font-medium text-tegra-text-primary">{cpfPaciente || "—"}</p></div>
+                  <div><p className="text-xs text-tegra-text-secondary">RG</p><p className="text-sm font-medium text-tegra-text-primary">{rgPaciente || "—"}</p></div>
+                  <div><p className="text-xs text-tegra-text-secondary">Celular</p><p className="text-sm font-medium text-tegra-text-primary">{celularPaciente || "—"}</p></div>
+                  <div><p className="text-xs text-tegra-text-secondary">E-mail</p><p className="text-sm font-medium text-tegra-text-primary">{emailPaciente || "—"}</p></div>
+                  <div><p className="text-xs text-tegra-text-secondary">Data de Nascimento</p><p className="text-sm font-medium text-tegra-text-primary">{dataNascimento || "—"}</p></div>
+                  <div><p className="text-xs text-tegra-text-secondary">Telefone</p><p className="text-sm font-medium text-tegra-text-primary">{telefonePaciente || "—"}</p></div>
+                </div>
+              </div>
+
+              {/* Representante Legal */}
+              {temRepresentanteLegal && (
+                <div>
+                  <h3 className="text-xs font-bold text-tegra-blue uppercase tracking-wide mb-3 pb-1 border-b border-tegra-gray-medium">Representante Legal</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div><p className="text-xs text-tegra-text-secondary">Nome</p><p className="text-sm font-medium text-tegra-text-primary">{nomeRepresentante || "—"}</p></div>
+                    <div><p className="text-xs text-tegra-text-secondary">CPF</p><p className="text-sm font-medium text-tegra-text-primary">{cpfRepresentante || "—"}</p></div>
+                    <div><p className="text-xs text-tegra-text-secondary">RG</p><p className="text-sm font-medium text-tegra-text-primary">{rgRepresentante || "—"}</p></div>
+                    <div><p className="text-xs text-tegra-text-secondary">E-mail</p><p className="text-sm font-medium text-tegra-text-primary">{emailRepresentante || "—"}</p></div>
+                    <div><p className="text-xs text-tegra-text-secondary">Celular</p><p className="text-sm font-medium text-tegra-text-primary">{celularRepresentante || "—"}</p></div>
+                    <div><p className="text-xs text-tegra-text-secondary">Data de Nascimento</p><p className="text-sm font-medium text-tegra-text-primary">{dataNascimentoRepresentante || "—"}</p></div>
+                  </div>
+                </div>
+              )}
+
+              {/* Campanha Diretoria */}
+              <div>
+                <h3 className="text-xs font-bold text-tegra-blue uppercase tracking-wide mb-3 pb-1 border-b border-tegra-gray-medium">Campanha Diretoria</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div><p className="text-xs text-tegra-text-secondary">Campanha Diretoria</p><p className="text-sm font-medium text-tegra-text-primary">{campanhaDiretoria ? "Sim" : "Não"}</p></div>
+                </div>
+              </div>
+
+              {/* Novo Médico Prescritor */}
+              {temNovoMedicoPrescritor && (
+                <div>
+                  <h3 className="text-xs font-bold text-tegra-blue uppercase tracking-wide mb-3 pb-1 border-b border-tegra-gray-medium">Novo Médico Prescritor</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div><p className="text-xs text-tegra-text-secondary">Nome do médico</p><p className="text-sm font-medium text-tegra-text-primary">{nomeMedico || "—"}</p></div>
+                    <div><p className="text-xs text-tegra-text-secondary">CRM</p><p className="text-sm font-medium text-tegra-text-primary">{crmMedico || "—"}</p></div>
+                    <div><p className="text-xs text-tegra-text-secondary">UF do CRM</p><p className="text-sm font-medium text-tegra-text-primary">{ufCrm || "—"}</p></div>
+                    <div><p className="text-xs text-tegra-text-secondary">Celular</p><p className="text-sm font-medium text-tegra-text-primary">{celularMedico || "—"}</p></div>
+                    <div><p className="text-xs text-tegra-text-secondary">E-mail</p><p className="text-sm font-medium text-tegra-text-primary">{emailMedico || "—"}</p></div>
+                    <div><p className="text-xs text-tegra-text-secondary">Especialidade</p><p className="text-sm font-medium text-tegra-text-primary">{especialidadeMedico || "—"}</p></div>
+                  </div>
+                </div>
+              )}
+
+              {/* Endereço */}
+              <div>
+                <h3 className="text-xs font-bold text-tegra-blue uppercase tracking-wide mb-3 pb-1 border-b border-tegra-gray-medium">Endereço</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div><p className="text-xs text-tegra-text-secondary">Rua</p><p className="text-sm font-medium text-tegra-text-primary">{rua || "—"}</p></div>
+                  <div><p className="text-xs text-tegra-text-secondary">Número</p><p className="text-sm font-medium text-tegra-text-primary">{numero || "—"}</p></div>
+                  <div><p className="text-xs text-tegra-text-secondary">Complemento</p><p className="text-sm font-medium text-tegra-text-primary">{complemento || "—"}</p></div>
+                  <div><p className="text-xs text-tegra-text-secondary">Bairro</p><p className="text-sm font-medium text-tegra-text-primary">{bairro || "—"}</p></div>
+                  <div><p className="text-xs text-tegra-text-secondary">CEP</p><p className="text-sm font-medium text-tegra-text-primary">{cep || "—"}</p></div>
+                  <div><p className="text-xs text-tegra-text-secondary">Cidade</p><p className="text-sm font-medium text-tegra-text-primary">{cidade || "—"}</p></div>
+                  <div><p className="text-xs text-tegra-text-secondary">Estado</p><p className="text-sm font-medium text-tegra-text-primary">{estado || "—"}</p></div>
+                  <div><p className="text-xs text-tegra-text-secondary">País</p><p className="text-sm font-medium text-tegra-text-primary">{pais || "—"}</p></div>
+                </div>
+              </div>
+
+              {/* Negociação */}
+              {negociacaoFeitaPeloConsultor && (
+                <div>
+                  <h3 className="text-xs font-bold text-tegra-blue uppercase tracking-wide mb-3 pb-1 border-b border-tegra-gray-medium">Negociação</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div><p className="text-xs text-tegra-text-secondary">Solicitar link de pagamento</p><p className="text-sm font-medium text-tegra-text-primary">{solicitarLinkPagamento || "—"}</p></div>
+                    {tipoLink && <div><p className="text-xs text-tegra-text-secondary">Tipo de link</p><p className="text-sm font-medium text-tegra-text-primary">{tipoLink}</p></div>}
+                  </div>
+                </div>
+              )}
+
+              {/* Tipo de Solicitação */}
+              <div>
+                <h3 className="text-xs font-bold text-tegra-blue uppercase tracking-wide mb-3 pb-1 border-b border-tegra-gray-medium">Tipo de Solicitação</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div><p className="text-xs text-tegra-text-secondary">Tipo</p><p className="text-sm font-medium text-tegra-text-primary">{tipoSolicitacao || "—"}</p></div>
+                </div>
+              </div>
+
+              {/* Produtos */}
+              <div>
+                <h3 className="text-xs font-bold text-tegra-blue uppercase tracking-wide mb-3 pb-1 border-b border-tegra-gray-medium">Produtos</h3>
+                {produtos.filter(p => p.nome).length === 0 ? (
+                  <p className="text-sm text-tegra-text-secondary">Nenhum produto adicionado.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {produtos.filter(p => p.nome).map((p, i) => (
+                      <div key={p.id} className="flex items-center justify-between bg-tegra-bg-accent rounded-lg px-4 py-2">
+                        <span className="text-sm font-medium text-tegra-text-primary">{p.nome}</span>
+                        <span className="text-xs text-tegra-text-secondary">Qtd: {p.quantidade}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Pagamento */}
+              <div>
+                <h3 className="text-xs font-bold text-tegra-blue uppercase tracking-wide mb-3 pb-1 border-b border-tegra-gray-medium">Pagamento</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div><p className="text-xs text-tegra-text-secondary">Forma de pagamento</p><p className="text-sm font-medium text-tegra-text-primary">{formaPagamento || "—"}</p></div>
+                  <div><p className="text-xs text-tegra-text-secondary">Termos e condições</p><p className="text-sm font-medium text-tegra-text-primary">{termosCondicoesPagamento || "—"}</p></div>
+                </div>
+              </div>
+
+              {/* Observação */}
+              {observacao && (
+                <div>
+                  <h3 className="text-xs font-bold text-tegra-blue uppercase tracking-wide mb-3 pb-1 border-b border-tegra-gray-medium">Observação</h3>
+                  <p className="text-sm text-tegra-text-primary whitespace-pre-wrap">{observacao}</p>
+                </div>
+              )}
+
+              {/* Arquivos e Documentos */}
+              <div>
+                <h3 className="text-xs font-bold text-tegra-blue uppercase tracking-wide mb-3 pb-1 border-b border-tegra-gray-medium">Documentos</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div><p className="text-xs text-tegra-text-secondary">Documentos completos</p><p className="text-sm font-medium text-tegra-text-primary">{documentosCompletos ? "Sim" : "Não"}</p></div>
+                  <div><p className="text-xs text-tegra-text-secondary">Arquivos anexados</p><p className="text-sm font-medium text-tegra-text-primary">{arquivos.length > 0 ? `${arquivos.length} arquivo(s)` : "Nenhum"}</p></div>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end gap-3 px-6 py-4 border-t border-tegra-gray-medium">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setShowReview(false)}
+                className="w-full sm:w-auto"
+              >
+                Fechar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
