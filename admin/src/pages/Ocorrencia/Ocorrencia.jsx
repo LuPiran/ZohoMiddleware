@@ -17,6 +17,7 @@ import { ocorrenciaService } from "../../services/ocorrencia";
 import { salesOrderService } from "../../services/salesOrder";
 import { salvarFormularioTemporariamente } from "../../services/savedForms";
 import { hasAdminPanelPermission } from "../../utils/permissions";
+import { isValidCPF, formatarCpf } from "../../utils/cpfValidator";
 import {
   MdPerson,
   MdEmail,
@@ -416,11 +417,21 @@ export default function Ocorrencia() {
     }
   };
 
-  // Handler para CPF com formatação
+  // Estados de validação de CPF
+  const [cpfPacienteError, setCpfPacienteError] = useState("");
+
+  // Handler para CPF com formatação e validação
   const handleCpfChange = (e) => {
     const valor = e.target.value.replace(/\D/g, "");
     if (valor.length <= 11) {
       setCpfPaciente(formatarCpf(valor));
+      // Mostra erro apenas se CPF tem 11 dígitos e é inválido
+      if (valor.length === 11 && !isValidCPF(valor)) {
+        setCpfPacienteError("CPF inválido");
+        showToast("⚠️ CPF inválido. Verifique os dígitos verificadores", "warning");
+      } else {
+        setCpfPacienteError("");
+      }
     }
   };
 
@@ -848,6 +859,7 @@ export default function Ocorrencia() {
                   onChange={handleCpfChange}
                   placeholder="000.000.000-00"
                   maxLength={14}
+                  error={cpfPacienteError}
                 />
                 <Input
                   label="Celular"

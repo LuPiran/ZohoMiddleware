@@ -16,6 +16,7 @@ import { compraService } from "../../services/compra";
 import { productsService } from "../../services/products";
 import { salvarFormularioTemporariamente } from "../../../services/savedForms";
 import { isAdminPortal, hasAdminPanelPermission } from "../../utils/permissions";
+import { isValidCPF, formatarCpf } from "../../utils/cpfValidator";
 import {
   MdPerson,
   MdEmail,
@@ -315,11 +316,37 @@ export default function Compra() {
     }
   };
 
-  // Handler para CPF com formatação
+  // Estados de validação de CPF
+  const [cpfPacienteError, setCpfPacienteError] = useState("");
+  const [cpfRepresentanteError, setCpfRepresentanteError] = useState("");
+
+  // Handler para CPF com formatação e validação
   const handleCpfChange = (e) => {
     const valor = e.target.value.replace(/\D/g, "");
     if (valor.length <= 11) {
       setCpfPaciente(formatarCpf(valor));
+      // Mostra erro apenas se CPF tem 11 dígitos e é inválido
+      if (valor.length === 11 && !isValidCPF(valor)) {
+        setCpfPacienteError("CPF inválido");
+        showToast("⚠️ CPF inválido. Verifique os dígitos verificadores", "warning");
+      } else {
+        setCpfPacienteError("");
+      }
+    }
+  };
+
+  // Handler para CPF Representante com formatação e validação
+  const handleCpfRepresentanteChange = (e) => {
+    const valor = e.target.value.replace(/\D/g, "");
+    if (valor.length <= 11) {
+      setCpfRepresentante(formatarCpf(valor));
+      // Mostra erro apenas se CPF tem 11 dígitos e é inválido
+      if (valor.length === 11 && !isValidCPF(valor)) {
+        setCpfRepresentanteError("CPF inválido");
+        showToast("⚠️ CPF do representante inválido. Verifique os dígitos verificadores", "warning");
+      } else {
+        setCpfRepresentanteError("");
+      }
     }
   };
 
@@ -385,13 +412,17 @@ export default function Compra() {
     if (!sobrenomePaciente.trim()) camposVazios.push("Sobrenome");
     if (!cpfPaciente.trim()) camposVazios.push("CPF");
 
-    // Valida campos do endereço (número e complemento opcionais)
-    if (!rua.trim()) camposVazios.push("Rua");
-    if (!bairro.trim()) camposVazios.push("Bairro");
-    if (!cidade.trim()) camposVazios.push("Cidade");
-    if (!estado.trim()) camposVazios.push("Estado");
-    if (!pais.trim()) camposVazios.push("País");
-    if (!cep.trim()) camposVazios.push("CEP");
+    // Valida CPF do paciente se preenchido
+    if (cpfPaciente.trim() && !isValidCPF(cpfPaciente)) {
+      showToast("❌ CPF do paciente inválido", "error");
+      return { valido: false, camposVazios: [] };
+    }
+
+    // Valida CPF do representante legal se preenchido
+    if (temRepresentanteLegal && cpfRepresentante.trim() && !isValidCPF(cpfRepresentante)) {
+      showToast("❌ CPF do representante legal inválido", "error");
+      return { valido: false, camposVazios: [] };
+    }
 
     // Valida produtos
     const produtosValidos = produtos.filter(
@@ -661,6 +692,7 @@ export default function Compra() {
                   onChange={handleCpfChange}
                   placeholder="000.000.000-00"
                   maxLength={14}
+                  error={cpfPacienteError}
                 />
                 <Input
                   label="RG"
@@ -753,14 +785,10 @@ export default function Compra() {
                     label="CPF Representante"
                     type="text"
                     value={cpfRepresentante}
-                    onChange={(e) => {
-                      const valor = e.target.value.replace(/\D/g, "");
-                      if (valor.length <= 11) {
-                        setCpfRepresentante(formatarCpf(valor));
-                      }
-                    }}
+                    onChange={handleCpfRepresentanteChange}
                     placeholder="000.000.000-00"
                     maxLength={14}
+                    error={cpfRepresentanteError}
                   />
                   <Input
                     label="E-mail Representante"

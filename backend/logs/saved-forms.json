@@ -245,6 +245,68 @@
       "rota": "/recompra",
       "dataSalvamento": "2026-03-25T19:31:02.753Z",
       "id": "form_1774467062753_l19btycq2"
+    },
+    {
+      "tipo": "recompra",
+      "titulo": "Recompra - Paciente",
+      "paciente": "Paciente",
+      "cpf": "552.903.478-01",
+      "resumo": "Paciente: Paciente, Produtos: 1",
+      "dados": {
+        "nomePaciente": "Paciente",
+        "sobrenomePaciente": " Teste NÃO DELETAR",
+        "cpfPaciente": "552.903.478-01",
+        "rgPaciente": "386457827",
+        "celularPaciente": "(55) 11991-967987",
+        "emailPaciente": "sabrina.andrade@tegrapharma.com",
+        "dataNascimento": "1997-08-21",
+        "telefonePaciente": "",
+        "temRepresentanteLegal": false,
+        "nomeRepresentante": "",
+        "rgRepresentante": "",
+        "cpfRepresentante": "",
+        "emailRepresentante": "",
+        "celularRepresentante": "",
+        "dataNascimentoRepresentante": "",
+        "temNovoMedicoPrescritor": false,
+        "nomeMedico": "",
+        "crmMedico": "",
+        "ufCrm": "",
+        "celularMedico": "",
+        "emailMedico": "",
+        "especialidadeMedico": "",
+        "atualizacaoEnderecoViaPortal": true,
+        "rua": "",
+        "numero": "",
+        "complemento": "",
+        "bairro": "",
+        "cep": "",
+        "cidade": "",
+        "estado": "",
+        "pais": "",
+        "negociacaoFeitaPeloConsultor": false,
+        "solicitarLinkPagamento": "",
+        "tipoLink": "",
+        "campanhaDiretoria": false,
+        "produtos": [
+          {
+            "id": 1,
+            "nome": "TEGRA LATAM 300 THC",
+            "produtoId": "4601422000480152721",
+            "quantidade": "1"
+          }
+        ],
+        "formaPagamento": "",
+        "termosCondicoesPagamento": "",
+        "observacao": "",
+        "realizarProcessoComParceiro": false,
+        "parceiroSelecionado": "",
+        "documentosCompletos": false,
+        "salvoEm": "26/03/2026, 17:13:32"
+      },
+      "rota": "/recompra",
+      "dataSalvamento": "2026-03-26T20:13:32.867Z",
+      "id": "form_1774556012867_e6iecd4f1"
     }
   ]
 }
