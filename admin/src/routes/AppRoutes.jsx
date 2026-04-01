@@ -8,6 +8,8 @@ import Ocorrencia from "../pages/Ocorrencia/Ocorrencia";
 import Proposta from "../pages/Proposta/Proposta";
 import Agradecimento from "../pages/Agradecimento/Agradecimento";
 import SavedForms from "../pages/SavedForms/SavedForms";
+import FAQ from "../pages/FAQ/FAQ";
+import Manual from "../pages/Manual/Manual";
 import ProtectedRoute from "../components/auth/ProtectedRoute";
 import AdminRoute from "../components/auth/AdminRoute";
 import { authService } from "../services/auth";
@@ -98,6 +100,22 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path={ROUTES.FAQ}
+        element={
+          <ProtectedRoute>
+            <FAQ />
+          </ProtectedRoute>
+        }
+      />
+        <Route
+          path={ROUTES.MANUAL}
+          element={
+            <ProtectedRoute>
+              <Manual />
+            </ProtectedRoute>
+          }
+        />
       {/* Redireciona qualquer rota não encontrada para login */}
       <Route path="*" element={<Navigate to={ROUTES.LOGIN} replace />} />
     </Routes>

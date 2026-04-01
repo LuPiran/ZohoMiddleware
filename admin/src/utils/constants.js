@@ -10,6 +10,8 @@ export const ROUTES = {
   COMPRA: "/compra",
   OCORRENCIA: "/ocorrencia",
   PROPOSTA: "/proposta",
+  FAQ: "/faq",
+  MANUAL: "/manual",
   AGRADECIMENTO: "/agradecimento",
   SAVED_FORMS: "/formularios-salvos",
 };

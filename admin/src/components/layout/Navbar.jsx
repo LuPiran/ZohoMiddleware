@@ -8,8 +8,10 @@ import {
   MdReport,
   MdDescription,
   MdBookmarks,
+  MdHelpOutline,
   MdClose,
   MdPerson,
+  MdBook,
 } from "react-icons/md";
 import { ROUTES } from "../../utils/constants";
 import { hasAdminPanelPermission } from "../../utils/permissions";
@@ -92,6 +94,12 @@ export default function Navbar() {
       icon: <MdBookmarks className="text-xl" />,
       show: true, // Sempre visível
     },
+      {
+        path: ROUTES.MANUAL,
+        label: "Manual",
+        icon: <MdBook className="text-xl" />,
+        show: true, // Sempre visível
+      },
   ].filter((item) => item.show); // Filtra apenas itens visíveis
 
   return (
@@ -99,7 +107,7 @@ export default function Navbar() {
       {/* Menu desktop (sempre visível em lg+) */}
       <nav className="hidden lg:block bg-tegra-bg-primary border-b border-tegra-gray-medium relative z-20">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="flex space-x-1">
+          <div className="flex justify-center space-x-1">
             {navItems.map((item) => (
               <NavLink
                 key={item.path}
