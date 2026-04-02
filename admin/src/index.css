@@ -127,6 +127,16 @@
   box-shadow: 0 0 0 3px rgba(210, 79, 130, 0.14);
 }
 
+@media (max-width: 640px) {
+  .platform-updates-badge {
+    font-size: 0.66rem;
+    letter-spacing: 0.12em;
+    line-height: 1.2;
+    max-width: 100%;
+    white-space: normal;
+  }
+}
+
 /* Fundo do login sem imagem geral */
 .login-page-bg {
   background:

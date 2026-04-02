@@ -9,32 +9,32 @@ import {
 
 const UPDATE_CONTENT = {
   badge: "Release V3.1: Atualizacao dos comprovantes",
-  date: "Atualizado em 25/03/2026",
-  title: "Comprovantes atualizados",
+  date: "Atualizado em 02/04/2026",
+  title: "Otimizações no Portal",
   description:
-    "Os comprovantes foram atualizados e agora exibem mais informacoes preenchidas para facilitar a conferencia.",
+    "Agora você conta com preenchimento automático de dados e maior controle sobre seus formulários salvos, garantindo mais precisão no dia a dia.",
   highlights: [
     {
-      label: "Mais informacoes nos comprovantes:",
-      text: "Tela e PDF agora mostram os campos preenchidos com mais detalhes para validacao rapida.",
+      label: "Mais informações na palma da sua mão:",
+      text: "Atualizamos a visualização e a exportação em PDF dos comprovantes. Com mais dados disponíveis e campos detalhados, conferir e validar suas operações ficou ainda mais simples.",
       icon: MdAutoFixHigh,
       iconClass: "bg-emerald-100 text-emerald-700",
     },
     {
-      label: "Formularios salvos em multiplos dispositivos:",
-      text: "Agora voce pode salvar o formulario antes do envio e continuar depois, sem perder os dados ja preenchidos.",
+      label: "Salvamento de rascunhos em múltiplos dispositivos:",
+      text: "Não precisa terminar tudo de uma vez. Salve o progresso do seu formulário e retome o preenchimento a qualquer momento, sincronizado entre todos os seus aparelhos.",
       icon: MdDevices,
       iconClass: "bg-sky-100 text-sky-700",
     },
     {
-      label: "Nova area de formularios salvos:",
-      text: "Criamos uma tela dedicada para listar, recuperar e excluir rascunhos salvos no portal.",
+      label: "Nova Gestão de Formulários Salvos:",
+      text: "Tenha total controle sobre seus itens pendentes. Na nova tela de formulários, você visualiza rapidamente todos os seus rascunhos, recupera dados para envio imediato ou limpa o que não precisa mais.",
       icon: MdFolderCopy,
       iconClass: "bg-indigo-100 text-indigo-700",
     },
     {
-      label: "Recompra com atualizacao rapida de endereco:",
-      text: "Ao buscar por CPF, voce pode confirmar ou ajustar o endereco do cliente de forma mais rapida.",
+      label: "Recompra Inteligente com Preenchimento Automático:",
+      text: "Ganhe tempo no atendimento! Ao digitar o CPF, o sistema recupera automaticamente os dados cadastrados, permitindo que você apenas confirme ou ajuste o endereço em segundos. Menos digitação, mais agilidade.",
       icon: MdLocalShipping,
       iconClass: "bg-rose-100 text-rose-700",
     },
@@ -60,16 +60,16 @@ export default function PlatformUpdatePopup({ isOpen, onContinue }) {
   }
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-start justify-center overflow-y-auto p-2 sm:items-center sm:p-6">
+    <div className="fixed inset-0 z-[9999] flex items-start justify-center overflow-hidden p-2 sm:items-center sm:p-6">
       <div className="absolute inset-0 bg-tegra-blue-dark/35 backdrop-blur-sm" />
 
-      <div className="relative my-2 flex max-h-[96vh] w-full max-w-4xl flex-col overflow-hidden rounded-[24px] border border-white/60 bg-white/92 shadow-[0_36px_120px_rgba(26,47,91,0.24)] backdrop-blur-xl sm:my-0 sm:max-h-[92vh] sm:rounded-[30px]">
+      <div className="relative my-1 flex h-[calc(100dvh-0.5rem)] max-h-[calc(100dvh-0.5rem)] w-full max-w-4xl flex-col overflow-hidden rounded-[24px] border border-white/60 bg-white/92 shadow-[0_36px_120px_rgba(26,47,91,0.24)] backdrop-blur-xl sm:my-0 sm:h-auto sm:max-h-[92dvh] sm:rounded-[30px]">
         <div className="absolute -top-24 -right-16 h-48 w-48 rounded-full bg-tegra-blue/10 blur-3xl" />
         <div className="absolute -bottom-24 -left-12 h-44 w-44 rounded-full bg-tegra-teal/10 blur-3xl" />
         <div className="h-1.5 w-full bg-gradient-to-r from-tegra-blue via-tegra-blue-green to-tegra-teal" />
 
         <div
-          className="relative min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 py-5 sm:px-8 sm:py-8 lg:px-10"
+          className="relative min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 py-5 pb-6 [touch-action:pan-y] sm:px-8 sm:py-8 lg:px-10"
           style={{ WebkitOverflowScrolling: "touch" }}
         >
           <div className="mb-6 flex flex-col gap-4 sm:mb-8">
@@ -89,7 +89,7 @@ export default function PlatformUpdatePopup({ isOpen, onContinue }) {
 
           <div className="mb-5 rounded-2xl border border-tegra-blue-light/40 bg-gradient-to-r from-tegra-bg-accent/80 via-white to-tegra-bg-accent/70 px-4 py-3 shadow-[0_10px_30px_rgba(26,47,91,0.06)] sm:mb-8 sm:px-5">
             <p className="text-xs leading-5 text-tegra-blue-dark sm:text-sm sm:leading-6">
-              Atualizacao aplicada para melhorar a conferencia dos comprovantes.
+              Melhorias aplicadas para otimizar a validação de informações e o tempo de resposta.
             </p>
           </div>
 
@@ -119,7 +119,7 @@ export default function PlatformUpdatePopup({ isOpen, onContinue }) {
           </div>
         </div>
 
-        <div className="relative shrink-0 border-t border-tegra-gray-medium/40 bg-tegra-bg-accent/85 px-4 py-3 shadow-[0_-10px_24px_rgba(143,169,193,0.14)] sm:px-5 sm:py-5">
+        <div className="relative shrink-0 border-t border-tegra-gray-medium/40 bg-tegra-bg-accent/85 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-10px_24px_rgba(143,169,193,0.14)] sm:px-5 sm:py-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-tegra-blue-dark/70 sm:text-sm">
                 {UPDATE_CONTENT.date}

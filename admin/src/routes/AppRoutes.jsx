@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import Login from "../pages/Auth/Login";
 import Dashboard from "../pages/Dashboard/Dashboard";
+import PlatformUpdates from "../pages/PlatformUpdates/PlatformUpdates";
 import Users from "../pages/Users/Users";
 import Recompra from "../pages/Recompra/Recompra";
 import Compra from "../pages/Compra/Compra";
@@ -43,6 +44,10 @@ export default function AppRoutes() {
             <Dashboard />
           </ProtectedRoute>
         }
+      />
+      <Route
+        path={ROUTES.PLATFORM_UPDATES}
+        element={<PlatformUpdates />}
       />
       <Route
         path={ROUTES.USUARIOS}
