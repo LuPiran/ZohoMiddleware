@@ -15,9 +15,10 @@ import api from "../../services/api";
 import { productsService } from "../../services/products";
 import { ocorrenciaService } from "../../services/ocorrencia";
 import { salesOrderService } from "../../services/salesOrder";
-import { salvarFormularioTemporariamente } from "../../services/savedForms";
+import { salvarFormularioTemporariamente, marcarFormularioComoEnviado } from "../../services/savedForms";
 import { hasAdminPanelPermission } from "../../utils/permissions";
 import { isValidCPF, formatarCpf } from "../../utils/cpfValidator";
+import { formatBrazilPhone } from "../../utils/phone";
 import {
   MdPerson,
   MdEmail,
@@ -393,16 +394,6 @@ export default function Ocorrencia() {
     return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
   };
 
-  // Função para formatar telefone/celular
-  const formatarTelefone = (valor) => {
-    const telefone = valor.replace(/\D/g, "");
-    if (telefone.length <= 10) {
-      return telefone.replace(/(\d{2})(\d{4})(\d{4})/, "($1) $2-$3");
-    } else {
-      return telefone.replace(/(\d{2})(\d{5})(\d{4})/, "($1) $2-$3");
-    }
-  };
-
   // Função para formatar RG
   const formatarRg = (valor) => {
     const rg = valor.replace(/\D/g, "");
@@ -437,10 +428,7 @@ export default function Ocorrencia() {
 
   // Handler para telefone/celular com formatação
   const handleTelefoneChange = (e, setter) => {
-    const valor = e.target.value.replace(/\D/g, "");
-    if (valor.length <= 11) {
-      setter(formatarTelefone(valor));
-    }
+    setter(formatBrazilPhone(e.target.value));
   };
 
   // Função para limpar todos os campos do formulário
@@ -673,6 +661,17 @@ export default function Ocorrencia() {
         // Inclui todos os campos enviados no formulário (exceto uploads)
         const dadosSemArquivos = { ...dadosOcorrencia };
         delete dadosSemArquivos.arquivos;
+
+        await marcarFormularioComoEnviado({
+          tipo: "ocorrencia",
+          protocolo: response.protocolo,
+          titulo: `Ocorrência - ${nomePaciente || "Sem paciente"}`,
+          paciente: nomePaciente || "",
+          cpf: cpfPaciente || "",
+          resumo: `Motivo: ${motivoOcorrencia || "-"}, Produtos: ${produtos.length}`,
+          dados: dadosSemArquivos,
+        });
+
         const dadosComprovante = {
           ...dadosSemArquivos,
           protocolo: response.protocolo,
@@ -866,9 +865,9 @@ export default function Ocorrencia() {
                   type="text"
                   value={celularPaciente}
                   onChange={(e) => handleTelefoneChange(e, setCelularPaciente)}
-                  placeholder="(00) 00000-0000"
+                  placeholder="+55 (00) 00000-0000"
                   icon={<MdPhone className="text-xl" />}
-                  maxLength={15}
+                  maxLength={20}
                 />
                 <Input
                   label="E-mail"
@@ -1005,9 +1004,9 @@ export default function Ocorrencia() {
                   type="text"
                   value={celularMedico}
                   onChange={(e) => handleTelefoneChange(e, setCelularMedico)}
-                  placeholder="(00) 00000-0000"
+                  placeholder="+55 (00) 00000-0000"
                   icon={<MdPhone className="text-xl" />}
-                  maxLength={15}
+                  maxLength={20}
                 />
                 <Input
                   label="E-mail do Médico"
@@ -1197,15 +1196,15 @@ export default function Ocorrencia() {
                     type="file"
                     id="file-upload"
                     multiple
-                    disabled={arquivos.length >= 5}
+                    disabled={arquivos.length >= 10}
                     onChange={(e) => {
                       const novosArquivos = Array.from(e.target.files);
                       const totalArquivos =
                         arquivos.length + novosArquivos.length;
 
-                      if (totalArquivos > 5) {
+                      if (totalArquivos > 10) {
                         showToast(
-                          "⚠️ Máximo de 5 arquivos permitidos",
+                          "⚠️ Máximo de 10 arquivos permitidos",
                           "warning"
                         );
                         return;
@@ -1220,7 +1219,7 @@ export default function Ocorrencia() {
                   <label
                     htmlFor="file-upload"
                     className={`flex items-center justify-between px-4 py-3 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${
-                      arquivos.length >= 5
+                      arquivos.length >= 10
                         ? "bg-tegra-gray-light border-tegra-gray-medium cursor-not-allowed opacity-60"
                         : "bg-blue-50 border-tegra-blue hover:bg-blue-100"
                     }`}
@@ -1235,7 +1234,7 @@ export default function Ocorrencia() {
                 {/* Texto de dica */}
                 <p className="text-sm text-tegra-text-secondary">
                   (Receita / Doc ID Paciente( CPF/RG) / Comprovante Endereço /
-                  Autorização Anvisa / Doc ID RL) (Máximo 5 arquivos)
+                  Autorização Anvisa / Doc ID RL) (Máximo 10 arquivos)
                 </p>
 
                 {/* Lista de arquivos selecionados */}

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import MainLayout from "../../components/layout/MainLayout";
 import Button from "../../components/ui/Button";
 import { ROUTES } from "../../utils/constants";
-import { MdArrowBack, MdDelete, MdOpenInNew, MdCalendarToday, MdAccessTime } from "react-icons/md";
+import { MdArrowBack, MdDelete, MdOpenInNew, MdCalendarToday, MdAccessTime, MdCheckCircle, MdPending } from "react-icons/md";
 import { obterFormulariosSalvos, excluirFormulario as excluirFormularioService } from "../../services/savedForms";
 
 export default function SavedForms() {
@@ -56,11 +56,22 @@ export default function SavedForms() {
     ocorrencia: "zoho_draft_ocorrencia",
   };
 
+  const SAVED_FORM_ID_KEYS = {
+    compra: "saved_form_id_compra",
+    recompra: "saved_form_id_recompra",
+    proposta: "saved_form_id_proposta",
+    ocorrencia: "saved_form_id_ocorrencia",
+  };
+
   const recuperarFormulario = (form) => {
     // Gravar os dados no DRAFT_KEY do formulário para que ele restaure automaticamente
     const draftKey = DRAFT_KEYS[form.tipo];
+    const formIdKey = SAVED_FORM_ID_KEYS[form.tipo];
     if (draftKey && form.dados) {
       localStorage.setItem(draftKey, JSON.stringify(form.dados));
+    }
+    if (formIdKey && form.id) {
+      localStorage.setItem(formIdKey, form.id);
     }
     // Flag para o formulário auto-restaurar ao montar
     sessionStorage.setItem("auto_restaurar_rascunho", "true");
@@ -78,24 +89,14 @@ export default function SavedForms() {
     });
   };
 
-  const addBusinessDays = (dateString, businessDays = 7) => {
+  const addDays = (dateString, days = 10) => {
     const result = new Date(dateString);
-    let remaining = businessDays;
-
-    while (remaining > 0) {
-      result.setDate(result.getDate() + 1);
-      const day = result.getDay();
-      const isWeekend = day === 0 || day === 6;
-      if (!isWeekend) {
-        remaining -= 1;
-      }
-    }
-
+    result.setDate(result.getDate() + days);
     return result;
   };
 
   const formatarTempoRestante = (dataSalvamento) => {
-    const expirationDate = addBusinessDays(dataSalvamento, 7);
+    const expirationDate = addDays(dataSalvamento, 10);
     const diffMs = expirationDate.getTime() - currentTime;
 
     if (diffMs <= 0) {
@@ -127,6 +128,26 @@ export default function SavedForms() {
     return tipos[tipo] || tipo;
   };
 
+  const getStatusConfig = (form) => {
+    if (form.enviado) {
+      return {
+        label: "ENVIADO",
+        chipClass: "bg-emerald-600 text-white border-emerald-700",
+        cardClass: "border-l-4 border-l-emerald-500",
+        primaryLabelDesktop: "Abrir",
+        primaryLabelMobile: "Abrir",
+      };
+    }
+
+    return {
+      label: "PENDENTE",
+      chipClass: "bg-amber-500 text-white border-amber-600",
+      cardClass: "border-l-4 border-l-amber-500",
+      primaryLabelDesktop: "Continuar",
+      primaryLabelMobile: "Continuar",
+    };
+  };
+
   return (
     <MainLayout>
       <div className="saved-forms-page max-w-4xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-8 sm:py-12">
@@ -148,6 +169,11 @@ export default function SavedForms() {
                 ? "Você não possui formulários salvos"
                 : `Você tem ${forms.length} formulário(s) salvo(s)`}
             </p>
+            {forms.length > 0 && (
+              <p className="text-xs sm:text-sm text-tegra-text-secondary mt-1">
+                Cada item mostra se já foi enviado ou se ainda está pendente de envio.
+              </p>
+            )}
           </div>
         </div>
 
@@ -178,22 +204,49 @@ export default function SavedForms() {
             {forms.map((form, index) => (
               <div
                 key={index}
-                className="bg-white rounded-lg shadow-md hover:shadow-lg transition-all border border-tegra-gray-light overflow-hidden"
+                className={`bg-white rounded-lg shadow-md hover:shadow-lg transition-all border border-tegra-gray-light overflow-hidden ${getStatusConfig(form).cardClass}`}
               >
                 <div className="p-4 sm:p-6">
+                  {(() => {
+                    const status = getStatusConfig(form);
+                    const timer = formatarTempoRestante(form.dataSalvamento);
+
+                    return (
+                      <>
                   {/* Tipo e Data */}
                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
                     <div>
                       <span className="inline-block px-3 py-1 bg-tegra-blue-light/20 text-tegra-blue-dark text-xs sm:text-sm font-semibold rounded-full mb-2">
                         {getTituloFormulario(form.tipo)}
                       </span>
+                      <div className="mb-2 inline-flex">
+                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-bold tracking-wide ${status.chipClass}`}>
+                          {form.enviado ? <MdCheckCircle className="text-sm" /> : <MdPending className="text-sm" />}
+                          {status.label}
+                        </span>
+                      </div>
                       <h3 className="text-lg sm:text-xl font-bold text-tegra-text-primary">
                         {form.titulo || `Formulário ${getTituloFormulario(form.tipo)}`}
                       </h3>
+                      <p className="text-xs text-tegra-text-secondary mt-1">
+                        Salvo em {formatarData(form.dataSalvamento)}
+                        {form.enviado && form.dataEnvio ? ` • Enviado em ${formatarData(form.dataEnvio)}` : ""}
+                      </p>
+                      {form.enviado && form.protocolo && (
+                        <p className="text-xs text-tegra-text-secondary mt-1">
+                          Protocolo: <span className="font-semibold text-tegra-text-primary">{form.protocolo}</span>
+                        </p>
+                      )}
                     </div>
-                    <div className="flex items-center gap-1 text-xs sm:text-sm text-tegra-text-secondary">
-                      <MdCalendarToday className="text-base" />
-                      {formatarData(form.dataSalvamento)}
+                    <div className="flex items-center gap-2 text-xs sm:text-sm">
+                      <div className="inline-flex items-center gap-1 text-tegra-text-secondary">
+                        <MdCalendarToday className="text-base" />
+                        {formatarData(form.dataSalvamento)}
+                      </div>
+                      <div className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-tegra-gray-light text-tegra-text-secondary font-medium">
+                        <MdAccessTime className="text-sm" />
+                        {timer.label}
+                      </div>
                     </div>
                   </div>
 
@@ -228,22 +281,9 @@ export default function SavedForms() {
                   {/* Rodapé do Card */}
                   <div className="pt-4 border-t border-tegra-gray-light">
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    {(() => {
-                      const timer = formatarTempoRestante(form.dataSalvamento);
-                      const toneClass =
-                        timer.tone === "danger"
-                          ? "bg-red-50 text-red-700 border-red-200"
-                          : timer.tone === "warn"
-                            ? "bg-amber-50 text-amber-700 border-amber-200"
-                            : "bg-emerald-50 text-emerald-700 border-emerald-200";
-
-                      return (
-                        <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs sm:text-sm font-semibold w-fit ${toneClass}`}>
-                          <MdAccessTime className="text-base" />
-                          {timer.label}
-                        </div>
-                      );
-                    })()}
+                      <div className="text-xs sm:text-sm text-tegra-text-secondary">
+                        {form.enviado ? "Pronto para consulta" : "Aguardando envio"}
+                      </div>
 
                     <div className="flex flex-col sm:flex-row gap-3 sm:justify-end sm:ml-auto">
                       <Button
@@ -252,8 +292,8 @@ export default function SavedForms() {
                         className="flex-1 sm:flex-none flex items-center justify-center gap-2"
                       >
                         <MdOpenInNew className="text-lg" />
-                        <span className="hidden sm:inline">Recuperar</span>
-                        <span className="sm:hidden">Abrir</span>
+                        <span className="hidden sm:inline">{status.primaryLabelDesktop}</span>
+                        <span className="sm:hidden">{status.primaryLabelMobile}</span>
                       </Button>
                       <Button
                         variant="secondary"
@@ -267,6 +307,9 @@ export default function SavedForms() {
                     </div>
                     </div>
                   </div>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             ))}
@@ -278,7 +321,7 @@ export default function SavedForms() {
           <p className="text-xs sm:text-sm text-tegra-text-secondary">
             <span className="font-semibold text-tegra-blue-dark">💡 Dica:</span> Os formulários salvos
             ficam vinculados ao seu usuário e podem ser acessados em outros dispositivos com o mesmo login.
-            Para manter o sistema leve, eles expiram automaticamente após 7 dias úteis.
+            Para manter o sistema leve, eles expiram automaticamente após 10 dias.
           </p>
         </div>
       </div>

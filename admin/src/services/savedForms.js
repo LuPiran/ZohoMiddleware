@@ -5,6 +5,17 @@
 
 import api from "./api";
 
+const DRAFT_KEYS_BY_TIPO = {
+  compra: "zoho_draft_compra",
+  recompra: "zoho_draft_recompra",
+  proposta: "zoho_draft_proposta",
+  ocorrencia: "zoho_draft_ocorrencia",
+};
+
+function getSavedFormIdKey(tipo) {
+  return `saved_form_id_${tipo}`;
+}
+
 function getStorageKey() {
   try {
     const raw =
@@ -54,6 +65,9 @@ export function salvarFormularioTemporariamente(formData) {
       ...formData,
       dataSalvamento: new Date().toISOString(),
       id: `form_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      enviado: false,
+      statusEnvio: "pendente",
+      dataEnvio: null,
     };
     
     formsArray.push(novoFormulario);
@@ -65,15 +79,80 @@ export function salvarFormularioTemporariamente(formData) {
     
     setLocalForms(formsArray);
 
+    if (novoFormulario.tipo) {
+      localStorage.setItem(getSavedFormIdKey(novoFormulario.tipo), novoFormulario.id);
+    }
+
     // Sincroniza no backend por usuário (best-effort).
     api.post("/v1/saved-forms", novoFormulario).catch((error) => {
       console.warn("[SAVED_FORMS] Não foi possível sincronizar no servidor:", error?.message || error);
     });
 
     console.log("Formulário salvo temporariamente:", novoFormulario);
-    return true;
+    return novoFormulario;
   } catch (error) {
     console.error("Erro ao salvar formulário temporariamente:", error);
+    return null;
+  }
+}
+
+/**
+ * Marca um formulário salvo como enviado com sucesso e atualiza seus dados finais.
+ * Usa o último ID salvo por tipo quando existir um rascunho ativo.
+ */
+export async function marcarFormularioComoEnviado({
+  tipo,
+  protocolo,
+  titulo,
+  paciente,
+  cpf,
+  resumo,
+  dados,
+}) {
+  try {
+    const draftKey = DRAFT_KEYS_BY_TIPO[tipo];
+    const savedFormIdKey = getSavedFormIdKey(tipo);
+    const savedFormId = localStorage.getItem(savedFormIdKey);
+
+    if (!draftKey || !savedFormId || !localStorage.getItem(draftKey)) {
+      return false;
+    }
+
+    const formsArray = getLocalForms();
+    const index = formsArray.findIndex((f) => f.id === savedFormId);
+
+    if (index === -1) {
+      return false;
+    }
+
+    const dataEnvio = new Date().toISOString();
+    formsArray[index] = {
+      ...formsArray[index],
+      ...(titulo !== undefined ? { titulo } : {}),
+      ...(paciente !== undefined ? { paciente } : {}),
+      ...(cpf !== undefined ? { cpf } : {}),
+      ...(resumo !== undefined ? { resumo } : {}),
+      ...(dados !== undefined ? { dados } : {}),
+      enviado: true,
+      statusEnvio: "enviado",
+      dataEnvio,
+      protocolo: protocolo || formsArray[index].protocolo || null,
+      dataAtualizacao: dataEnvio,
+    };
+
+    setLocalForms(formsArray);
+
+    try {
+      await api.put(`/v1/saved-forms/${savedFormId}`, formsArray[index]);
+    } catch (error) {
+      console.warn("[SAVED_FORMS] Falha ao sincronizar status de envio:", error?.message || error);
+    }
+
+    localStorage.removeItem(draftKey);
+    localStorage.removeItem(savedFormIdKey);
+    return true;
+  } catch (error) {
+    console.error("Erro ao marcar formulário como enviado:", error);
     return false;
   }
 }

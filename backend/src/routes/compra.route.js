@@ -3,8 +3,10 @@ import { chamarZohoApi } from "../services/zohoApi.js";
 import { ENV } from "../config/env.js";
 import { anexarArquivosNoRegistro } from "../services/zohoAttachment.js";
 import { gerarNumeroProtocolo } from "../utils/protocol.js";
+import { sanitizeBrazilPhoneForApi } from "../utils/phone.js";
 
 const router = express.Router();
+const MAX_ARQUIVOS_UPLOAD = 10;
 
 /**
  * Rota para buscar cliente por NOME (campo Nome_Cliente / First_Name + Last_Name) no módulo Contacts do Zoho
@@ -705,6 +707,13 @@ router.post("/", async (req, res) => {
       });
     }
 
+    if (Array.isArray(arquivos) && arquivos.length > MAX_ARQUIVOS_UPLOAD) {
+      return res.status(400).json({
+        success: false,
+        error: `Máximo de ${MAX_ARQUIVOS_UPLOAD} arquivos permitidos`,
+      });
+    }
+
     // Combina Rua + Número
     const ruaCompleta = numero ? `${rua}, ${numero}` : rua;
 
@@ -788,7 +797,7 @@ router.post("/", async (req, res) => {
           Data_de_Nascimento: dataNascimentoFormatada,
           Email: emailPaciente || "",
           RG: rgPaciente || "",
-          Celular: celularPaciente?.replace(/\D/g, "") || "",
+          Celular: sanitizeBrazilPhoneForApi(celularPaciente),
           Telefone: telefonePaciente?.replace(/\D/g, "") || "",
           Rua: ruaCompleta || "",
           Bairro: bairro || "",
@@ -815,10 +824,10 @@ router.post("/", async (req, res) => {
           E_mail_do_representante_legal: emailRepresentante || "",
           Data_de_nascimento_do_representante_legal: dataNascimentoRepresentanteFormatada,
           CPF_do_representante_legal: cpfRepresentante?.replace(/\D/g, "") || "",
-          Celular_Representante_Legal: celularRepresentante?.replace(/\D/g, "") || "",
+          Celular_Representante_Legal: sanitizeBrazilPhoneForApi(celularRepresentante),
           // Campos do novo médico prescritor
           Dados_do_novo_m_dico_prescritor: temNovoMedicoPrescritor || false,
-          Celular_do_m_dico: celularMedico?.replace(/\D/g, "") || "",
+          Celular_do_m_dico: sanitizeBrazilPhoneForApi(celularMedico),
           CRM_do_m_dico: crmMedico || "",
           E_mail_2: emailMedico || "",
           Especialidade_do_m_dico: especialidadeMedico || "",

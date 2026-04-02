@@ -518,7 +518,10 @@ function formatarCEP(cep) {
  */
 function formatarTelefone(telefone) {
   if (!telefone) return 'N/A';
-  const telLimpo = telefone.replace(/\D/g, '');
+  let telLimpo = telefone.replace(/\D/g, '');
+  if (telLimpo.startsWith('55') && telLimpo.length > 11) {
+    telLimpo = telLimpo.substring(2);
+  }
   if (telLimpo.length === 11) {
     return `(${telLimpo.substring(0, 2)}) ${telLimpo.substring(2, 7)}-${telLimpo.substring(7)}`;
   }

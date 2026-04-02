@@ -14,9 +14,10 @@ import { ROUTES, getNomeUsuario, podeVerSecaoParceiro, getOpcoesParceiro } from 
 import api from "../../services/api";
 import { propostaService } from "../../services/proposta";
 import { productsService } from "../../services/products";
-import { salvarFormularioTemporariamente } from "../../services/savedForms";
+import { salvarFormularioTemporariamente, marcarFormularioComoEnviado } from "../../services/savedForms";
 import { isAdminPortal, hasAdminPanelPermission } from "../../utils/permissions";
 import { isValidCPF, formatarCpf } from "../../utils/cpfValidator";
+import { formatBrazilPhone, formatBrazilPhoneLocal } from "../../utils/phone";
 import {
   MdPerson,
   MdEmail,
@@ -409,16 +410,6 @@ export default function Proposta() {
     }
   };
 
-  // Função para formatar telefone/celular
-  const formatarTelefone = (valor) => {
-    const telefone = valor.replace(/\D/g, "");
-    if (telefone.length <= 10) {
-      return telefone.replace(/(\d{2})(\d{4})(\d{4})/, "($1) $2-$3");
-    } else {
-      return telefone.replace(/(\d{2})(\d{5})(\d{4})/, "($1) $2-$3");
-    }
-  };
-
   // Função para formatar RG
   const formatarRg = (valor) => {
     const rg = valor.replace(/\D/g, "");
@@ -469,10 +460,11 @@ export default function Proposta() {
 
   // Handler para telefone/celular com formatação
   const handleTelefoneChange = (e, setter) => {
-    const valor = e.target.value.replace(/\D/g, "");
-    if (valor.length <= 11) {
-      setter(formatarTelefone(valor));
-    }
+    setter(formatBrazilPhone(e.target.value));
+  };
+
+  const handleTelefoneLocalChange = (e, setter) => {
+    setter(formatBrazilPhoneLocal(e.target.value));
   };
 
   // Função para limpar todos os campos do formulário
@@ -863,6 +855,22 @@ export default function Proposta() {
         // Inclui todos os campos enviados no formulário (exceto uploads)
         const dadosSemArquivos = { ...dadosProposta };
         delete dadosSemArquivos.arquivos;
+
+        const nomeIdentificacao =
+          tipoCliente === "Pessoa Juridica" ? nomeEmpresa : nomePaciente;
+        const cpfIdentificacao =
+          tipoCliente === "Pessoa Juridica" ? cnpjEmpresa : cpfPaciente;
+
+        await marcarFormularioComoEnviado({
+          tipo: "proposta",
+          protocolo: response.protocolo,
+          titulo: `Proposta - ${nomeIdentificacao || "Sem identificação"}`,
+          paciente: nomeIdentificacao || "",
+          cpf: cpfIdentificacao || "",
+          resumo: `Tipo: ${tipoCliente}, Produtos: ${produtosValidos.length}`,
+          dados: dadosSemArquivos,
+        });
+
         const dadosComprovante = {
           ...dadosSemArquivos,
           protocolo: response.protocolo,
@@ -992,7 +1000,7 @@ export default function Proposta() {
                       label="Telefone"
                       type="text"
                       value={telefoneEmpresa}
-                      onChange={(e) => handleTelefoneChange(e, setTelefoneEmpresa)}
+                      onChange={(e) => handleTelefoneLocalChange(e, setTelefoneEmpresa)}
                       placeholder="(00) 0000-0000"
                       icon={<MdPhone className="text-xl" />}
                       maxLength={14}
@@ -1040,9 +1048,9 @@ export default function Proposta() {
                         onChange={(e) =>
                           handleTelefoneChange(e, setCelularRepresentanteEmpresa)
                         }
-                        placeholder="(00) 00000-0000"
+                        placeholder="+55 (00) 00000-0000"
                         icon={<MdPhone className="text-xl" />}
-                        maxLength={15}
+                        maxLength={20}
                       />
                     </div>
                   </div>
@@ -1129,15 +1137,15 @@ export default function Proposta() {
                   type="text"
                   value={celularPaciente}
                   onChange={(e) => handleTelefoneChange(e, setCelularPaciente)}
-                  placeholder="(00) 00000-0000"
+                  placeholder="+55 (00) 00000-0000"
                   icon={<MdPhone className="text-xl" />}
-                  maxLength={15}
+                  maxLength={20}
                 />
                 <Input
                   label="Telefone"
                   type="text"
                   value={telefonePaciente}
-                  onChange={(e) => handleTelefoneChange(e, setTelefonePaciente)}
+                  onChange={(e) => handleTelefoneLocalChange(e, setTelefonePaciente)}
                   placeholder="(00) 0000-0000"
                   icon={<MdPhone className="text-xl" />}
                   maxLength={14}
@@ -1166,6 +1174,7 @@ export default function Proposta() {
                   label="Representante Legal"
                   checked={temRepresentanteLegal}
                   onChange={(e) => setTemRepresentanteLegal(e.target.checked)}
+                  labelClassName="text-tegra-text-primary font-semibold"
                 />
               </div>
             </div>
@@ -1223,9 +1232,9 @@ export default function Proposta() {
                     onChange={(e) =>
                       handleTelefoneChange(e, setCelularRepresentante)
                     }
-                    placeholder="(00) 00000-0000"
+                    placeholder="+55 (00) 00000-0000"
                     icon={<MdPhone className="text-xl" />}
-                    maxLength={15}
+                    maxLength={20}
                   />
                   <Input
                     label="Data de Nascimento Representante"
@@ -1290,9 +1299,9 @@ export default function Proposta() {
                       type="text"
                       value={celularMedico}
                       onChange={(e) => handleTelefoneChange(e, setCelularMedico)}
-                      placeholder="(00) 00000-0000"
+                      placeholder="+55 (00) 00000-0000"
                       icon={<MdPhone className="text-xl" />}
-                      maxLength={15}
+                      maxLength={20}
                     />
                     <Input
                       label="E-mail do Médico"
@@ -1694,14 +1703,14 @@ export default function Proposta() {
                     type="file"
                     id="file-upload"
                     multiple
-                    disabled={arquivos.length >= 5}
+                    disabled={arquivos.length >= 10}
                     onChange={(e) => {
                       const novosArquivos = Array.from(e.target.files);
                       const totalArquivos = arquivos.length + novosArquivos.length;
                       
-                      if (totalArquivos > 5) {
+                      if (totalArquivos > 10) {
                         showToast(
-                          "⚠️ Máximo de 5 arquivos permitidos",
+                          "⚠️ Máximo de 10 arquivos permitidos",
                           "warning"
                         );
                         return;
@@ -1716,7 +1725,7 @@ export default function Proposta() {
                   <label
                     htmlFor="file-upload"
                     className={`flex items-center justify-between px-4 py-3 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${
-                      arquivos.length >= 5
+                      arquivos.length >= 10
                         ? "bg-tegra-gray-light border-tegra-gray-medium cursor-not-allowed opacity-60"
                         : "bg-blue-50 border-tegra-blue hover:bg-blue-100"
                     }`}
@@ -1731,7 +1740,7 @@ export default function Proposta() {
                 {/* Texto de dica */}
                 <p className="text-sm text-tegra-text-secondary">
                   (Receita / Doc ID Paciente( CPF/RG) / Comprovante Endereço /
-                  Autorização Anvisa / Doc ID RL) (Máximo 5 arquivos)
+                  Autorização Anvisa / Doc ID RL) (Máximo 10 arquivos)
                 </p>
 
                 {/* Lista de arquivos selecionados */}

@@ -6,7 +6,7 @@ import { authenticateToken } from "../services/jwtService.js";
 const router = express.Router();
 const STORAGE_FILE = path.join(process.cwd(), "logs", "saved-forms.json");
 const MAX_FORMS_PER_USER = 50;
-const BUSINESS_DAYS_TO_EXPIRE = 7;
+const DAYS_TO_EXPIRE = 10;
 
 async function ensureStorageDir() {
   await fs.mkdir(path.dirname(STORAGE_FILE), { recursive: true });
@@ -36,19 +36,9 @@ function getUserKey(req) {
   return String(req.user?.id || req.user?.email || "anonymous");
 }
 
-function addBusinessDays(startDate, businessDays) {
+function addDays(startDate, days) {
   const result = new Date(startDate);
-  let remaining = businessDays;
-
-  while (remaining > 0) {
-    result.setDate(result.getDate() + 1);
-    const day = result.getDay();
-    const isWeekend = day === 0 || day === 6;
-    if (!isWeekend) {
-      remaining -= 1;
-    }
-  }
-
+  result.setDate(result.getDate() + days);
   return result;
 }
 
@@ -58,7 +48,7 @@ function isFormExpired(form, now = new Date()) {
     return false;
   }
 
-  const expireAt = addBusinessDays(savedAt, BUSINESS_DAYS_TO_EXPIRE);
+  const expireAt = addDays(savedAt, DAYS_TO_EXPIRE);
   return now > expireAt;
 }
 
@@ -145,6 +135,9 @@ router.post("/", async (req, res) => {
         incoming.id ||
         `form_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
       dataSalvamento: incoming.dataSalvamento || new Date().toISOString(),
+      enviado: incoming.enviado ?? false,
+      statusEnvio: incoming.statusEnvio || "pendente",
+      dataEnvio: incoming.dataEnvio || null,
     };
 
     const filtered = forms.filter((form) => form.id !== newForm.id);

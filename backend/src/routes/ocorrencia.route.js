@@ -3,8 +3,10 @@ import { chamarZohoApi } from "../services/zohoApi.js";
 import { ENV } from "../config/env.js";
 import { anexarArquivosNoRegistro } from "../services/zohoAttachment.js";
 import { gerarNumeroProtocolo } from "../utils/protocol.js";
+import { sanitizeBrazilPhoneForApi } from "../utils/phone.js";
 
 const router = express.Router();
+const MAX_ARQUIVOS_UPLOAD = 10;
 
 /**
  * Rota para criar uma nova ocorrência no módulo Ocorrencias do Zoho
@@ -58,6 +60,13 @@ router.post("/", async (req, res) => {
       });
     }
 
+    if (Array.isArray(arquivos) && arquivos.length > MAX_ARQUIVOS_UPLOAD) {
+      return res.status(400).json({
+        success: false,
+        error: `Máximo de ${MAX_ARQUIVOS_UPLOAD} arquivos permitidos`,
+      });
+    }
+
     // Formata a data do pedido para o formato esperado pelo Zoho (YYYY-MM-DD)
     let dataPedidoFormatada = null;
     if (dataPedido) {
@@ -96,14 +105,10 @@ router.post("/", async (req, res) => {
     const cpfLimpo = cpfPaciente ? cpfPaciente.replace(/\D/g, "") : "";
 
     // Remove formatação do celular
-    const celularLimpo = celularPaciente
-      ? celularPaciente.replace(/\D/g, "")
-      : "";
+    const celularLimpo = sanitizeBrazilPhoneForApi(celularPaciente);
 
     // Remove formatação do celular do médico
-    const celularMedicoLimpo = celularMedico
-      ? celularMedico.replace(/\D/g, "")
-      : "";
+    const celularMedicoLimpo = sanitizeBrazilPhoneForApi(celularMedico);
 
     // Remove formatação do número do pedido
     const numeroPedidoLimpo = numeroPedido

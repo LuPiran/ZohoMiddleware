@@ -68,7 +68,7 @@ app.use(
 console.log("[CORS] Configuração CORS aplicada");
 console.log("[CORS] Origens permitidas:", allowedOrigins);
 
-app.use(express.json({ limit: "20mb" }));
+app.use(express.json({ limit: "50mb" }));
 
 // Trust proxy para obter IP real do cliente (importante para rate limiting)
 app.set("trust proxy", 1);
