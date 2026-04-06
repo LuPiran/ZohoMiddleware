@@ -1,0 +1,85 @@
+.agradecimento-field-card {
+  border-radius: 0.75rem;
+  border: 1px solid var(--tegra-medium-gray);
+  background: var(--tegra-white);
+  padding: 0.75rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+  transition: box-shadow 180ms ease;
+}
+
+.agradecimento-field-card:hover {
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+}
+
+.agradecimento-field-label {
+  margin-bottom: 0.375rem;
+  color: var(--tegra-dark-gray);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.agradecimento-field-value {
+  font-size: 0.95rem;
+  line-height: 1.5;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.agradecimento-field-value-filled {
+  color: var(--tegra-soft-black);
+  font-weight: 500;
+}
+
+.agradecimento-field-value-empty {
+  color: var(--tegra-dark-gray);
+  font-style: italic;
+}
+
+.agradecimento-produtos-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.agradecimento-produtos-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border: 1px solid var(--tegra-medium-gray);
+  border-radius: 0.65rem;
+  background: #f9fbfd;
+  padding: 0.5rem 0.625rem;
+}
+
+.agradecimento-produtos-nome {
+  color: var(--tegra-soft-black);
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.agradecimento-produtos-qtd {
+  flex-shrink: 0;
+  border: 1px solid rgba(26, 47, 91, 0.18);
+  border-radius: 999px;
+  background: rgba(143, 169, 193, 0.15);
+  color: var(--tegra-primary-blue);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0.3rem 0.55rem;
+}
+
+@media (max-width: 640px) {
+  .agradecimento-field-card {
+    padding: 0.75rem;
+  }
+
+  .agradecimento-produtos-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

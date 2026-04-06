@@ -55,7 +55,7 @@ export const STORAGE_KEYS = {
   PLATFORM_UPDATE_SEEN: "platformUpdateSeen",
 };
 
-export const PLATFORM_UPDATE_VERSION = "2026-03-25.4";
+export const PLATFORM_UPDATE_VERSION = "2026-04-06.1";
 
 // Parceiro: usuários que veem a seção e opções por usuário
 export const PARCEIRO = {

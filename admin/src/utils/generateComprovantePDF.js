@@ -271,15 +271,13 @@ export const gerarComprovantePDF = async (dados) => {
     doc.setFont(undefined, 'bold');
 
     const colunaProduto = margemEsquerda;
-    const colunaQuantidade = margemEsquerda + 90;
-    const colunaValor = margemEsquerda + 120;
+    const colunaQuantidade = margemEsquerda + 108;
 
     // Retângulo do cabeçalho
     doc.roundedRect(margemEsquerda, yPosition - 5, larguraPagina, 7, 1.2, 1.2, 'F');
 
     doc.text('Produto', colunaProduto + 2, yPosition);
     doc.text('Qtd', colunaQuantidade + 2, yPosition);
-    doc.text('Valor Unit.', colunaValor + 2, yPosition);
 
     yPosition += 8;
 
@@ -294,19 +292,10 @@ export const gerarComprovantePDF = async (dados) => {
         doc.rect(margemEsquerda, yPosition - 4, larguraPagina, 6, 'F');
       }
 
-      doc.text(produto.nome || 'Produto sem nome', colunaProduto + 2, yPosition);
+      doc.text(extrairNomeProduto(produto) || 'Produto sem nome', colunaProduto + 2, yPosition);
       doc.text(`${produto.quantidade || 0}`, colunaQuantidade + 2, yPosition);
-      doc.text(`R$ ${parseFloat(produto.valor || 0).toFixed(2)}`, colunaValor + 2, yPosition);
       yPosition += 6;
     }
-
-    // Total
-    yPosition += 2;
-    doc.setFont(undefined, 'bold');
-    doc.setTextColor(...corPrincipal);
-    doc.setFontSize(10);
-    doc.text('TOTAL:', colunaQuantidade + 2, yPosition);
-    doc.text(`R$ ${parseFloat(dados.totalCompra || 0).toFixed(2)}`, colunaValor + 2, yPosition);
 
     doc.setTextColor(...corTexto);
     yPosition += 8;
@@ -375,6 +364,7 @@ export const gerarComprovantePDF = async (dados) => {
     'arquivos',
     'attachment',
     'attachments',
+    'totalcompra',
   ]);
 
   const camposCompletos = Object.entries(dados || {})
@@ -382,6 +372,7 @@ export const gerarComprovantePDF = async (dados) => {
       const chaveNormalizada = String(chave || '').toLowerCase();
       if (camposIgnorados.has(chaveNormalizada)) return false;
       if (/busca|buscar|pesquisa|search|base64|arquivo/i.test(chaveNormalizada)) return false;
+      if (/(total\s*compra|totalcompra|valor|preco|price)/i.test(chaveNormalizada)) return false;
       return temValorParaPDF(valor);
     })
     .sort(([a], [b]) => String(a).localeCompare(String(b), 'pt-BR'));
@@ -557,6 +548,13 @@ function formatarValorGenericoPDF(chave, valor) {
   }
 
   if (Array.isArray(valor)) {
+    if (/^produtos?$/i.test(String(chave || ''))) {
+      return valor
+        .map((item) => extrairNomeProduto(item))
+        .filter(Boolean)
+        .join('\n');
+    }
+
     return valor
       .map((item, index) => {
         if (!temValorParaPDF(item)) return null;
@@ -573,6 +571,10 @@ function formatarValorGenericoPDF(chave, valor) {
   }
 
   if (typeof valor === 'object') {
+    if (/^produtos?$/i.test(String(chave || ''))) {
+      return extrairNomeProduto(valor);
+    }
+
     return Object.entries(valor)
       .filter(([, v]) => temValorParaPDF(v))
       .map(([k, v]) => `${formatarNomeCampoPDF(k)}: ${v}`)
@@ -585,3 +587,26 @@ function formatarValorGenericoPDF(chave, valor) {
 
   return String(valor);
 }
+
+function extrairNomeProduto(produto) {
+  if (!produto) return '';
+
+  if (typeof produto === 'string') {
+    const texto = produto.trim();
+    const matchNome = texto.match(/nome:\s*([^|]+)/i);
+    return (matchNome?.[1] || texto).trim();
+  }
+
+  if (typeof produto === 'object') {
+    const candidato =
+      produto.nome ||
+      produto.name ||
+      produto.produto ||
+      produto.descricao ||
+      '';
+    return String(candidato).trim();
+  }
+
+  return String(produto).trim();
+}
+

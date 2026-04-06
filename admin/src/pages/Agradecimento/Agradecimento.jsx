@@ -5,6 +5,7 @@ import Button from "../../components/ui/Button";
 import { ROUTES } from "../../utils/constants";
 import { MdCheck, MdDownload } from "react-icons/md";
 import { gerarComprovantePDF } from "../../utils/generateComprovantePDF";
+import "./Agradecimento.css";
 
 const MESES_ABREV = [
   "Jan",
@@ -27,9 +28,18 @@ const CAMPOS_IGNORADOS = new Set([
   "documento",
   "attachment",
   "attachments",
+  "totalcompra",
 ]);
 
 const CHAVE_BUSCA_REGEX = /busca|buscar|pesquisa|search/i;
+const CHAVE_FINANCEIRA_REGEX = /(total\s*compra|totalcompra|valor|preco|price)/i;
+
+const normalizarChave = (chave) =>
+  String(chave || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, "");
 
 const temValor = (valor) => {
   if (valor === null || valor === undefined) return false;
@@ -50,14 +60,87 @@ const formatarRotuloCampo = (chave) => {
   return texto.charAt(0).toUpperCase() + texto.slice(1);
 };
 
-const formatarValorCampo = (valor) => {
+const isCampoProdutos = (chave) => /^produtos?$/i.test(String(chave || ""));
+
+const extrairNomeProduto = (produto) => {
+  if (!produto) return "";
+
+  if (typeof produto === "string") {
+    const texto = produto.trim();
+    const matchNome = texto.match(/nome:\s*([^|]+)/i);
+    if (matchNome?.[1]) return matchNome[1].trim();
+
+    const partes = texto
+      .split("|")
+      .map((parte) => parte.trim())
+      .filter(Boolean);
+    const parteNome = partes.find((parte) => /^nome\s*:/i.test(parte));
+    if (parteNome) return parteNome.replace(/^nome\s*:/i, "").trim();
+
+    return texto;
+  }
+
+  if (typeof produto === "object") {
+    const candidato =
+      produto.nome ||
+      produto.name ||
+      produto.produto ||
+      produto.descricao ||
+      "";
+    return String(candidato).trim();
+  }
+
+  return String(produto).trim();
+};
+
+const extrairQuantidadeProduto = (produto) => {
+  if (!produto) return "";
+
+  if (typeof produto === "object") {
+    return String(produto?.quantidade ?? "").trim();
+  }
+
+  if (typeof produto === "string") {
+    const match = produto.match(/quantidade\s*:\s*([^|]+)/i);
+    return String(match?.[1] || "").trim();
+  }
+
+  return "";
+};
+
+const formatarLinhaProdutoComQuantidade = (produto) => {
+  const nome = extrairNomeProduto(produto);
+  const quantidade = extrairQuantidadeProduto(produto);
+
+  if (!nome) return "";
+  return {
+    nome,
+    quantidade,
+  };
+};
+
+const formatarValorCampo = (chave, valor) => {
   if (!temValor(valor)) return null;
+
+  const chaveTexto = String(chave || "");
+
+  if (isCampoProdutos(chaveTexto) && typeof valor === "string") {
+    const produto = formatarLinhaProdutoComQuantidade(valor);
+    return produto ? [produto] : null;
+  }
 
   if (typeof valor === "boolean") {
     return valor ? "Sim" : "Não";
   }
 
   if (Array.isArray(valor)) {
+    if (isCampoProdutos(chaveTexto)) {
+      const produtos = valor
+        .map((item) => formatarLinhaProdutoComQuantidade(item))
+        .filter(Boolean);
+      return produtos.length > 0 ? produtos : null;
+    }
+
     const linhas = valor
       .map((item, index) => {
         if (!temValor(item)) return null;
@@ -81,6 +164,11 @@ const formatarValorCampo = (valor) => {
   }
 
   if (typeof valor === "object") {
+    if (isCampoProdutos(chaveTexto)) {
+      const produto = formatarLinhaProdutoComQuantidade(valor);
+      return produto ? [produto] : null;
+    }
+
     const pares = Object.entries(valor)
       .filter(([, valorInterno]) => temValor(valorInterno))
       .map(
@@ -99,15 +187,17 @@ const extrairCamposPreenchidos = (dados) => {
 
   return Object.entries(dados)
     .filter(([chave, valor]) => {
-      const chaveNormalizada = String(chave || "").toLowerCase();
+      const chaveNormalizada = normalizarChave(chave);
       if (CAMPOS_IGNORADOS.has(chaveNormalizada)) return false;
       if (CHAVE_BUSCA_REGEX.test(chaveNormalizada)) return false;
+      if (CHAVE_FINANCEIRA_REGEX.test(chaveNormalizada)) return false;
+      if (chaveNormalizada === "quantidade" && temValor(dados.produtos)) return false;
       return temValor(valor);
     })
     .map(([chave, valor]) => ({
       chave,
       label: formatarRotuloCampo(chave),
-      valor: formatarValorCampo(valor),
+      valor: formatarValorCampo(chave, valor),
     }))
     .filter((item) => temValor(item.valor));
 };
@@ -141,7 +231,7 @@ const CONFIG_SECOES = [
   {
     id: "produtos",
     titulo: "Produtos",
-    regex: /(produto|totalCompra|numeroPedido|lote|awb|validade|pedido)/i,
+    regex: /(produto|quantidade|numeroPedido|lote|awb|validade|pedido)/i,
   },
   {
     id: "pagamento",
@@ -286,7 +376,8 @@ export default function Agradecimento() {
     dadosComprovante,
   } = location.state || dadosSessao || {};
 
-  const dadosTela = dadosComprovante || (isPreview ? dadosPreviewPorTipo[previewTipo] : null);
+  const dadosTela =
+    dadosComprovante || (isPreview ? dadosPreviewPorTipo[previewTipo] : null);
   const tipoSolicitacaoTela = tipoSolicitacao || dadosTela?.tipoSolicitacao;
   const nomePacienteTela = nomePaciente || dadosTela?.nomePaciente;
   const sobrenomePacienteTela = sobrenomePaciente || dadosTela?.sobrenomePaciente;
@@ -431,24 +522,52 @@ export default function Agradecimento() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                     {secao.campos.map((item) => {
-                      const valorNormalizado = String(item.valor || "").trim();
+                      const campoProdutos = secao.id === "produtos" && isCampoProdutos(item.chave);
+                      const valorNormalizado = campoProdutos
+                        ? item.valor
+                        : String(item.valor || "").trim();
                       const valorFinal = valorNormalizado || "Nao informado";
 
                       return (
                         <div
                           key={`${secao.id}-${item.chave}`}
-                          className="rounded-xl border border-tegra-gray-light bg-tegra-bg-primary p-3 sm:p-4 shadow-sm hover:shadow-md transition-shadow"
+                          className="agradecimento-field-card"
                         >
-                          <p className="text-xs sm:text-sm font-semibold uppercase tracking-wide text-tegra-text-secondary mb-1.5">
+                          <p className="agradecimento-field-label">
                             {item.label}
                           </p>
-                          <p className={`text-sm sm:text-base break-words whitespace-pre-wrap ${
-                            valorNormalizado
-                              ? "text-tegra-text-primary font-medium"
-                              : "text-tegra-text-secondary italic"
-                          }`}>
-                            {valorFinal}
-                          </p>
+
+                          {campoProdutos ? (
+                            Array.isArray(item.valor) && item.valor.length > 0 ? (
+                              <ul className="agradecimento-produtos-lista">
+                                {item.valor.map((produto, index) => (
+                                  <li
+                                    key={`${secao.id}-${item.chave}-produto-${index}`}
+                                    className="agradecimento-produtos-item"
+                                  >
+                                    <span className="agradecimento-produtos-nome">{produto.nome}</span>
+                                    {produto.quantidade ? (
+                                      <span className="agradecimento-produtos-qtd">
+                                        Qtd: {produto.quantidade}
+                                      </span>
+                                    ) : null}
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="agradecimento-field-value-empty">Nao informado</p>
+                            )
+                          ) : (
+                            <p
+                              className={`agradecimento-field-value ${
+                                valorNormalizado
+                                  ? "agradecimento-field-value-filled"
+                                  : "agradecimento-field-value-empty"
+                              }`}
+                            >
+                              {valorFinal}
+                            </p>
+                          )}
                         </div>
                       );
                     })}

@@ -5,10 +5,11 @@ import {
   MdFolderCopy,
   MdLocalShipping,
   MdAutoFixHigh,
+  MdPhoneIphone,
 } from "react-icons/md";
 
 const UPDATE_CONTENT = {
-  badge: "Release V3.1: Atualizacao dos comprovantes",
+  badge: "Release V3.2",
   date: "Atualizado em 02/04/2026",
   title: "Otimizações no Portal",
   description:
@@ -37,6 +38,12 @@ const UPDATE_CONTENT = {
       text: "Ganhe tempo no atendimento! Ao digitar o CPF, o sistema recupera automaticamente os dados cadastrados, permitindo que você apenas confirme ou ajuste o endereço em segundos. Menos digitação, mais agilidade.",
       icon: MdLocalShipping,
       iconClass: "bg-rose-100 text-rose-700",
+    },
+    {
+      label: "Telefone com máscara pronta para copiar e colar:",
+      text: "Agora os números exibidos já seguem o padrão com +55, deixando muito mais fácil copiar e colar o contato dos pacientes em outros sistemas, mensagens ou confirmações de atendimento.",
+      icon: MdPhoneIphone,
+      iconClass: "bg-amber-100 text-amber-700",
     },
   ],
 };
