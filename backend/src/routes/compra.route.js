@@ -329,6 +329,33 @@ router.get("/cliente/:cpf", async (req, res) => {
       return null;
     };
 
+    // Busca o registro completo do contato para devolver também campos customizados
+    // (ex.: dados de representante legal), sem depender de uma lista fixa de fields.
+    const enriquecerClienteComRegistroCompleto = async (cliente) => {
+      if (!cliente?.id) return cliente;
+
+      try {
+        const endpoint = `/${moduleName}/${cliente.id}`;
+        const response = await chamarZohoApi("GET", endpoint, null, {
+          timeoutMs: 10000,
+        });
+
+        if (response.data && response.data.length > 0) {
+          return {
+            ...cliente,
+            ...response.data[0],
+          };
+        }
+      } catch (error) {
+        console.log(
+          "[COMPRA API] ⚠️ Falha ao enriquecer cliente com registro completo:",
+          error.message,
+        );
+      }
+
+      return cliente;
+    };
+
     // Estratégia 1: Busca direta no endpoint de search (mais performática)
     try {
       console.log("[COMPRA API] Tentativa 1: Busca direta via /search");
@@ -353,9 +380,13 @@ router.get("/cliente/:cpf", async (req, res) => {
               "[COMPRA API] ✓ Cliente encontrado via /search:",
               clienteEncontrado.id,
             );
+
+            const clienteComDadosCompletos =
+              await enriquecerClienteComRegistroCompleto(clienteEncontrado);
+
             return res.json({
               success: true,
-              data: clienteEncontrado,
+              data: clienteComDadosCompletos,
             });
           }
         }
@@ -397,9 +428,13 @@ router.get("/cliente/:cpf", async (req, res) => {
             "[COMPRA API] ✓ Cliente encontrado via critério:",
             clienteEncontrado.id,
           );
+
+          const clienteComDadosCompletos =
+            await enriquecerClienteComRegistroCompleto(clienteEncontrado);
+
           return res.json({
             success: true,
-            data: clienteEncontrado,
+            data: clienteComDadosCompletos,
           });
         }
       }
@@ -523,6 +558,9 @@ router.get("/cliente/:cpf", async (req, res) => {
                 if (fullResponse.data && fullResponse.data.length > 0) {
                   clienteEncontrado = fullResponse.data[0];
                   console.log("[COMPRA API] ✓ Dados completos obtidos");
+
+                  clienteEncontrado =
+                    await enriquecerClienteComRegistroCompleto(clienteEncontrado);
                 }
               } catch (error) {
                 console.log(

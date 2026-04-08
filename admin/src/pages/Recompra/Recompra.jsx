@@ -321,6 +321,112 @@ export default function Recompra() {
     );
   };
 
+  const normalizarDataParaInput = (data) => {
+    if (!data || typeof data !== "string") return "";
+
+    if (data.includes("/")) {
+      const partes = data.split("/");
+      if (partes.length === 3) {
+        return `${partes[2]}-${partes[1]}-${partes[0]}`;
+      }
+    }
+
+    if (data.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      return data;
+    }
+
+    return "";
+  };
+
+  const extrairDadosRepresentanteLegal = (cliente) => {
+    const pickFirst = (...keys) => {
+      for (const key of keys) {
+        const value = cliente?.[key];
+        if (value !== undefined && value !== null && String(value).trim() !== "") {
+          return value;
+        }
+      }
+      return "";
+    };
+
+    const parseBooleanLike = (value) => {
+      if (typeof value === "boolean") return value;
+      if (typeof value === "number") return value === 1;
+      if (typeof value === "string") {
+        const normalized = value.trim().toLowerCase();
+        return ["true", "sim", "yes", "1"].includes(normalized);
+      }
+      return false;
+    };
+
+    const flagRepresentante = pickFirst(
+      "Representante_legal",
+      "Representante_Legal",
+      "Tem_representante_legal",
+      "temRepresentanteLegal",
+    );
+
+    const nome = pickFirst(
+      "Nome_do_representante_legal",
+      "Nome_do_Representante_Legal",
+      "Nome_representante_legal",
+      "Nome_Representante_Legal",
+      "Nome_Representante",
+      "nomeRepresentante",
+    );
+
+    const rg = pickFirst(
+      "RG_do_representante_legal",
+      "RG_do_Representante_Legal",
+      "RG_Representante_Legal",
+      "rgRepresentante",
+    );
+
+    const cpf = pickFirst(
+      "CPF_do_representante_legal",
+      "CPF_do_Representante_Legal",
+      "CPF_Representante_Legal",
+      "cpfRepresentante",
+    );
+
+    const email = pickFirst(
+      "Email_do_representante_legal",
+      "Email_do_Representante_Legal",
+      "E_mail_do_representante_legal",
+      "E_mail_do_Representante_Legal",
+      "Email_Representante_Legal",
+      "emailRepresentante",
+    );
+
+    const celular = pickFirst(
+      "Celular_Representante_Legal",
+      "Celular_do_representante_legal",
+      "Celular_do_Representante_Legal",
+      "celularRepresentante",
+    );
+
+    const dataNascimento = pickFirst(
+      "Data_de_nascimento_do_representante_legal",
+      "Data_de_Nascimento_do_Representante_Legal",
+      "Nascimento_representante_legal",
+      "dataNascimentoRepresentante",
+    );
+
+    const temDadosRepresentante =
+      parseBooleanLike(flagRepresentante) ||
+      Boolean(nome || rg || cpf || email || celular || dataNascimento);
+
+    return {
+      temDadosRepresentante,
+      nome: String(nome || ""),
+      rg: String(rg || ""),
+      cpf: String(cpf || ""),
+      email: String(email || ""),
+      celular: String(celular || ""),
+      dataNascimento: String(dataNascimento || ""),
+    };
+  };
+
   // Função para buscar cliente por CPF
   const handleBuscarCliente = async (e) => {
     e.preventDefault();
@@ -366,21 +472,22 @@ export default function Recompra() {
     setEmailPaciente(cliente.Email || "");
 
     // Formata data de nascimento
-    if (cliente.Date_of_Birth) {
-      const dataNasc = cliente.Date_of_Birth;
-      if (dataNasc.includes("/")) {
-        // Se já estiver formatada (DD/MM/YYYY), converte para YYYY-MM-DD
-        const partes = dataNasc.split("/");
-        if (partes.length === 3) {
-          setDataNascimento(`${partes[2]}-${partes[1]}-${partes[0]}`);
-        }
-      } else if (dataNasc.match(/^\d{4}-\d{2}-\d{2}$/)) {
-        // Se estiver em YYYY-MM-DD, usa direto
-        setDataNascimento(dataNasc);
-      }
-    }
+    setDataNascimento(normalizarDataParaInput(cliente.Date_of_Birth));
 
     setTelefonePaciente(cliente.Phone ? formatBrazilPhoneLocal(cliente.Phone) : "");
+
+    const representante = extrairDadosRepresentanteLegal(cliente);
+    setTemRepresentanteLegal(representante.temDadosRepresentante);
+    setNomeRepresentante(representante.nome);
+    setRgRepresentante(representante.rg);
+    setCpfRepresentante(formatarCpf(representante.cpf));
+    setEmailRepresentante(representante.email);
+    setCelularRepresentante(
+      representante.celular ? formatBrazilPhone(representante.celular) : "",
+    );
+    setDataNascimentoRepresentante(
+      normalizarDataParaInput(representante.dataNascimento),
+    );
 
     // Preenche endereço (campos Other_* do Contacts)
     const enderecoCliente = {
