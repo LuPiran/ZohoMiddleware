@@ -216,6 +216,7 @@ export default function Select({
         classNamePrefix="tegra-select"
         menuPortalTarget={document.body}
         menuPlacement="auto"
+        aria-required={required}
         {...props}
       />
       {error && <p className="mt-1 text-sm text-tegra-error">{error}</p>}

@@ -39,6 +39,8 @@ export default function Input({
           value={value}
           onChange={onChange}
           placeholder={placeholder}
+          required={required}
+          aria-required={required}
           disabled={disabled}
           className={`w-full border rounded-lg py-2 sm:py-2.5 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-tegra-teal transition ${
             icon ? "pl-9 sm:pl-10" : "px-2.5 sm:px-3"

@@ -10,7 +10,7 @@ import Button from "../../components/ui/Button";
 import Select from "../../components/ui/Select";
 import Checkbox from "../../components/ui/Checkbox";
 import Textarea from "../../components/ui/Textarea";
-import { ROUTES, getNomeUsuario, podeVerSecaoParceiro, getOpcoesParceiro } from "../../utils/constants";
+import { ROUTES, getNomeUsuario, getOpcoesParceiro } from "../../utils/constants";
 import api from "../../services/api";
 import { compraService } from "../../services/compra";
 import { productsService } from "../../services/products";
@@ -216,9 +216,12 @@ export default function Recompra() {
   const [realizarProcessoComParceiro, setRealizarProcessoComParceiro] =
     useState(false);
   const [parceiroSelecionado, setParceiroSelecionado] = useState("");
+  const usuarioLogado = authService.getUser();
+  const opcoesParceiro = getOpcoesParceiro(usuarioLogado);
+  const exibirSecaoParceiro = opcoesParceiro.length > 0;
   const consultorEndereco =
     (realizarProcessoComParceiro && parceiroSelecionado) ||
-    getNomeUsuario(authService.getUser()) ||
+    getNomeUsuario(usuarioLogado) ||
     "Consultor não identificado";
 
   // Estados para upload de arquivos
@@ -260,6 +263,30 @@ export default function Recompra() {
 
     carregarProdutos();
   }, [navigate, setLoading, showToast]);
+
+  useEffect(() => {
+    if (!exibirSecaoParceiro) {
+      if (realizarProcessoComParceiro) setRealizarProcessoComParceiro(false);
+      if (parceiroSelecionado) setParceiroSelecionado("");
+      return;
+    }
+
+    const opcaoValida = opcoesParceiro.some(
+      (opcao) => opcao.value === parceiroSelecionado
+    );
+
+    if (!opcaoValida) {
+      setParceiroSelecionado(opcoesParceiro[0].value);
+      if (!realizarProcessoComParceiro) {
+        setRealizarProcessoComParceiro(true);
+      }
+    }
+  }, [
+    exibirSecaoParceiro,
+    opcoesParceiro,
+    parceiroSelecionado,
+    realizarProcessoComParceiro,
+  ]);
 
   // Função para adicionar novo produto
   const adicionarProduto = () => {
@@ -640,16 +667,15 @@ export default function Recompra() {
 
   // Função para formatar RG
   const formatarRg = (valor) => {
-    const rg = valor.replace(/\D/g, "");
-    if (rg.length <= 2) {
-      return rg;
-    } else if (rg.length <= 5) {
-      return rg.replace(/(\d{2})(\d{0,3})/, "$1.$2");
-    } else if (rg.length <= 8) {
-      return rg.replace(/(\d{2})(\d{3})(\d{0,3})/, "$1.$2.$3");
-    } else {
-      return rg.replace(/(\d{2})(\d{3})(\d{3})(\d{0,1})/, "$1.$2.$3-$4");
-    }
+    const rg = valor
+      .toUpperCase()
+      .replace(/[^0-9A-Z]/g, "")
+      .slice(0, 9);
+
+    if (rg.length <= 2) return rg;
+    if (rg.length <= 5) return `${rg.slice(0, 2)}.${rg.slice(2)}`;
+    if (rg.length <= 8) return `${rg.slice(0, 2)}.${rg.slice(2, 5)}.${rg.slice(5)}`;
+    return `${rg.slice(0, 2)}.${rg.slice(2, 5)}.${rg.slice(5, 8)}-${rg.slice(8)}`;
   };
 
   // Estados de validação de CPF
@@ -860,7 +886,10 @@ export default function Recompra() {
     // Valida campos do paciente (apenas os obrigatórios)
     if (!nomePaciente.trim()) camposVazios.push("Nome");
     if (!sobrenomePaciente.trim()) camposVazios.push("Sobrenome");
+    if (!cpfPaciente.trim()) camposVazios.push("CPF");
     if (!celularPaciente.trim()) camposVazios.push("Celular");
+    if (!emailPaciente.trim()) camposVazios.push("E-mail");
+    if (!dataNascimento.trim()) camposVazios.push("Data de Nascimento");
 
     // Valida CPF do paciente se preenchido
     if (cpfPaciente.trim() && !isValidCPF(cpfPaciente)) {
@@ -1052,7 +1081,7 @@ export default function Recompra() {
         const nomeConsultor =
           realizarProcessoComParceiro && parceiroSelecionado
             ? parceiroSelecionado
-            : getNomeUsuario(authService.getUser());
+            : getNomeUsuario(usuarioLogado);
 
         // Inclui todos os campos enviados no formulário (exceto uploads)
         const dadosSemArquivos = { ...dadosCompra };
@@ -1138,6 +1167,9 @@ export default function Recompra() {
           <h1 className="text-xl sm:text-2xl font-bold text-tegra-text-primary mb-4 sm:mb-6">
             Nova Recompra
           </h1>
+          <p className="text-xs sm:text-sm text-tegra-text-secondary mb-3 sm:mb-4">
+            <span className="text-tegra-error font-semibold">*</span> indica campo obrigatório.
+          </p>
 
           {/* Banner de rascunho salvo */}
           {showDraftBanner && (
@@ -1239,8 +1271,8 @@ export default function Recompra() {
               )}
             </div>
 
-            {/* Seção: Parceiro (apenas para Marcelli Silva e Diego Betti) */}
-            {podeVerSecaoParceiro(authService.getUser()) && (
+            {/* Seção: Parceiro (dinâmica via campo Parcerias do usuário) */}
+            {exibirSecaoParceiro && (
               <div className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6">
                 <h2 className="text-base sm:text-lg font-semibold text-tegra-text-primary mb-3 sm:mb-4">
                   Parceiro
@@ -1251,7 +1283,6 @@ export default function Recompra() {
                   checked={realizarProcessoComParceiro}
                   onChange={(e) => {
                     setRealizarProcessoComParceiro(e.target.checked);
-                    if (!e.target.checked) setParceiroSelecionado("");
                   }}
                 />
                 {realizarProcessoComParceiro && (
@@ -1260,7 +1291,7 @@ export default function Recompra() {
                       label="Parceria"
                       value={parceiroSelecionado}
                       onChange={(e) => setParceiroSelecionado(e.target.value)}
-                      options={getOpcoesParceiro(authService.getUser())}
+                      options={opcoesParceiro}
                       placeholder="Selecione o parceiro"
                     />
                   </div>
@@ -1278,6 +1309,7 @@ export default function Recompra() {
                   label="Nome"
                   type="text"
                   value={nomePaciente}
+                  required
                   onChange={(e) => setNomePaciente(e.target.value)}
                   placeholder="Nome do paciente"
                   icon={<MdPerson className="text-xl" />}
@@ -1286,6 +1318,7 @@ export default function Recompra() {
                   label="Sobrenome"
                   type="text"
                   value={sobrenomePaciente}
+                  required
                   onChange={(e) => setSobrenomePaciente(e.target.value)}
                   placeholder="Sobrenome do paciente"
                   icon={<MdPerson className="text-xl" />}
@@ -1294,6 +1327,7 @@ export default function Recompra() {
                   label="CPF"
                   type="text"
                   value={cpfPaciente}
+                  required
                   onChange={handleCpfChange}
                   placeholder="000.000.000-00"
                   maxLength={14}
@@ -1304,18 +1338,19 @@ export default function Recompra() {
                   type="text"
                   value={rgPaciente}
                   onChange={(e) => {
-                    const valor = e.target.value.replace(/\D/g, "");
+                    const valor = e.target.value.toUpperCase().replace(/[^0-9A-Z]/g, "");
                     if (valor.length <= 9) {
                       setRgPaciente(formatarRg(valor));
                     }
                   }}
-                  placeholder="00.000.000-0"
+                  placeholder="00.000.000-X"
                   maxLength={12}
                 />
                 <Input
                   label="Celular"
                   type="text"
                   value={celularPaciente}
+                  required
                   onChange={(e) => handleTelefoneChange(e, setCelularPaciente)}
                   placeholder="+55 (00) 00000-0000"
                   icon={<MdPhone className="text-xl" />}
@@ -1334,6 +1369,7 @@ export default function Recompra() {
                   label="E-mail"
                   type="email"
                   value={emailPaciente}
+                  required
                   onChange={(e) => setEmailPaciente(e.target.value)}
                   placeholder="email@exemplo.com"
                   icon={<MdEmail className="text-xl" />}
@@ -1342,6 +1378,7 @@ export default function Recompra() {
                   label="Data de Nascimento"
                   type="date"
                   value={dataNascimento}
+                  required
                   onChange={(e) => setDataNascimento(e.target.value)}
                   icon={<MdCalendarToday className="text-xl" />}
                 />
@@ -1370,6 +1407,7 @@ export default function Recompra() {
                     label="Nome Representante"
                     type="text"
                     value={nomeRepresentante}
+                    required={temRepresentanteLegal}
                     onChange={(e) => setNomeRepresentante(e.target.value)}
                     placeholder="Nome do representante legal"
                     icon={<MdPerson className="text-xl" />}
@@ -1379,18 +1417,19 @@ export default function Recompra() {
                     type="text"
                     value={rgRepresentante}
                     onChange={(e) => {
-                      const valor = e.target.value.replace(/\D/g, "");
+                      const valor = e.target.value.toUpperCase().replace(/[^0-9A-Z]/g, "");
                       if (valor.length <= 9) {
                         setRgRepresentante(formatarRg(valor));
                       }
                     }}
-                    placeholder="00.000.000-0"
+                    placeholder="00.000.000-X"
                     maxLength={12}
                   />
                   <Input
                     label="CPF Representante"
                     type="text"
                     value={cpfRepresentante}
+                    required={temRepresentanteLegal}
                     onChange={handleCpfRepresentanteChange}
                     placeholder="000.000.000-00"
                     maxLength={14}
@@ -1408,6 +1447,7 @@ export default function Recompra() {
                     label="Celular Representante"
                     type="text"
                     value={celularRepresentante}
+                    required={temRepresentanteLegal}
                     onChange={(e) =>
                       handleTelefoneChange(e, setCelularRepresentante)
                     }
@@ -1419,6 +1459,7 @@ export default function Recompra() {
                     label="Data de Nascimento Representante"
                     type="date"
                     value={dataNascimentoRepresentante}
+                    required={temRepresentanteLegal}
                     onChange={(e) =>
                       setDataNascimentoRepresentante(e.target.value)
                     }
@@ -1465,6 +1506,7 @@ export default function Recompra() {
                       label="Nome do Médico"
                       type="text"
                       value={nomeMedico}
+                      required={temNovoMedicoPrescritor}
                       onChange={(e) => setNomeMedico(e.target.value)}
                       placeholder="Nome completo do médico"
                       icon={<MdPerson className="text-xl" />}
@@ -1473,6 +1515,7 @@ export default function Recompra() {
                       label="CRM do Médico"
                       type="number"
                       value={crmMedico}
+                      required={temNovoMedicoPrescritor}
                       onChange={(e) => {
                         const valor = e.target.value.replace(/\D/g, "");
                         setCrmMedico(valor);
@@ -1482,6 +1525,7 @@ export default function Recompra() {
                     <Select
                       label="UF do CRM"
                       value={ufCrm}
+                      required={temNovoMedicoPrescritor}
                       onChange={(e) => setUfCrm(e.target.value)}
                       options={estadosBrasileiros}
                       placeholder="Selecione o estado"
@@ -1490,6 +1534,7 @@ export default function Recompra() {
                       label="Celular do Médico"
                       type="text"
                       value={celularMedico}
+                      required={temNovoMedicoPrescritor}
                       onChange={(e) => handleTelefoneChange(e, setCelularMedico)}
                       placeholder="+55 (00) 00000-0000"
                       icon={<MdPhone className="text-xl" />}
@@ -1499,6 +1544,7 @@ export default function Recompra() {
                       label="E-mail do Médico"
                       type="email"
                       value={emailMedico}
+                      required={temNovoMedicoPrescritor}
                       onChange={(e) => setEmailMedico(e.target.value)}
                       placeholder="email@exemplo.com"
                       icon={<MdEmail className="text-xl" />}
@@ -1507,6 +1553,7 @@ export default function Recompra() {
                       label="Especialidade"
                       type="text"
                       value={especialidadeMedico}
+                      required={temNovoMedicoPrescritor}
                       onChange={(e) => setEspecialidadeMedico(e.target.value)}
                       placeholder="Especialidade do médico"
                     />
@@ -1798,6 +1845,7 @@ export default function Recompra() {
                         // Select aparece apenas quando não há produto selecionado
                         <Select
                           value={produto.nome}
+                          required
                           onChange={(e) => {
                             const valor = e.target.value;
                             const opcaoSelecionada = e.selectedOption;
@@ -1975,8 +2023,8 @@ export default function Recompra() {
 
                 {/* Texto de dica */}
                 <p className="text-sm text-tegra-text-secondary">
-                  (Receita / Doc ID Paciente( CPF/RG) / Comprovante Endereço /
-                  Autorização Anvisa / Doc ID RL) (Máximo 10 arquivos)
+                  Anexe evidências da ocorrência (fotos, vídeos ou documentos).
+                  Máximo 10 arquivos.
                 </p>
 
                 {/* Lista de arquivos selecionados */}

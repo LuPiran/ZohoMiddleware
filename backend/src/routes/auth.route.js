@@ -99,6 +99,12 @@ router.post(
       console.log("[AUTH ROUTE] ✓ Login realizado com sucesso");
       console.log("[AUTH ROUTE] Usuário ID:", usuario.id);
       console.log("[AUTH ROUTE] Status do usuário: ativo");
+      console.log("[AUTH ROUTE] Campos de parceria recebidos:", {
+        Parceria: usuario.Parceria ?? null,
+        Parcerias: usuario.Parcerias ?? null,
+        Parceiros: usuario.Parceiros ?? null,
+        Parceiro: usuario.Parceiro ?? null,
+      });
 
       // Gera token JWT
       const token = generateToken(usuario);

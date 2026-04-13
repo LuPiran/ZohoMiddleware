@@ -12,11 +12,17 @@ import {
   MdClose,
   MdPerson,
   MdBook,
+  MdLocalShipping,
 } from "react-icons/md";
-import { ROUTES } from "../../utils/constants";
+import {
+  EXTERNAL_LINKS,
+  ROUTES,
+  podeVerTrackingPedido,
+} from "../../utils/constants";
 import { hasAdminPanelPermission } from "../../utils/permissions";
 import { useMenu } from "../../contexts/MenuContext";
 import { useUserDropdown } from "../../contexts/UserContext";
+import { authService } from "../../services/auth";
 
 /**
  * Componente de Navegação
@@ -26,6 +32,8 @@ export default function Navbar() {
   const { showUserDropdown, setShowUserDropdown } = useUserDropdown();
   const location = useLocation();
   const isAdmin = hasAdminPanelPermission();
+  const user = authService.getUser();
+  const mostrarTrackingPedido = podeVerTrackingPedido(user);
   const prevPathnameRef = useRef(location.pathname);
 
   // Fecha o menu apenas quando a rota realmente muda (não na primeira renderização)
@@ -83,6 +91,13 @@ export default function Navbar() {
       show: true, // Sempre visível
     },
     {
+      path: EXTERNAL_LINKS.TRACKING_PEDIDO,
+      label: "Tracking de Pedido",
+      icon: <MdLocalShipping className="text-xl" />,
+      show: mostrarTrackingPedido,
+      external: true,
+    },
+    {
       path: ROUTES.OCORRENCIA,
       label: "Ocorrência",
       icon: <MdReport className="text-xl" />,
@@ -109,20 +124,36 @@ export default function Navbar() {
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
           <div className="flex justify-center space-x-1">
             {navItems.map((item) => (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                className={({ isActive }) =>
-                  `flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 ${
-                    isActive
-                      ? "text-tegra-blue-dark border-tegra-blue-dark"
-                      : "text-tegra-text-secondary border-transparent hover:text-tegra-blue-dark hover:border-tegra-blue-dark"
-                  }`
-                }
-              >
-                {item.icon}
-                {item.label}
-              </NavLink>
+              item.external ? (
+                <a
+                  key={item.path}
+                  href={item.path}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group flex items-center gap-2 px-4 py-3 text-sm font-semibold text-amber-700 transition-all duration-200 border-b-2 border-amber-300/80 drop-shadow-[0_0_10px_rgba(245,158,11,0.18)] hover:text-amber-800 hover:border-amber-400 hover:drop-shadow-[0_0_14px_rgba(245,158,11,0.28)]"
+                  title="Abre o Tracking de Pedido em uma nova aba"
+                >
+                  <span className="text-[1.1rem] text-amber-600 transition-transform duration-200 group-hover:translate-x-0.5">
+                    {item.icon}
+                  </span>
+                  {item.label}
+                </a>
+              ) : (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  className={({ isActive }) =>
+                    `flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 ${
+                      isActive
+                        ? "text-tegra-blue-dark border-tegra-blue-dark"
+                        : "text-tegra-text-secondary border-transparent hover:text-tegra-blue-dark hover:border-tegra-blue-dark"
+                    }`
+                  }
+                >
+                  {item.icon}
+                  {item.label}
+                </NavLink>
+              )
             ))}
           </div>
         </div>
@@ -172,21 +203,36 @@ export default function Navbar() {
         {/* Itens do menu */}
         <div className="flex flex-col py-2 flex-1">
           {navItems.map((item) => (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              onClick={closeMenu}
-              className={({ isActive }) =>
-                `mobile-menu-item flex items-center gap-3 px-4 py-3 mx-2 my-1 text-sm font-medium transition-colors rounded-lg ${
-                  isActive
-                    ? "mobile-menu-item--active"
-                    : "text-tegra-text-secondary hover:text-tegra-blue-dark hover:bg-tegra-gray-light"
-                }`
-              }
-            >
-              {item.icon}
-              {item.label}
-            </NavLink>
+            item.external ? (
+              <a
+                key={item.path}
+                href={item.path}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={closeMenu}
+                className="mobile-menu-item mx-2 my-1 flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-semibold text-amber-700 ring-1 ring-amber-200/80 shadow-[0_0_14px_rgba(245,158,11,0.12)] transition-colors hover:bg-amber-50 hover:text-amber-800"
+                title="Abre o Tracking de Pedido em uma nova aba"
+              >
+                <span className="text-amber-700">{item.icon}</span>
+                <span className="flex-1">{item.label}</span>
+              </a>
+            ) : (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                onClick={closeMenu}
+                className={({ isActive }) =>
+                  `mobile-menu-item flex items-center gap-3 px-4 py-3 mx-2 my-1 text-sm font-medium transition-colors rounded-lg ${
+                    isActive
+                      ? "mobile-menu-item--active"
+                      : "text-tegra-text-secondary hover:text-tegra-blue-dark hover:bg-tegra-gray-light"
+                  }`
+                }
+              >
+                {item.icon}
+                {item.label}
+              </NavLink>
+            )
           ))}
         </div>
 

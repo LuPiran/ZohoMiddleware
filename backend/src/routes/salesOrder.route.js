@@ -2,6 +2,8 @@ import express from "express";
 import { chamarZohoApi } from "../services/zohoApi.js";
 
 const router = express.Router();
+const CACHE_TTL_MS = 5 * 60 * 1000;
+const salesOrderCache = new Map();
 
 /**
  * Rota para buscar pedido por número no módulo Sales_Orders do Zoho
@@ -10,6 +12,10 @@ const router = express.Router();
 router.get("/:numeroPedido", async (req, res) => {
   const { numeroPedido } = req.params;
   const numeroLimpo = String(numeroPedido || "").trim();
+  const numeroApenasDigitos = numeroLimpo.replace(/\D/g, "");
+  const candidatosNumero = [numeroLimpo, numeroApenasDigitos].filter(
+    (valor, index, array) => valor && array.indexOf(valor) === index
+  );
 
   if (!numeroLimpo) {
     return res.status(400).json({
@@ -21,38 +27,81 @@ router.get("/:numeroPedido", async (req, res) => {
   try {
     console.log("[SALES ORDER API] Buscando pedido por número:", numeroLimpo);
 
+    // Cache de curto prazo para reduzir latência em consultas repetidas
+    const cacheEntry = salesOrderCache.get(numeroLimpo);
+    if (cacheEntry && Date.now() - cacheEntry.timestamp < CACHE_TTL_MS) {
+      console.log("[SALES ORDER API] Cache hit para pedido:", numeroLimpo);
+      return res.json({ success: true, data: [cacheEntry.pedido] });
+    }
+
     const moduleName = "Sales_Orders";
     let pedidoEncontrado = null;
 
     // Função auxiliar para comparar número do pedido
     const normalizarNumero = (valor) => String(valor || "").trim();
+    const normalizarNumeroDigitos = (valor) => normalizarNumero(valor).replace(/\D/g, "");
 
     const filtrarPorNumero = (registros) => {
       if (!Array.isArray(registros)) return null;
       for (const registro of registros) {
         const numeroRegistro = normalizarNumero(registro.N_mero_Pedido);
-        if (numeroRegistro === numeroLimpo) {
+        const numeroRegistroDigitos = normalizarNumeroDigitos(registro.N_mero_Pedido);
+        const bate = candidatosNumero.some((candidato) => {
+          if (numeroRegistro === candidato) return true;
+          const candidatoDigitos = candidato.replace(/\D/g, "");
+          return candidatoDigitos && numeroRegistroDigitos === candidatoDigitos;
+        });
+
+        if (bate) {
           return registro;
         }
       }
       return null;
     };
 
-    // Estratégia 1: busca com criteria (mais eficiente)
+    // Estratégia 1: endpoint /search (mais rápido para achar por campo)
+    try {
+      console.log("[SALES ORDER API] Tentativa 1: busca rápida via /search");
+      const fields = "id,Contact_Name,CPF,Celular,E_mail,N_mero_Pedido,AWB,Data";
+
+      for (const candidato of candidatosNumero) {
+        const criteria = `(N_mero_Pedido:equals:${candidato})`;
+        const endpoint = `/${moduleName}/search?criteria=${encodeURIComponent(
+          criteria
+        )}&fields=${encodeURIComponent(fields)}`;
+
+        const response = await chamarZohoApi("GET", endpoint);
+        if (response.data && response.data.length > 0) {
+          pedidoEncontrado = filtrarPorNumero(response.data);
+          if (pedidoEncontrado) break;
+        }
+      }
+    } catch (error) {
+      console.log(
+        "[SALES ORDER API] Busca via /search falhou, seguindo para fallback:",
+        error.message
+      );
+    }
+
+    // Estratégia 2: busca com criteria no endpoint padrão
     try {
       console.log(
-        "[SALES ORDER API] Tentativa 1: busca com critério N_mero_Pedido"
+        "[SALES ORDER API] Tentativa 2: busca com critério N_mero_Pedido"
       );
       const fields =
-        "id,Contact_Name,CPF,Celular,E_mail,N_mero_Pedido,AWB,Data,Ordered_Items";
-      const criteria = `(N_mero_Pedido:equals:${numeroLimpo})`;
-      const endpoint = `/${moduleName}?criteria=${encodeURIComponent(
-        criteria
-      )}&fields=${encodeURIComponent(fields)}`;
+        "id,Contact_Name,CPF,Celular,E_mail,N_mero_Pedido,AWB,Data";
 
-      const response = await chamarZohoApi("GET", endpoint);
-      if (response.data && response.data.length > 0) {
-        pedidoEncontrado = filtrarPorNumero(response.data);
+      for (const candidato of candidatosNumero) {
+        const criteria = `(N_mero_Pedido:equals:${candidato})`;
+        const endpoint = `/${moduleName}?criteria=${encodeURIComponent(
+          criteria
+        )}&fields=${encodeURIComponent(fields)}`;
+
+        const response = await chamarZohoApi("GET", endpoint);
+        if (response.data && response.data.length > 0) {
+          pedidoEncontrado = filtrarPorNumero(response.data);
+          if (pedidoEncontrado) break;
+        }
       }
     } catch (error) {
       console.log(
@@ -61,21 +110,22 @@ router.get("/:numeroPedido", async (req, res) => {
       );
     }
 
-    console.log(
-      "[SALES ORDER API] Iniciando busca paginada otimizada em Sales_Orders"
-    );
-
-    // Estratégia 2: varredura paginada otimizada (similar à busca de CPF)
+    // Estratégia 3: varredura paginada otimizada (fallback)
     const perPage = 200;
     const paginasParalelas = 10;
     let page = 1;
     let hasMore = true;
     const maxPaginas = 900; // limite de segurança
 
-    const camposMinimos =
-      "id,N_mero_Pedido,Contact_Name,CPF,Celular,E_mail,AWB,Data,Ordered_Items";
+    const camposMinimos = "id,N_mero_Pedido,Contact_Name,CPF,Celular,E_mail,AWB,Data";
 
     while (hasMore && !pedidoEncontrado && page <= maxPaginas) {
+      if (page === 1) {
+        console.log(
+          "[SALES ORDER API] Iniciando busca paginada otimizada em Sales_Orders"
+        );
+      }
+
       const paginasParaBuscar = [];
       for (let i = 0; i < paginasParalelas && page + i <= maxPaginas; i++) {
         paginasParaBuscar.push(page + i);
@@ -200,6 +250,12 @@ router.get("/:numeroPedido", async (req, res) => {
             : null;
 
         if (detalhesPedido) {
+          pedidoComContato = {
+            ...pedidoComContato,
+            AWB: detalhesPedido.AWB || pedidoComContato.AWB,
+            Data: detalhesPedido.Data || pedidoComContato.Data,
+          };
+
           // Caso clássico: já veio um subform chamado Ordered_Items
           if (Array.isArray(detalhesPedido.Ordered_Items)) {
             pedidoComContato = {
@@ -257,6 +313,14 @@ router.get("/:numeroPedido", async (req, res) => {
         "[SALES ORDER API] Falha ao fazer log detalhado do pedido:",
         logError.message
       );
+    }
+
+    const cachePayload = {
+      timestamp: Date.now(),
+      pedido: pedidoComContato,
+    };
+    for (const chave of candidatosNumero) {
+      salesOrderCache.set(chave, cachePayload);
     }
 
     return res.json({

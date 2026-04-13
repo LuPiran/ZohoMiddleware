@@ -1,54 +1,55 @@
 import { useEffect } from "react";
 import Button from "../../ui/Button";
+import { authService } from "../../../services/auth";
+import { podeVerTrackingPedido } from "../../../utils/constants";
 import {
-  MdDevices,
-  MdFolderCopy,
   MdLocalShipping,
-  MdAutoFixHigh,
-  MdPhoneIphone,
+  MdChecklist,
+  MdSearch,
+  MdBadge,
 } from "react-icons/md";
 
 const UPDATE_CONTENT = {
-  badge: "Release V3.2",
-  date: "Atualizado em 02/04/2026",
-  title: "Otimizações no Portal",
+  badge: "Release V3.3",
+  date: "Atualizado em 13/04/2026",
+  title: "Novidades do Portal",
   description:
-    "Agora você conta com preenchimento automático de dados e maior controle sobre seus formulários salvos, garantindo mais precisão no dia a dia.",
-  highlights: [
-    {
-      label: "Mais informações na palma da sua mão:",
-      text: "Atualizamos a visualização e a exportação em PDF dos comprovantes. Com mais dados disponíveis e campos detalhados, conferir e validar suas operações ficou ainda mais simples.",
-      icon: MdAutoFixHigh,
-      iconClass: "bg-emerald-100 text-emerald-700",
-    },
-    {
-      label: "Salvamento de rascunhos em múltiplos dispositivos:",
-      text: "Não precisa terminar tudo de uma vez. Salve o progresso do seu formulário e retome o preenchimento a qualquer momento, sincronizado entre todos os seus aparelhos.",
-      icon: MdDevices,
-      iconClass: "bg-sky-100 text-sky-700",
-    },
-    {
-      label: "Nova Gestão de Formulários Salvos:",
-      text: "Tenha total controle sobre seus itens pendentes. Na nova tela de formulários, você visualiza rapidamente todos os seus rascunhos, recupera dados para envio imediato ou limpa o que não precisa mais.",
-      icon: MdFolderCopy,
-      iconClass: "bg-indigo-100 text-indigo-700",
-    },
-    {
-      label: "Recompra Inteligente com Preenchimento Automático:",
-      text: "Ganhe tempo no atendimento! Ao digitar o CPF, o sistema recupera automaticamente os dados cadastrados, permitindo que você apenas confirme ou ajuste o endereço em segundos. Menos digitação, mais agilidade.",
-      icon: MdLocalShipping,
-      iconClass: "bg-rose-100 text-rose-700",
-    },
-    {
-      label: "Telefone com máscara pronta para copiar e colar:",
-      text: "Agora os números exibidos já seguem o padrão com +55, deixando muito mais fácil copiar e colar o contato dos pacientes em outros sistemas, mensagens ou confirmações de atendimento.",
-      icon: MdPhoneIphone,
-      iconClass: "bg-amber-100 text-amber-700",
-    },
-  ],
+    "O portal recebeu melhorias focadas em navegação, validação de formulários e agilidade no atendimento, com ajustes que deixam o uso diário mais claro e rápido.",
 };
 
+const TRACKING_HIGHLIGHT = {
+  label: "Tracking de Pedido no menu e na Home:",
+  text: "Usuários autorizados agora contam com um acesso dedicado ao Tracking de Pedido, disponível tanto na barra superior quanto nos atalhos da tela inicial, abrindo em nova aba para consulta rápida.",
+  icon: MdLocalShipping,
+  iconClass: "bg-amber-100 text-amber-700",
+};
+
+const DEFAULT_HIGHLIGHTS = [
+  {
+    label: "Campos obrigatórios mais visíveis:",
+    text: "Os formulários agora destacam com mais clareza os campos obrigatórios, incluindo CPF, e-mail e data de nascimento, ajudando a reduzir erros no preenchimento antes do envio.",
+    icon: MdChecklist,
+    iconClass: "bg-sky-100 text-sky-700",
+  },
+  {
+    label: "Consulta de pedido mais rápida em Ocorrência:",
+    text: "A busca por pedidos na tela de Ocorrência foi otimizada para responder melhor inclusive em pedidos mais antigos, reduzindo o tempo de espera na recuperação das informações.",
+    icon: MdSearch,
+    iconClass: "bg-indigo-100 text-indigo-700",
+  },
+  {
+    label: "RG com máscara alfanumérica:",
+    text: "Os formulários passaram a aceitar RG com caractere final alfanumérico, seguindo padrões como 00.000.000-X e evitando bloqueios indevidos durante o cadastro.",
+    icon: MdBadge,
+    iconClass: "bg-rose-100 text-rose-700",
+  },
+];
+
 export default function PlatformUpdatePopup({ isOpen, onContinue }) {
+  const user = authService.getUser();
+  const highlights = podeVerTrackingPedido(user)
+    ? [TRACKING_HIGHLIGHT, ...DEFAULT_HIGHLIGHTS]
+    : DEFAULT_HIGHLIGHTS;
   useEffect(() => {
     if (!isOpen) {
       return undefined;
@@ -96,12 +97,12 @@ export default function PlatformUpdatePopup({ isOpen, onContinue }) {
 
           <div className="mb-5 rounded-2xl border border-tegra-blue-light/40 bg-gradient-to-r from-tegra-bg-accent/80 via-white to-tegra-bg-accent/70 px-4 py-3 shadow-[0_10px_30px_rgba(26,47,91,0.06)] sm:mb-8 sm:px-5">
             <p className="text-xs leading-5 text-tegra-blue-dark sm:text-sm sm:leading-6">
-              Melhorias aplicadas para otimizar a validação de informações e o tempo de resposta.
+              Melhorias aplicadas para tornar a navegação mais clara, a validação mais segura e as consultas mais rápidas.
             </p>
           </div>
 
           <div className="grid gap-3 sm:gap-4 sm:grid-cols-2">
-            {UPDATE_CONTENT.highlights.map((item) => (
+            {highlights.map((item) => (
               <div
                 key={item.label}
                 className="h-full rounded-2xl border border-tegra-gray-medium/70 bg-white/90 px-4 py-4 shadow-[0_10px_28px_rgba(26,47,91,0.06)] transition-transform duration-200 hover:-translate-y-0.5 sm:px-5 sm:py-5"

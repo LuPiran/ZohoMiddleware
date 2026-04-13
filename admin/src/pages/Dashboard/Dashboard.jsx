@@ -4,7 +4,11 @@ import { authService } from "../../services/auth";
 import { useLoading } from "../../contexts/LoadingContext";
 import MainLayout from "../../components/layout/MainLayout";
 import { obterContagemFormulariosSalvos } from "../../services/savedForms";
-import { ROUTES } from "../../utils/constants";
+import {
+  EXTERNAL_LINKS,
+  ROUTES,
+  podeVerTrackingPedido,
+} from "../../utils/constants";
 
 export default function Dashboard() {
 
@@ -12,6 +16,7 @@ export default function Dashboard() {
   const user = authService.getUser();
   const { setLoading } = useLoading();
   const [savedFormsCount, setSavedFormsCount] = useState(0);
+  const mostrarTrackingPedido = podeVerTrackingPedido(user);
 
   // Atalhos principais do sistema
   const shortcutCards = [
@@ -33,6 +38,17 @@ export default function Dashboard() {
       icon: <span className="text-3xl md:text-4xl"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none"><path d="M19 2H8c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V6l-5-4zm0 18H8V4h7v5h5v11c0 1.1-.9 2-2 2zm-7-7h2v2h-2v-2zm0-4h2v2h-2V9z" fill="currentColor"/></svg></span>,
       route: ROUTES.PROPOSTA,
     },
+    ...(mostrarTrackingPedido
+      ? [
+          {
+            id: "tracking-pedido",
+            label: "Tracking de Pedido",
+            icon: <span className="text-3xl md:text-4xl"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none"><path d="M20 8h-3V4H3v13h2a3 3 0 1 0 6 0h2a3 3 0 1 0 6 0h2v-5l-3-4zM8 18.5A1.5 1.5 0 1 1 8 15.5a1.5 1.5 0 0 1 0 3zm8 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zM17 9.5h2.2l1.3 1.8H17V9.5z" fill="currentColor"/></svg></span>,
+            route: EXTERNAL_LINKS.TRACKING_PEDIDO,
+            external: true,
+          },
+        ]
+      : []),
     {
       id: "ocorrencia",
       label: "Ocorrência",
@@ -95,18 +111,28 @@ export default function Dashboard() {
             {shortcutCards.map((card) => (
               <button
                 key={card.id}
-                onClick={() => navigate(card.route)}
-                className="flex flex-col items-center justify-center p-5 bg-tegra-blue-light/10 hover:bg-tegra-blue-light/20 rounded-xl shadow transition-all border border-tegra-blue-light/30 focus:outline-none focus:ring-2 focus:ring-tegra-blue-dark relative"
+                onClick={() => {
+                  if (card.external) {
+                    window.open(card.route, "_blank", "noopener,noreferrer");
+                    return;
+                  }
+                  navigate(card.route);
+                }}
+                className={`flex flex-col items-center justify-center p-5 rounded-xl shadow transition-all border focus:outline-none focus:ring-2 relative ${
+                  card.external
+                    ? "bg-amber-50/90 hover:bg-amber-100 border-amber-200 text-amber-800 shadow-[0_0_14px_rgba(245,158,11,0.12)] focus:ring-amber-400"
+                    : "bg-tegra-blue-light/10 hover:bg-tegra-blue-light/20 border-tegra-blue-light/30 focus:ring-tegra-blue-dark"
+                }`}
                 type="button"
-                aria-label={`Ir para ${card.label}`}
+                aria-label={card.external ? `Abrir ${card.label} em nova aba` : `Ir para ${card.label}`}
               >
                 {card.badge && (
                   <span className="absolute top-2 right-2 flex items-center justify-center w-6 h-6 bg-tegra-error text-white text-xs font-bold rounded-full">
                     {card.badge}
                   </span>
                 )}
-                <div className="mb-2 text-tegra-blue-dark">{card.icon}</div>
-                <span className="font-semibold text-tegra-text-primary text-base text-center">{card.label}</span>
+                <div className={`mb-2 ${card.external ? "text-amber-700" : "text-tegra-blue-dark"}`}>{card.icon}</div>
+                <span className={`font-semibold text-base text-center ${card.external ? "text-amber-900" : "text-tegra-text-primary"}`}>{card.label}</span>
               </button>
             ))}
           </div>

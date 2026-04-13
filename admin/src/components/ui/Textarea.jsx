@@ -27,6 +27,7 @@ export default function Textarea({
         onChange={onChange}
         placeholder={placeholder}
         required={required}
+        aria-required={required}
         disabled={disabled}
         rows={rows}
         maxLength={maxLength}

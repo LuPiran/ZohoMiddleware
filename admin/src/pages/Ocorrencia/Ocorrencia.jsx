@@ -396,16 +396,15 @@ export default function Ocorrencia() {
 
   // Função para formatar RG
   const formatarRg = (valor) => {
-    const rg = valor.replace(/\D/g, "");
-    if (rg.length <= 2) {
-      return rg;
-    } else if (rg.length <= 5) {
-      return rg.replace(/(\d{2})(\d{0,3})/, "$1.$2");
-    } else if (rg.length <= 8) {
-      return rg.replace(/(\d{2})(\d{3})(\d{0,3})/, "$1.$2.$3");
-    } else {
-      return rg.replace(/(\d{2})(\d{3})(\d{3})(\d{0,1})/, "$1.$2.$3-$4");
-    }
+    const rg = valor
+      .toUpperCase()
+      .replace(/[^0-9A-Z]/g, "")
+      .slice(0, 9);
+
+    if (rg.length <= 2) return rg;
+    if (rg.length <= 5) return `${rg.slice(0, 2)}.${rg.slice(2)}`;
+    if (rg.length <= 8) return `${rg.slice(0, 2)}.${rg.slice(2, 5)}.${rg.slice(5)}`;
+    return `${rg.slice(0, 2)}.${rg.slice(2, 5)}.${rg.slice(5, 8)}-${rg.slice(8)}`;
   };
 
   // Estados de validação de CPF
@@ -543,8 +542,9 @@ export default function Ocorrencia() {
     // Valida campos do paciente (apenas os obrigatórios)
     if (!nomePaciente.trim()) camposVazios.push("Nome");
     if (!sobrenomePaciente.trim()) camposVazios.push("Sobrenome");
+    if (!cpfPaciente.trim()) camposVazios.push("CPF");
     if (!celularPaciente.trim()) camposVazios.push("Celular");
-    // CPF, e-mail e data de nascimento NÃO são obrigatórios na ocorrência
+    if (!emailPaciente.trim()) camposVazios.push("E-mail");
 
     // Valida produtos
     if (produtos.length === 0) {
@@ -760,6 +760,9 @@ export default function Ocorrencia() {
           <h1 className="text-xl sm:text-2xl font-bold text-tegra-text-primary mb-4 sm:mb-6">
             Nova Ocorrência
           </h1>
+          <p className="text-xs sm:text-sm text-tegra-text-secondary mb-3 sm:mb-4">
+            <span className="text-tegra-error font-semibold">*</span> indica campo obrigatório.
+          </p>
 
           {/* Banner de rascunho salvo */}
           {showDraftBanner && (
@@ -839,6 +842,7 @@ export default function Ocorrencia() {
                   label="Nome"
                   type="text"
                   value={nomePaciente}
+                  required
                   onChange={(e) => setNomePaciente(e.target.value)}
                   placeholder="Nome do paciente"
                   icon={<MdPerson className="text-xl" />}
@@ -847,6 +851,7 @@ export default function Ocorrencia() {
                   label="Sobrenome"
                   type="text"
                   value={sobrenomePaciente}
+                  required
                   onChange={(e) => setSobrenomePaciente(e.target.value)}
                   placeholder="Sobrenome do paciente"
                   icon={<MdPerson className="text-xl" />}
@@ -855,6 +860,7 @@ export default function Ocorrencia() {
                   label="CPF"
                   type="text"
                   value={cpfPaciente}
+                  required
                   onChange={handleCpfChange}
                   placeholder="000.000.000-00"
                   maxLength={14}
@@ -864,6 +870,7 @@ export default function Ocorrencia() {
                   label="Celular"
                   type="text"
                   value={celularPaciente}
+                  required
                   onChange={(e) => handleTelefoneChange(e, setCelularPaciente)}
                   placeholder="+55 (00) 00000-0000"
                   icon={<MdPhone className="text-xl" />}
@@ -873,6 +880,7 @@ export default function Ocorrencia() {
                   label="E-mail"
                   type="email"
                   value={emailPaciente}
+                  required
                   onChange={(e) => setEmailPaciente(e.target.value)}
                   placeholder="email@exemplo.com"
                   icon={<MdEmail className="text-xl" />}
@@ -1066,6 +1074,7 @@ export default function Ocorrencia() {
                       ) : (
                         <Select
                           value={produto.nome}
+                          required
                           onChange={(e) => {
                             const valor = e.target.value;
                             const opcaoSelecionada = e.selectedOption;
@@ -1233,8 +1242,8 @@ export default function Ocorrencia() {
 
                 {/* Texto de dica */}
                 <p className="text-sm text-tegra-text-secondary">
-                  (Receita / Doc ID Paciente( CPF/RG) / Comprovante Endereço /
-                  Autorização Anvisa / Doc ID RL) (Máximo 10 arquivos)
+                  Anexe evidências da ocorrência (fotos, vídeos ou documentos).
+                  Máximo 10 arquivos.
                 </p>
 
                 {/* Lista de arquivos selecionados */}
