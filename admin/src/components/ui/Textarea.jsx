@@ -1,3 +1,6 @@
+import { authService } from "../../services/auth";
+import { podeIgnorarCamposObrigatorios } from "../../utils/constants";
+
 /**
  * Componente de textarea reutilizável
  */
@@ -14,20 +17,22 @@ export default function Textarea({
   maxLength = 2000,
   ...props
 }) {
+  const isRequired = required && !podeIgnorarCamposObrigatorios(authService.getUser());
+
   return (
     <div>
       {label && (
         <label className="block text-sm font-medium text-tegra-text-secondary mb-2">
           {label}
-          {required && <span className="text-tegra-error ml-1">*</span>}
+          {isRequired && <span className="text-tegra-error ml-1">*</span>}
         </label>
       )}
       <textarea
         value={value}
         onChange={onChange}
         placeholder={placeholder}
-        required={required}
-        aria-required={required}
+        required={isRequired}
+        aria-required={isRequired}
         disabled={disabled}
         rows={rows}
         maxLength={maxLength}

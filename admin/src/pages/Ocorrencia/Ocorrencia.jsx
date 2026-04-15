@@ -10,7 +10,7 @@ import Button from "../../components/ui/Button";
 import Select from "../../components/ui/Select";
 import Checkbox from "../../components/ui/Checkbox";
 import Textarea from "../../components/ui/Textarea";
-import { ROUTES } from "../../utils/constants";
+import { ROUTES, podeIgnorarCamposObrigatorios } from "../../utils/constants";
 import api from "../../services/api";
 import { productsService } from "../../services/products";
 import { ocorrenciaService } from "../../services/ocorrencia";
@@ -41,6 +41,7 @@ export default function Ocorrencia() {
 
   const [showDraftBanner, setShowDraftBanner] = useState(false);
   const DRAFT_KEY = "zoho_draft_ocorrencia";
+  const ignorarCamposObrigatorios = podeIgnorarCamposObrigatorios(authService.getUser());
 
   // Estados do formulário do paciente
   const [nomePaciente, setNomePaciente] = useState("");
@@ -539,16 +540,18 @@ export default function Ocorrencia() {
   const validarCamposObrigatorios = () => {
     const camposVazios = [];
 
-    // Valida campos do paciente (apenas os obrigatórios)
-    if (!nomePaciente.trim()) camposVazios.push("Nome");
-    if (!sobrenomePaciente.trim()) camposVazios.push("Sobrenome");
-    if (!cpfPaciente.trim()) camposVazios.push("CPF");
-    if (!celularPaciente.trim()) camposVazios.push("Celular");
-    if (!emailPaciente.trim()) camposVazios.push("E-mail");
+    if (!ignorarCamposObrigatorios) {
+      // Valida campos do paciente (apenas os obrigatórios)
+      if (!nomePaciente.trim()) camposVazios.push("Nome");
+      if (!sobrenomePaciente.trim()) camposVazios.push("Sobrenome");
+      if (!cpfPaciente.trim()) camposVazios.push("CPF");
+      if (!celularPaciente.trim()) camposVazios.push("Celular");
+      if (!emailPaciente.trim()) camposVazios.push("E-mail");
 
-    // Valida produtos
-    if (produtos.length === 0) {
-      camposVazios.push("Produtos");
+      // Valida produtos
+      if (produtos.length === 0) {
+        camposVazios.push("Produtos");
+      }
     }
 
     // Valida quantidade dos produtos

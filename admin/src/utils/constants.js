@@ -106,16 +106,69 @@ export function getNomeUsuario(user) {
   ).trim();
 }
 
-export function podeVerTrackingPedido(user) {
-  const emailNormalizado = String(user?.email || user?.Email || "")
+const EMAILS_EXCECAO_CAMPOS_OBRIGATORIOS = [
+  "luis.otavio@tegrapharma.com",
+  "marcelli.nascimento@tegrapharma.com",
+  "ricardo.depaula@tegrapharma.com",
+];
+
+function normalizarEmail(valor) {
+  return String(valor || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[\s\u200B-\u200D\uFEFF]/g, "")
     .toLowerCase()
     .trim();
+}
 
-  return [
-    "luis.otavio@tegrapharma.com",
-    "marcelli.nascimento@tegrapharma.com",
-    "ricardo.depaula@tegrapharma.com",
-  ].includes(emailNormalizado);
+function getEmailUsuario(user) {
+  if (!user || typeof user !== "object") return "";
+
+  const candidatoDireto = getCampoUsuarioPorChaves(user, [
+    "email",
+    "Email",
+    "E_mail",
+    "e_mail",
+    "email_usuario",
+    "Email_Usuario",
+    "login",
+    "Login",
+  ]);
+
+  if (candidatoDireto) {
+    const normalizadoDireto = normalizarEmail(candidatoDireto);
+    if (normalizadoDireto.includes("@")) {
+      return normalizadoDireto;
+    }
+  }
+
+  for (const [chave, valor] of Object.entries(user)) {
+    const chaveNormalizada = String(chave || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase();
+
+    if (!chaveNormalizada.includes("mail")) continue;
+
+    const emailNormalizado = normalizarEmail(valor);
+    if (emailNormalizado.includes("@")) {
+      return emailNormalizado;
+    }
+  }
+
+  return "";
+}
+
+export function podeIgnorarCamposObrigatorios(user) {
+  const emailNormalizado = getEmailUsuario(user);
+
+  return EMAILS_EXCECAO_CAMPOS_OBRIGATORIOS.some(
+    (email) => normalizarEmail(email) === emailNormalizado,
+  );
+}
+
+export function podeVerTrackingPedido(user) {
+  return podeIgnorarCamposObrigatorios(user);
 }
 
 export function getPlatformUpdateStorageKey(user) {

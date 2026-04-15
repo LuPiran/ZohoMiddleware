@@ -10,7 +10,12 @@ import Button from "../../components/ui/Button";
 import Select from "../../components/ui/Select";
 import Checkbox from "../../components/ui/Checkbox";
 import Textarea from "../../components/ui/Textarea";
-import { ROUTES, getNomeUsuario, getOpcoesParceiro } from "../../utils/constants";
+import {
+  ROUTES,
+  getNomeUsuario,
+  getOpcoesParceiro,
+  podeIgnorarCamposObrigatorios,
+} from "../../utils/constants";
 import api from "../../services/api";
 import { propostaService } from "../../services/proposta";
 import { productsService } from "../../services/products";
@@ -162,6 +167,7 @@ export default function Proposta() {
   const usuarioLogado = authService.getUser();
   const opcoesParceiro = getOpcoesParceiro(usuarioLogado);
   const exibirSecaoParceiro = opcoesParceiro.length > 0;
+  const ignorarCamposObrigatorios = podeIgnorarCamposObrigatorios(usuarioLogado);
 
   // Estados para upload de arquivos
   const [arquivos, setArquivos] = useState([]);
@@ -657,40 +663,41 @@ export default function Proposta() {
   const validarCamposObrigatorios = () => {
     const camposVazios = [];
 
-    // Valida campos baseado no tipo de cliente
-    if (tipoCliente === "Pessoa Juridica") {
-      // Valida campos da empresa
-      if (!nomeEmpresa.trim()) camposVazios.push("Nome da Empresa");
-      if (!cnpjEmpresa.trim()) camposVazios.push("CNPJ");
-      if (!emailEmpresa.trim()) camposVazios.push("E-mail da Empresa");
-      if (!telefoneEmpresa.trim()) camposVazios.push("Telefone da Empresa");
+    if (!ignorarCamposObrigatorios) {
+      // Valida campos baseado no tipo de cliente
+      if (tipoCliente === "Pessoa Juridica") {
+        // Valida campos da empresa
+        if (!nomeEmpresa.trim()) camposVazios.push("Nome da Empresa");
+        if (!cnpjEmpresa.trim()) camposVazios.push("CNPJ");
+        if (!emailEmpresa.trim()) camposVazios.push("E-mail da Empresa");
+        if (!telefoneEmpresa.trim()) camposVazios.push("Telefone da Empresa");
 
-      // Valida campos do representante da empresa (obrigatórios quando checkbox está marcado)
-      if (temRepresentanteEmpresa) {
-        if (!nomeRepresentanteEmpresa.trim()) camposVazios.push("Nome do Representante da Empresa");
-        if (!emailRepresentanteEmpresa.trim()) camposVazios.push("E-mail do Representante da Empresa");
-        if (!celularRepresentanteEmpresa.trim()) camposVazios.push("Celular do Representante da Empresa");
+        // Valida campos do representante da empresa (obrigatórios quando checkbox está marcado)
+        if (temRepresentanteEmpresa) {
+          if (!nomeRepresentanteEmpresa.trim()) camposVazios.push("Nome do Representante da Empresa");
+          if (!emailRepresentanteEmpresa.trim()) camposVazios.push("E-mail do Representante da Empresa");
+          if (!celularRepresentanteEmpresa.trim()) camposVazios.push("Celular do Representante da Empresa");
+        }
+      } else {
+        // Valida campos do paciente (apenas os obrigatórios)
+        if (!nomePaciente.trim()) camposVazios.push("Nome");
+        if (!sobrenomePaciente.trim()) camposVazios.push("Sobrenome");
+        if (!cpfPaciente.trim()) camposVazios.push("CPF");
+        if (!celularPaciente.trim()) camposVazios.push("Celular");
+        if (!emailPaciente.trim()) camposVazios.push("E-mail");
       }
-    } else {
-      // Valida campos do paciente (apenas os obrigatórios)
-      if (!nomePaciente.trim()) camposVazios.push("Nome");
-      if (!sobrenomePaciente.trim()) camposVazios.push("Sobrenome");
-      if (!cpfPaciente.trim()) camposVazios.push("CPF");
-      if (!celularPaciente.trim()) camposVazios.push("Celular");
-      if (!emailPaciente.trim()) camposVazios.push("E-mail");
-      if (!dataNascimento.trim()) camposVazios.push("Data de Nascimento");
+    }
 
-      // Valida CPF do paciente se preenchido
-      if (cpfPaciente.trim() && !isValidCPF(cpfPaciente)) {
-        showToast("❌ CPF do paciente inválido", "error");
-        return { valido: false, camposVazios: [] };
-      }
+    // Valida CPF do paciente se preenchido
+    if (cpfPaciente.trim() && !isValidCPF(cpfPaciente)) {
+      showToast("❌ CPF do paciente inválido", "error");
+      return { valido: false, camposVazios: [] };
+    }
 
-      // Valida CPF do representante legal se preenchido
-      if (temRepresentanteLegal && cpfRepresentante.trim() && !isValidCPF(cpfRepresentante)) {
-        showToast("❌ CPF do representante legal inválido", "error");
-        return { valido: false, camposVazios: [] };
-      }
+    // Valida CPF do representante legal se preenchido
+    if (temRepresentanteLegal && cpfRepresentante.trim() && !isValidCPF(cpfRepresentante)) {
+      showToast("❌ CPF do representante legal inválido", "error");
+      return { valido: false, camposVazios: [] };
     }
 
     // Valida produtos
@@ -698,7 +705,7 @@ export default function Proposta() {
       (p) => p.nome.trim() && p.produtoId,
     );
 
-    if (produtosValidos.length === 0) {
+    if (!ignorarCamposObrigatorios && produtosValidos.length === 0) {
       camposVazios.push("Produto");
     }
 
@@ -718,7 +725,7 @@ export default function Proposta() {
     }
 
     // Valida campos do representante legal (obrigatórios quando checkbox está marcado)
-    if (temRepresentanteLegal) {
+    if (!ignorarCamposObrigatorios && temRepresentanteLegal) {
       if (!nomeRepresentante.trim()) camposVazios.push("Nome do Representante");
       if (!cpfRepresentante.trim()) camposVazios.push("CPF do Representante");
       if (!celularRepresentante.trim()) camposVazios.push("Celular do Representante");
@@ -726,7 +733,7 @@ export default function Proposta() {
     }
 
     // Valida campos do novo médico prescritor (obrigatórios quando checkbox está marcado)
-    if (temNovoMedicoPrescritor) {
+    if (!ignorarCamposObrigatorios && temNovoMedicoPrescritor) {
       if (!nomeMedico.trim()) camposVazios.push("Nome do Médico");
       if (!crmMedico.trim()) camposVazios.push("CRM do Médico");
       if (!ufCrm.trim()) camposVazios.push("UF do CRM");
@@ -1205,7 +1212,6 @@ export default function Proposta() {
                   label="Data de Nascimento"
                   type="date"
                   value={dataNascimento}
-                  required={tipoCliente === "Pessoa Fisica"}
                   onChange={(e) => setDataNascimento(e.target.value)}
                   icon={<MdCalendarToday className="text-xl" />}
                 />

@@ -1,5 +1,7 @@
 import ReactSelect from "react-select";
 import { useMemo, useEffect } from "react";
+import { authService } from "../../services/auth";
+import { podeIgnorarCamposObrigatorios } from "../../utils/constants";
 
 /**
  * Componente de Select reutilizável usando react-select com design customizado
@@ -17,6 +19,8 @@ export default function Select({
   loading = false,
   ...props
 }) {
+  const isRequired = required && !podeIgnorarCamposObrigatorios(authService.getUser());
+
   // Mapeia as opções para o formato do react-select
   const mappedOptions = useMemo(() => {
     return options.map((option) => {
@@ -200,7 +204,7 @@ export default function Select({
       {label && (
         <label className="block text-sm font-medium text-tegra-text-secondary mb-2">
           {label}
-          {required && <span className="text-tegra-error ml-1">*</span>}
+          {isRequired && <span className="text-tegra-error ml-1">*</span>}
         </label>
       )}
       <ReactSelect
@@ -216,7 +220,7 @@ export default function Select({
         classNamePrefix="tegra-select"
         menuPortalTarget={document.body}
         menuPlacement="auto"
-        aria-required={required}
+        aria-required={isRequired}
         {...props}
       />
       {error && <p className="mt-1 text-sm text-tegra-error">{error}</p>}

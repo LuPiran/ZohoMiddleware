@@ -10,7 +10,12 @@ import Button from "../../components/ui/Button";
 import Select from "../../components/ui/Select";
 import Checkbox from "../../components/ui/Checkbox";
 import Textarea from "../../components/ui/Textarea";
-import { ROUTES, getNomeUsuario, getOpcoesParceiro } from "../../utils/constants";
+import {
+  ROUTES,
+  getNomeUsuario,
+  getOpcoesParceiro,
+  podeIgnorarCamposObrigatorios,
+} from "../../utils/constants";
 import api from "../../services/api";
 import { compraService } from "../../services/compra";
 import { productsService } from "../../services/products";
@@ -150,6 +155,7 @@ export default function Compra() {
   const usuarioLogado = authService.getUser();
   const opcoesParceiro = getOpcoesParceiro(usuarioLogado);
   const exibirSecaoParceiro = opcoesParceiro.length > 0;
+  const ignorarCamposObrigatorios = podeIgnorarCamposObrigatorios(usuarioLogado);
 
   // Estados para upload de arquivos
   const [arquivos, setArquivos] = useState([]);
@@ -536,13 +542,14 @@ export default function Compra() {
   const validarCamposObrigatorios = () => {
     const camposVazios = [];
 
-    // Valida campos do paciente (apenas os obrigatórios)
-    if (!nomePaciente.trim()) camposVazios.push("Nome");
-    if (!sobrenomePaciente.trim()) camposVazios.push("Sobrenome");
-    if (!cpfPaciente.trim()) camposVazios.push("CPF");
-    if (!celularPaciente.trim()) camposVazios.push("Celular");
-    if (!emailPaciente.trim()) camposVazios.push("E-mail");
-    if (!dataNascimento.trim()) camposVazios.push("Data de Nascimento");
+    if (!ignorarCamposObrigatorios) {
+      // Valida campos do paciente (apenas os obrigatórios)
+      if (!nomePaciente.trim()) camposVazios.push("Nome");
+      if (!sobrenomePaciente.trim()) camposVazios.push("Sobrenome");
+      if (!cpfPaciente.trim()) camposVazios.push("CPF");
+      if (!celularPaciente.trim()) camposVazios.push("Celular");
+      if (!emailPaciente.trim()) camposVazios.push("E-mail");
+    }
 
     // Valida CPF do paciente se preenchido
     if (cpfPaciente.trim() && !isValidCPF(cpfPaciente)) {
@@ -561,7 +568,7 @@ export default function Compra() {
       (p) => p.nome.trim() && p.produtoId,
     );
 
-    if (produtosValidos.length === 0) {
+    if (!ignorarCamposObrigatorios && produtosValidos.length === 0) {
       camposVazios.push("Produto");
     }
 
@@ -581,7 +588,7 @@ export default function Compra() {
     }
 
     // Valida campos do representante legal (obrigatórios quando checkbox está marcado)
-    if (temRepresentanteLegal) {
+    if (!ignorarCamposObrigatorios && temRepresentanteLegal) {
       if (!nomeRepresentante.trim()) camposVazios.push("Nome do Representante");
       if (!cpfRepresentante.trim()) camposVazios.push("CPF do Representante");
       if (!celularRepresentante.trim()) camposVazios.push("Celular do Representante");
@@ -589,7 +596,7 @@ export default function Compra() {
     }
 
     // Valida campos do novo médico prescritor (obrigatórios quando checkbox está marcado)
-    if (temNovoMedicoPrescritor) {
+    if (!ignorarCamposObrigatorios && temNovoMedicoPrescritor) {
       if (!nomeMedico.trim()) camposVazios.push("Nome do Médico");
       if (!crmMedico.trim()) camposVazios.push("CRM do Médico");
       if (!ufCrm.trim()) camposVazios.push("UF do CRM");
@@ -938,7 +945,6 @@ export default function Compra() {
                   label="Data de Nascimento"
                   type="date"
                   value={dataNascimento}
-                  required
                   onChange={(e) => setDataNascimento(e.target.value)}
                   icon={<MdCalendarToday className="text-xl" />}
                 />
