@@ -37,7 +37,9 @@ export default function Checkbox({
       {label && (
         <label
           htmlFor={id}
-          className={`ml-2 text-sm text-tegra-text-secondary cursor-pointer select-none ${
+          className={`ml-2 text-sm cursor-pointer select-none ${
+            labelClassName ? "" : "text-tegra-text-secondary"
+          } ${
             disabled ? "opacity-50 cursor-not-allowed" : ""
           } ${labelClassName}`}
         >

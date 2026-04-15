@@ -61,8 +61,8 @@ const faqData = [
         resposta: "Quando você busca um cliente pelo CPF na Recompra e depois edita manualmente a rua, número, CEP ou outro dado de endereço, o sistema detecta a mudança automaticamente e ativa a flag <strong>'Atualização via portal ativa'</strong>. Isso informa ao back-office que o cliente tem um novo endereço que precisa ser validado.",
       },
       {
-        pergunta: "Como eu peço um link de pagamento (PayZen ou Pagar-me) para o cliente?",
-        resposta: "Nos formulários de Compra, Recompra e Proposta, marque a caixa <strong>'Negociação feita pelo consultor?'</strong>. Isso abrirá novos campos onde você deve marcar 'Sim' para <strong>'Solicitar link para pagamento?'</strong> e escolher o tipo de link desejado: <strong>PayZen ou Pagar-Me</strong>.",
+        pergunta: "Como eu peço um link de pagamento (Pagar-Me) para o cliente?",
+        resposta: "Nos formulários de Compra, Recompra e Proposta, marque a caixa <strong>'Negociação feita pelo consultor?'</strong>. Isso abrirá novos campos onde você deve marcar 'Sim' para <strong>'Solicitar link para pagamento?'</strong> e escolher o tipo de link desejado: <strong>Pagar-Me</strong>.",
       },
       {
         pergunta: "O que é a Campanha Diretoria?",

@@ -951,7 +951,7 @@ export default function Compra() {
                   label="Representante Legal"
                   checked={temRepresentanteLegal}
                   onChange={(e) => setTemRepresentanteLegal(e.target.checked)}
-                  labelClassName="text-tegra-text-primary font-semibold"
+                  labelClassName="text-tegra-blue-dark font-bold"
                 />
               </div>
             </div>
@@ -1282,7 +1282,6 @@ export default function Compra() {
                         value={tipoLink}
                         onChange={(e) => setTipoLink(e.target.value)}
                         options={[
-                          { value: "PayZen", label: "PayZen" },
                           { value: "Pagar-Me", label: "Pagar-Me" },
                         ]}
                         placeholder="Selecione o tipo de link"
