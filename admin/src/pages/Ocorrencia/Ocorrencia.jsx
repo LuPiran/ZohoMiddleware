@@ -10,7 +10,11 @@ import Button from "../../components/ui/Button";
 import Select from "../../components/ui/Select";
 import Checkbox from "../../components/ui/Checkbox";
 import Textarea from "../../components/ui/Textarea";
-import { ROUTES, podeIgnorarCamposObrigatorios } from "../../utils/constants";
+import {
+  ROUTES,
+  getNomeUsuario,
+  podeIgnorarCamposObrigatorios,
+} from "../../utils/constants";
 import api from "../../services/api";
 import { productsService } from "../../services/products";
 import { ocorrenciaService } from "../../services/ocorrencia";
@@ -540,6 +544,9 @@ export default function Ocorrencia() {
   const validarCamposObrigatorios = () => {
     const camposVazios = [];
 
+    if (!motivoOcorrencia.trim()) camposVazios.push("Motivo da Ocorrência");
+    if (!observacaoMotivo.trim()) camposVazios.push("Observação");
+
     if (!ignorarCamposObrigatorios) {
       // Valida campos do paciente (apenas os obrigatórios)
       if (!nomePaciente.trim()) camposVazios.push("Nome");
@@ -614,6 +621,8 @@ export default function Ocorrencia() {
             )
           : [];
 
+      const nomeConsultor = getNomeUsuario(authService.getUser());
+
       // Prepara os dados da ocorrência
       const dadosOcorrencia = {
         nomePaciente,
@@ -621,6 +630,7 @@ export default function Ocorrencia() {
         cpfPaciente,
         celularPaciente,
         emailPaciente,
+        nomeConsultor,
         motivoOcorrencia,
         observacaoMotivo,
         nomeMedico,
@@ -650,16 +660,6 @@ export default function Ocorrencia() {
           response.data?.Created_Time ||
           response.data?.created_time ||
           new Date().toISOString();
-
-        // Obtém o nome do usuário logado para o comprovante
-        const user = authService.getUser();
-        const nomeConsultor =
-          user?.nome ||
-          user?.Nome ||
-          user?.Name ||
-          user?.nome_completo ||
-          user?.Nome_Completo ||
-          "";
 
         // Inclui todos os campos enviados no formulário (exceto uploads)
         const dadosSemArquivos = { ...dadosOcorrencia };
@@ -900,6 +900,7 @@ export default function Ocorrencia() {
                 <Select
                   label="Motivo da Ocorrência"
                   value={motivoOcorrencia}
+                  required
                   onChange={(e) => setMotivoOcorrencia(e.target.value)}
                   options={[
                     { value: "Acareação", label: "Acareação" },
@@ -972,6 +973,7 @@ export default function Ocorrencia() {
                 <Textarea
                   label="Observação"
                   value={observacaoMotivo}
+                  required
                   onChange={(e) => setObservacaoMotivo(e.target.value)}
                   placeholder="Digite suas observações sobre o motivo da ocorrência"
                   rows={4}

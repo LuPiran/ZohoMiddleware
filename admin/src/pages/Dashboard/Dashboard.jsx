@@ -7,6 +7,10 @@ import { obterContagemFormulariosSalvos } from "../../services/savedForms";
 import {
   EXTERNAL_LINKS,
   ROUTES,
+  podeVerCompra,
+  podeVerOcorrencia,
+  podeVerProposta,
+  podeVerRecompra,
   podeVerTrackingPedido,
 } from "../../utils/constants";
 
@@ -16,28 +20,44 @@ export default function Dashboard() {
   const user = authService.getUser();
   const { setLoading } = useLoading();
   const [savedFormsCount, setSavedFormsCount] = useState(0);
+  const mostrarCompra = podeVerCompra(user);
+  const mostrarRecompra = podeVerRecompra(user);
+  const mostrarProposta = podeVerProposta(user);
+  const mostrarOcorrencia = podeVerOcorrencia(user);
   const mostrarTrackingPedido = podeVerTrackingPedido(user);
 
   // Atalhos principais do sistema
   const shortcutCards = [
-    {
-      id: "compra",
-      label: "Compra",
-      icon: <span className="text-3xl md:text-4xl"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none"><path d="M7 18a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm10 2a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM7.16 16l.94-2h7.45a2 2 0 0 0 1.92-1.45l2.13-7.11A1 1 0 0 0 18.65 4H6.21l-.94-2H1v2h2l3.6 7.59-1.35 2.44A2 2 0 0 0 5 17a2 2 0 0 0 2.16-1z" fill="currentColor"/></svg></span>,
-      route: ROUTES.COMPRA,
-    },
-    {
-      id: "recompra",
-      label: "Recompra",
-      icon: <span className="text-3xl md:text-4xl"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.3-.42 2.5-1.13 3.47l1.46 1.46A7.932 7.932 0 0 0 20 12c0-4.42-3.58-8-8-8zm-6.87 2.53L3.67 7.99A7.932 7.932 0 0 0 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3c-3.31 0-6-2.69-6-6 0-1.3.42-2.5 1.13-3.47z" fill="currentColor"/></svg></span>,
-      route: ROUTES.RECOMPRA,
-    },
-    {
-      id: "proposta",
-      label: "Proposta",
-      icon: <span className="text-3xl md:text-4xl"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none"><path d="M19 2H8c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V6l-5-4zm0 18H8V4h7v5h5v11c0 1.1-.9 2-2 2zm-7-7h2v2h-2v-2zm0-4h2v2h-2V9z" fill="currentColor"/></svg></span>,
-      route: ROUTES.PROPOSTA,
-    },
+    ...(mostrarCompra
+      ? [
+          {
+            id: "compra",
+            label: "Compra",
+            icon: <span className="text-3xl md:text-4xl"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none"><path d="M7 18a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm10 2a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM7.16 16l.94-2h7.45a2 2 0 0 0 1.92-1.45l2.13-7.11A1 1 0 0 0 18.65 4H6.21l-.94-2H1v2h2l3.6 7.59-1.35 2.44A2 2 0 0 0 5 17a2 2 0 0 0 2.16-1z" fill="currentColor"/></svg></span>,
+            route: ROUTES.COMPRA,
+          },
+        ]
+      : []),
+    ...(mostrarRecompra
+      ? [
+          {
+            id: "recompra",
+            label: "Recompra",
+            icon: <span className="text-3xl md:text-4xl"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.3-.42 2.5-1.13 3.47l1.46 1.46A7.932 7.932 0 0 0 20 12c0-4.42-3.58-8-8-8zm-6.87 2.53L3.67 7.99A7.932 7.932 0 0 0 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3c-3.31 0-6-2.69-6-6 0-1.3.42-2.5 1.13-3.47z" fill="currentColor"/></svg></span>,
+            route: ROUTES.RECOMPRA,
+          },
+        ]
+      : []),
+    ...(mostrarProposta
+      ? [
+          {
+            id: "proposta",
+            label: "Proposta",
+            icon: <span className="text-3xl md:text-4xl"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none"><path d="M19 2H8c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V6l-5-4zm0 18H8V4h7v5h5v11c0 1.1-.9 2-2 2zm-7-7h2v2h-2v-2zm0-4h2v2h-2V9z" fill="currentColor"/></svg></span>,
+            route: ROUTES.PROPOSTA,
+          },
+        ]
+      : []),
     ...(mostrarTrackingPedido
       ? [
           {
@@ -49,12 +69,16 @@ export default function Dashboard() {
           },
         ]
       : []),
-    {
-      id: "ocorrencia",
-      label: "Ocorrência",
-      icon: <span className="text-3xl md:text-4xl"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm0-4h-2V7h2v8z" fill="currentColor"/></svg></span>,
-      route: ROUTES.OCORRENCIA,
-    },
+    ...(mostrarOcorrencia
+      ? [
+          {
+            id: "ocorrencia",
+            label: "Ocorrência",
+            icon: <span className="text-3xl md:text-4xl"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm0-4h-2V7h2v8z" fill="currentColor"/></svg></span>,
+            route: ROUTES.OCORRENCIA,
+          },
+        ]
+      : []),
     {
       id: "saved-forms",
       label: "Formulários Salvos",

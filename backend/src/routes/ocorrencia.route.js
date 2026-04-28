@@ -21,6 +21,7 @@ router.post("/", async (req, res) => {
       cpfPaciente,
       celularPaciente,
       emailPaciente,
+      nomeConsultor,
       motivoOcorrencia,
       observacaoMotivo,
       nomeMedico,
@@ -28,7 +29,7 @@ router.post("/", async (req, res) => {
       ufCrm,
       celularMedico,
       crmMedico,
-      produto,
+      produtos,
       numeroPedido,
       awb,
       numeroLote,
@@ -42,6 +43,7 @@ router.post("/", async (req, res) => {
       nomePaciente,
       sobrenomePaciente,
       celularPaciente,
+      nomeConsultor,
       motivoOcorrencia,
     });
 
@@ -57,6 +59,13 @@ router.post("/", async (req, res) => {
       return res.status(400).json({
         success: false,
         error: "Motivo da Ocorrência é obrigatório",
+      });
+    }
+
+    if (!String(observacaoMotivo || "").trim()) {
+      return res.status(400).json({
+        success: false,
+        error: "Observação é obrigatória",
       });
     }
 
@@ -119,6 +128,22 @@ router.post("/", async (req, res) => {
     const numeroProtocolo = gerarNumeroProtocolo();
     console.log("[OCORRENCIA API] Número de protocolo gerado:", numeroProtocolo);
 
+    // Extrai nomes dos produtos (concatenados com vírgula)
+    const nomeProduto = Array.isArray(produtos) && produtos.length > 0
+      ? produtos
+          .filter(p => p && p.Nome_do_Produto)
+          .map(p => String(p.Nome_do_Produto).trim())
+          .join(", ")
+      : "";
+
+    // Extrai quantidades dos produtos (concatenadas com vírgula)
+    const quantidadeProduto = Array.isArray(produtos) && produtos.length > 0
+      ? produtos
+          .filter(p => p && p.Quantidade)
+          .map(p => String(p.Quantidade).trim())
+          .join(", ")
+      : "";
+
     // Prepara os dados para o Zoho
     const dadosZoho = {
       data: [
@@ -129,6 +154,7 @@ router.post("/", async (req, res) => {
           CPF_Cliente: cpfLimpo || "",
           Celular_Cliente: celularLimpo || "",
           E_mail_do_Cliente: emailPaciente || "",
+          Nome_consultor_Tegra: String(nomeConsultor || "").trim(),
           Name: motivoOcorrencia || "",
           Observa_es_Ocorr_ncia: observacaoMotivo || "",
           M_dico_Prescritor_Portal: nomeMedico || "",
@@ -136,13 +162,14 @@ router.post("/", async (req, res) => {
           UF_do_M_dico: ufCrm || "",
           Telefone_do_M_dico: celularMedicoLimpo || "",
           CRM_do_M_dico: crmMedico || "",
-          Nome_Produto: produto?.nome || "",
-          Quantidade_Produto: produto?.quantidade || "",
+          Nome_Produto: nomeProduto || "",
+          Quantidade_Produto: quantidadeProduto || "",
           Pre_o_Unit_rio:
-            produto?.preco && produto.preco !== ""
+            Array.isArray(produtos) && produtos.length > 0 && produtos[0]?.Pre_o_Unit_rio
               ? (() => {
+                  const preco = produtos[0].Pre_o_Unit_rio;
                   // Remove "R$" e espaços, depois trata pontos e vírgulas
-                  let precoLimpo = produto.preco
+                  let precoLimpo = String(preco)
                     .replace(/R\$/g, "")
                     .replace(/\s/g, "")
                     .trim();
@@ -165,6 +192,9 @@ router.post("/", async (req, res) => {
           N_mero_de_lote: numeroLote || "",
           Data_do_pedido: dataPedidoFormatada || null,
           Data_Validade: dataValidadeFormatada || null,
+          Status_da_Ocorr_ncia2: {
+            name: "Criado"
+          },
         },
       ],
     };

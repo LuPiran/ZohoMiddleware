@@ -5,16 +5,15 @@ import { podeVerTrackingPedido } from "../../../utils/constants";
 import {
   MdLocalShipping,
   MdChecklist,
-  MdSearch,
-  MdBadge,
+  MdPerson,
 } from "react-icons/md";
 
 const UPDATE_CONTENT = {
-  badge: "Release V3.3",
-  date: "Atualizado em 13/04/2026",
+  badge: "Release V3.4",
+  date: "Atualizado em 28/04/2026",
   title: "Novidades do Portal",
   description:
-    "O portal recebeu melhorias focadas em navegação, validação de formulários e agilidade no atendimento, com ajustes que deixam o uso diário mais claro e rápido.",
+    "Atualizamos o portal com melhorias práticas para o dia a dia do consultor, deixando os acessos mais claros e o envio de ocorrência mais consistente.",
 };
 
 const TRACKING_HIGHLIGHT = {
@@ -26,21 +25,15 @@ const TRACKING_HIGHLIGHT = {
 
 const DEFAULT_HIGHLIGHTS = [
   {
-    label: "Campos obrigatórios mais visíveis:",
-    text: "Os formulários agora destacam com mais clareza os campos obrigatórios, incluindo CPF, e-mail e data de nascimento, ajudando a reduzir erros no preenchimento antes do envio.",
+    label: "Ocorrência com envio mais completo:",
+    text: "Na aba de Ocorrência, os campos Motivo da Ocorrência e Observação passaram a ser obrigatórios para reduzir retrabalho e evitar solicitações incompletas.",
     icon: MdChecklist,
-    iconClass: "bg-sky-100 text-sky-700",
-  },
-  {
-    label: "Consulta de pedido mais rápida em Ocorrência:",
-    text: "A busca por pedidos na tela de Ocorrência foi otimizada para responder melhor inclusive em pedidos mais antigos, reduzindo o tempo de espera na recuperação das informações.",
-    icon: MdSearch,
     iconClass: "bg-indigo-100 text-indigo-700",
   },
   {
-    label: "RG com máscara alfanumérica:",
-    text: "Os formulários passaram a aceitar RG com caractere final alfanumérico, seguindo padrões como 00.000.000-X e evitando bloqueios indevidos durante o cadastro.",
-    icon: MdBadge,
+    label: "Identificação do consultor na Ocorrência:",
+    text: "As ocorrências enviadas passam a registrar automaticamente o nome do consultor no CRM, facilitando acompanhamento e suporte.",
+    icon: MdPerson,
     iconClass: "bg-rose-100 text-rose-700",
   },
 ];
@@ -97,7 +90,7 @@ export default function PlatformUpdatePopup({ isOpen, onContinue }) {
 
           <div className="mb-5 rounded-2xl border border-tegra-blue-light/40 bg-gradient-to-r from-tegra-bg-accent/80 via-white to-tegra-bg-accent/70 px-4 py-3 shadow-[0_10px_30px_rgba(26,47,91,0.06)] sm:mb-8 sm:px-5">
             <p className="text-xs leading-5 text-tegra-blue-dark sm:text-sm sm:leading-6">
-              Melhorias aplicadas para tornar a navegação mais clara, a validação mais segura e as consultas mais rápidas.
+              Essas melhorias ajudam você a enxergar apenas o que faz sentido no seu perfil e a enviar solicitações com menos chance de erro.
             </p>
           </div>
 

@@ -362,16 +362,47 @@ router.post(
         ),
       );
 
-      // Prepara dados para atualização do último login (sempre atualiza)
-      const moduleName = process.env.ZOHO_MODULE_NAME || "CustomModule45";
-      const campoUltimoLogin = "UUltimo_Login";
+      // Prepara dados para atualização do último acesso (sempre atualiza)
+      const moduleName = ENV.ZOHO_MODULE_NAME || "CustomModule45";
+      const campoUltimoLogin = String(ENV.ZOHO_ULTIMO_LOGIN_FIELD || "").trim();
+      const campoUltimoAcesso =
+        ENV.ZOHO_ULTIMO_ACESSO_FIELD || "Ultimo_acesso";
 
-      // Formata data no formato brasileiro (DD/MM/YYYY)
       const agora = new Date();
       const dia = String(agora.getDate()).padStart(2, "0");
-      const mes = String(agora.getMonth() + 1).padStart(2, "0"); // getMonth() retorna 0-11
+      const mes = String(agora.getMonth() + 1).padStart(2, "0");
       const ano = agora.getFullYear();
-      const dataHoraAtual = `${dia}/${mes}/${ano}`; // Formato brasileiro: DD/MM/YYYY
+      const dataUltimoLogin = `${ano}-${mes}-${dia}`;
+      const timezoneOffsetMinutes = -agora.getTimezoneOffset();
+      const timezoneSign = timezoneOffsetMinutes >= 0 ? "+" : "-";
+      const timezoneHours = String(
+        Math.floor(Math.abs(timezoneOffsetMinutes) / 60),
+      ).padStart(2, "0");
+      const timezoneMinutes = String(
+        Math.abs(timezoneOffsetMinutes) % 60,
+      ).padStart(2, "0");
+      const dataHoraUltimoAcesso = `${ano}-${mes}-${dia}T${String(
+        agora.getHours(),
+      ).padStart(2, "0")}:${String(agora.getMinutes()).padStart(2, "0")}:${String(
+        agora.getSeconds(),
+      ).padStart(2, "0")}${timezoneSign}${timezoneHours}:${timezoneMinutes}`;
+
+      const camposAcesso = {
+        [campoUltimoAcesso]: dataHoraUltimoAcesso,
+      };
+
+      if (campoUltimoLogin) {
+        camposAcesso[campoUltimoLogin] = dataUltimoLogin;
+      }
+
+      const validarAtualizacaoZoho = (updateResponse) => {
+        const resultado = updateResponse?.data?.[0];
+        if (resultado?.status === "error") {
+          throw new Error(
+            `${resultado.message || "Erro ao atualizar registro no Zoho"} (${resultado.details?.api_name || "campo desconhecido"})`,
+          );
+        }
+      };
 
       let ultimoLoginJaAtualizado = false; // Flag para evitar atualização duplicada
 
@@ -396,13 +427,13 @@ router.post(
           }
 
           // Atualiza o registro no Zoho salvando a URL no campo Url_de_imagem_perfil
-          // Também atualiza o campo UUltimo_Login com a data/hora atual
+          // Também atualiza o campo de último login com a data atual
           const updateData = {
             data: [
               {
                 id: usuario.id,
                 [campoUrlImagemPerfil]: fotoFinal,
-                [campoUltimoLogin]: dataHoraAtual,
+                ...camposAcesso,
               },
             ],
           };
@@ -411,9 +442,10 @@ router.post(
             "[AUTH ROUTE] Salvando URL da imagem no campo",
             campoUrlImagemPerfil,
             "e atualizando",
-            campoUltimoLogin,
-            "com data:",
-            dataHoraAtual,
+            campoUltimoAcesso,
+            campoUltimoLogin ? `e ${campoUltimoLogin}` : "",
+            "com data/hora:",
+            dataHoraUltimoAcesso,
           );
           console.log(
             "[AUTH ROUTE] Dados de atualização:",
@@ -425,9 +457,10 @@ router.post(
             `/${moduleName}`,
             updateData,
           );
+          validarAtualizacaoZoho(updateResponse);
 
           console.log(
-            "[AUTH ROUTE] ✓ URL da imagem e último login salvos com sucesso",
+            "[AUTH ROUTE] ✓ URL da imagem e último acesso salvos com sucesso",
           );
           console.log(
             "[AUTH ROUTE] Resposta do Zoho:",
@@ -473,7 +506,7 @@ router.post(
         }
       }
 
-      // SEMPRE atualiza o campo UUltimo_Login após login bem-sucedido
+      // SEMPRE atualiza o campo de último login após login bem-sucedido
       // (exceto se já foi atualizado junto com a imagem acima)
       if (!ultimoLoginJaAtualizado) {
         try {
@@ -481,21 +514,28 @@ router.post(
             data: [
               {
                 id: usuario.id,
-                [campoUltimoLogin]: dataHoraAtual,
+                ...camposAcesso,
               },
             ],
           };
 
           console.log(
             "[AUTH ROUTE] Atualizando campo",
-            campoUltimoLogin,
-            "com data:",
-            dataHoraAtual,
+            campoUltimoAcesso,
+            campoUltimoLogin ? `e ${campoUltimoLogin}` : "",
+            "com data/hora:",
+            dataHoraUltimoAcesso,
           );
-          await chamarZohoApi("PUT", `/${moduleName}`, updateUltimoLoginData);
+          const updateResponse = await chamarZohoApi(
+            "PUT",
+            `/${moduleName}`,
+            updateUltimoLoginData,
+          );
+          validarAtualizacaoZoho(updateResponse);
           console.log(
             "[AUTH ROUTE] ✓ Campo",
-            campoUltimoLogin,
+            campoUltimoAcesso,
+            campoUltimoLogin ? `e ${campoUltimoLogin}` : "",
             "atualizado com sucesso",
           );
         } catch (error) {

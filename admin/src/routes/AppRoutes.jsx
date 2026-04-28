@@ -14,7 +14,13 @@ import Manual from "../pages/Manual/Manual";
 import ProtectedRoute from "../components/auth/ProtectedRoute";
 import AdminRoute from "../components/auth/AdminRoute";
 import { authService } from "../services/auth";
-import { ROUTES } from "../utils/constants";
+import {
+  ROUTES,
+  podeVerCompra,
+  podeVerOcorrencia,
+  podeVerProposta,
+  podeVerRecompra,
+} from "../utils/constants";
 
 /**
  * Componente wrapper para a rota de login
@@ -31,7 +37,25 @@ function LoginRoute() {
   return <Login />;
 }
 
+function OptionalFormRoute({ canAccess, children }) {
+  if (!authService.isAuthenticated()) {
+    return <Navigate to={ROUTES.LOGIN} replace />;
+  }
+
+  if (!canAccess) {
+    return <Navigate to={ROUTES.DASHBOARD} replace />;
+  }
+
+  return children;
+}
+
 export default function AppRoutes() {
+  const user = authService.getUser();
+  const podeAcessarCompra = podeVerCompra(user);
+  const podeAcessarRecompra = podeVerRecompra(user);
+  const podeAcessarProposta = podeVerProposta(user);
+  const podeAcessarOcorrencia = podeVerOcorrencia(user);
+
   return (
     <Routes>
       {/* Rota raiz "/" é a página de login */}
@@ -60,33 +84,33 @@ export default function AppRoutes() {
       <Route
         path={ROUTES.RECOMPRA}
         element={
-          <ProtectedRoute>
+          <OptionalFormRoute canAccess={podeAcessarRecompra}>
             <Recompra />
-          </ProtectedRoute>
+          </OptionalFormRoute>
         }
       />
       <Route
         path={ROUTES.COMPRA}
         element={
-          <ProtectedRoute>
+          <OptionalFormRoute canAccess={podeAcessarCompra}>
             <Compra />
-          </ProtectedRoute>
+          </OptionalFormRoute>
         }
       />
       <Route
         path={ROUTES.OCORRENCIA}
         element={
-          <ProtectedRoute>
+          <OptionalFormRoute canAccess={podeAcessarOcorrencia}>
             <Ocorrencia />
-          </ProtectedRoute>
+          </OptionalFormRoute>
         }
       />
       <Route
         path={ROUTES.PROPOSTA}
         element={
-          <ProtectedRoute>
+          <OptionalFormRoute canAccess={podeAcessarProposta}>
             <Proposta />
-          </ProtectedRoute>
+          </OptionalFormRoute>
         }
       />
       <Route

@@ -59,7 +59,15 @@ export const STORAGE_KEYS = {
   PLATFORM_UPDATE_SEEN: "platformUpdateSeen",
 };
 
-export const PLATFORM_UPDATE_VERSION = "2026-04-13.1";
+export const PLATFORM_UPDATE_VERSION = "2026-04-28.2";
+
+export const FORMULARIOS_OPCIONAIS = {
+  COMPRA: "compra",
+  RECOMPRA: "recompra",
+  PROPOSTA: "proposta",
+  TRACKING_PEDIDO: "tracking_pedido",
+  OCORRENCIA: "ocorrencia",
+};
 
 function getCampoUsuarioPorChaves(user, chavesPreferenciais = []) {
   if (!user || typeof user !== "object") return null;
@@ -167,8 +175,89 @@ export function podeIgnorarCamposObrigatorios(user) {
   );
 }
 
+function normalizarPermissaoFormulario(valor) {
+  const texto = String(valor || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+
+  if (!texto) return "";
+  if (texto.includes("tracking")) return FORMULARIOS_OPCIONAIS.TRACKING_PEDIDO;
+  if (texto.includes("ocorr")) return FORMULARIOS_OPCIONAIS.OCORRENCIA;
+  if (texto.includes("recomp")) return FORMULARIOS_OPCIONAIS.RECOMPRA;
+  if (texto.includes("propost")) return FORMULARIOS_OPCIONAIS.PROPOSTA;
+  if (texto.includes("compra")) return FORMULARIOS_OPCIONAIS.COMPRA;
+
+  return "";
+}
+
+function extrairPermissoesFormularios(user) {
+  const bruto = getCampoUsuarioPorChaves(user, [
+    "Permiss_es_formularios",
+    "Permissoes_formularios",
+    "Permissoes_formulario",
+    "Permiss_oes_formularios",
+    "Permiss_oes_formulario",
+  ]);
+
+  if (!bruto) return [];
+
+  const valores = Array.isArray(bruto)
+    ? bruto
+    : typeof bruto === "object"
+      ? [bruto]
+      : String(bruto)
+          .split(/[;,\n]/)
+          .map((item) => item.trim())
+          .filter(Boolean);
+
+  const permissoes = valores
+    .map((item) => {
+      if (!item) return "";
+      if (typeof item === "string") return normalizarPermissaoFormulario(item);
+
+      if (typeof item === "object") {
+        return normalizarPermissaoFormulario(
+          item.value || item.label || item.name || item.nome || "",
+        );
+      }
+
+      return normalizarPermissaoFormulario(String(item));
+    })
+    .filter(Boolean);
+
+  return [...new Set(permissoes)];
+}
+
+export function podeAcessarFormularioOpcional(user, permissao) {
+  const permissaoNormalizada = normalizarPermissaoFormulario(permissao);
+  if (!permissaoNormalizada) return false;
+
+  return extrairPermissoesFormularios(user).includes(permissaoNormalizada);
+}
+
+export function podeVerCompra(user) {
+  return podeAcessarFormularioOpcional(user, FORMULARIOS_OPCIONAIS.COMPRA);
+}
+
+export function podeVerRecompra(user) {
+  return podeAcessarFormularioOpcional(user, FORMULARIOS_OPCIONAIS.RECOMPRA);
+}
+
+export function podeVerProposta(user) {
+  return podeAcessarFormularioOpcional(user, FORMULARIOS_OPCIONAIS.PROPOSTA);
+}
+
+export function podeVerOcorrencia(user) {
+  return podeAcessarFormularioOpcional(user, FORMULARIOS_OPCIONAIS.OCORRENCIA);
+}
+
 export function podeVerTrackingPedido(user) {
-  return podeIgnorarCamposObrigatorios(user);
+  return podeAcessarFormularioOpcional(
+    user,
+    FORMULARIOS_OPCIONAIS.TRACKING_PEDIDO,
+  );
 }
 
 export function getPlatformUpdateStorageKey(user) {

@@ -17,6 +17,10 @@ import {
 import {
   EXTERNAL_LINKS,
   ROUTES,
+  podeVerCompra,
+  podeVerOcorrencia,
+  podeVerProposta,
+  podeVerRecompra,
   podeVerTrackingPedido,
 } from "../../utils/constants";
 import { hasAdminPanelPermission } from "../../utils/permissions";
@@ -33,6 +37,10 @@ export default function Navbar() {
   const location = useLocation();
   const isAdmin = hasAdminPanelPermission();
   const user = authService.getUser();
+  const mostrarCompra = podeVerCompra(user);
+  const mostrarRecompra = podeVerRecompra(user);
+  const mostrarProposta = podeVerProposta(user);
+  const mostrarOcorrencia = podeVerOcorrencia(user);
   const mostrarTrackingPedido = podeVerTrackingPedido(user);
   const prevPathnameRef = useRef(location.pathname);
 
@@ -76,19 +84,19 @@ export default function Navbar() {
       path: ROUTES.COMPRA,
       label: "Compra",
       icon: <MdAssignment className="text-xl" />,
-      show: true, // Sempre visível
+      show: mostrarCompra,
     },
     {
       path: ROUTES.RECOMPRA,
       label: "Recompra",
       icon: <MdShoppingCart className="text-xl" />,
-      show: true, // Sempre visível
+      show: mostrarRecompra,
     },
     {
       path: ROUTES.PROPOSTA,
       label: "Proposta",
       icon: <MdDescription className="text-xl" />,
-      show: true, // Sempre visível
+      show: mostrarProposta,
     },
     {
       path: EXTERNAL_LINKS.TRACKING_PEDIDO,
@@ -101,7 +109,7 @@ export default function Navbar() {
       path: ROUTES.OCORRENCIA,
       label: "Ocorrência",
       icon: <MdReport className="text-xl" />,
-      show: true, // Sempre visível
+      show: mostrarOcorrencia,
     },
     {
       path: ROUTES.SAVED_FORMS,
