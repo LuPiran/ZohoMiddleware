@@ -1,10 +1,11 @@
 import express from "express";
 import axios from "axios";
+import { ENV } from "../config/env.js";
 
 const router = express.Router();
 
 /**
- * Rota para buscar CEP na API ViaCEP
+ * Rota para buscar CEP na API de CEP configurada no ambiente
  * GET /api/cep/:cep
  * Retorna os dados do endereço baseado no CEP
  */
@@ -29,27 +30,41 @@ router.get("/:cep", async (req, res) => {
       });
     }
 
-    console.log("[CEP API] Buscando CEP na ViaCEP:", cepLimpo);
+    const cepApiUrl = (ENV.CEP_API_URL || "").trim();
+    const cepApiPassword = (ENV.CEP_API_PASSWORD || "").trim();
+    const timeoutMs = Number.parseInt(ENV.CEP_API_TIMEOUT_MS || "10000", 10);
 
-    // Busca CEP na API ViaCEP
-    const response = await axios.get(
-      `https://viacep.com.br/ws/${cepLimpo}/json/`,
-      {
-        timeout: 10000, // Timeout de 10 segundos
-        headers: {
-          Accept: "application/json",
-        },
+    if (!cepApiUrl || !cepApiPassword) {
+      console.error("[CEP API] ✗ Configuração ausente: CEP_API_URL/CEP_API_PASSWORD");
+      return res.status(500).json({
+        erro: true,
+        message: "Serviço de CEP não configurado no servidor",
+      });
+    }
+
+    console.log("[CEP API] Buscando CEP no provedor externo:", cepApiUrl);
+
+    // Busca CEP na API contratada (CEP + password por query string)
+    const response = await axios.get(cepApiUrl, {
+      timeout: Number.isFinite(timeoutMs) ? timeoutMs : 10000,
+      headers: {
+        Accept: "application/json",
       },
-    );
+      params: {
+        cep: cepLimpo,
+        password: cepApiPassword,
+      },
+    });
 
     const data = response.data;
+    const address = data?.data?.address;
 
     // Verifica se o CEP foi encontrado
-    if (data.erro) {
+    if (!data?.success || !address) {
       console.log("[CEP API] ✗ CEP não encontrado:", cepLimpo);
       return res.status(404).json({
         erro: true,
-        message: "CEP não encontrado",
+        message: data?.error || "CEP não encontrado",
       });
     }
 
@@ -57,16 +72,17 @@ router.get("/:cep", async (req, res) => {
 
     // Retorna os dados do endereço
     res.json({
-      cep: data.cep,
-      logradouro: data.logradouro || "",
-      complemento: data.complemento || "",
-      bairro: data.bairro || "",
-      localidade: data.localidade || "",
-      uf: data.uf || "",
-      ibge: data.ibge || "",
-      gia: data.gia || "",
-      ddd: data.ddd || "",
-      siafi: data.siafi || "",
+      cep: address.cep || cepLimpo,
+      logradouro: address.logradouro || "",
+      complemento: address.complemento || "",
+      bairro: address.bairro || "",
+      localidade: address.localidade || "",
+      // Alguns provedores retornam estado em vez de uf.
+      uf: address.uf || address.estado || "",
+      ibge: address.ibge || "",
+      gia: address.gia || "",
+      ddd: address.ddd || "",
+      siafi: address.siafi || "",
     });
   } catch (error) {
     console.error("[CEP API] ✗ Erro ao buscar CEP:", error.message);
@@ -90,7 +106,7 @@ router.get("/:cep", async (req, res) => {
       });
     }
 
-    // Se for erro 404 da API ViaCEP
+    // Se for erro 404 da API de CEP
     if (error.response?.status === 404) {
       return res.status(404).json({
         erro: true,
@@ -98,11 +114,11 @@ router.get("/:cep", async (req, res) => {
       });
     }
 
-    // Se a resposta da API indicar erro (CEP não encontrado)
-    if (error.response?.data?.erro) {
+    // Se a resposta da API indicar erro de busca
+    if (error.response?.data?.erro || error.response?.data?.success === false) {
       return res.status(404).json({
         erro: true,
-        message: "CEP não encontrado",
+        message: error.response?.data?.error || "CEP não encontrado",
       });
     }
 

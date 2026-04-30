@@ -37,10 +37,13 @@ function LoginRoute() {
   return <Login />;
 }
 
-function OptionalFormRoute({ canAccess, children }) {
+function OptionalFormRoute({ permissionCheck, children }) {
   if (!authService.isAuthenticated()) {
     return <Navigate to={ROUTES.LOGIN} replace />;
   }
+
+  const user = authService.getUser();
+  const canAccess = typeof permissionCheck === "function" ? permissionCheck(user) : false;
 
   if (!canAccess) {
     return <Navigate to={ROUTES.DASHBOARD} replace />;
@@ -50,12 +53,6 @@ function OptionalFormRoute({ canAccess, children }) {
 }
 
 export default function AppRoutes() {
-  const user = authService.getUser();
-  const podeAcessarCompra = podeVerCompra(user);
-  const podeAcessarRecompra = podeVerRecompra(user);
-  const podeAcessarProposta = podeVerProposta(user);
-  const podeAcessarOcorrencia = podeVerOcorrencia(user);
-
   return (
     <Routes>
       {/* Rota raiz "/" é a página de login */}
@@ -84,7 +81,7 @@ export default function AppRoutes() {
       <Route
         path={ROUTES.RECOMPRA}
         element={
-          <OptionalFormRoute canAccess={podeAcessarRecompra}>
+          <OptionalFormRoute permissionCheck={podeVerRecompra}>
             <Recompra />
           </OptionalFormRoute>
         }
@@ -92,7 +89,7 @@ export default function AppRoutes() {
       <Route
         path={ROUTES.COMPRA}
         element={
-          <OptionalFormRoute canAccess={podeAcessarCompra}>
+          <OptionalFormRoute permissionCheck={podeVerCompra}>
             <Compra />
           </OptionalFormRoute>
         }
@@ -100,7 +97,7 @@ export default function AppRoutes() {
       <Route
         path={ROUTES.OCORRENCIA}
         element={
-          <OptionalFormRoute canAccess={podeAcessarOcorrencia}>
+          <OptionalFormRoute permissionCheck={podeVerOcorrencia}>
             <Ocorrencia />
           </OptionalFormRoute>
         }
@@ -108,7 +105,7 @@ export default function AppRoutes() {
       <Route
         path={ROUTES.PROPOSTA}
         element={
-          <OptionalFormRoute canAccess={podeAcessarProposta}>
+          <OptionalFormRoute permissionCheck={podeVerProposta}>
             <Proposta />
           </OptionalFormRoute>
         }
