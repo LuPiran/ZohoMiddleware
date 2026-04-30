@@ -287,7 +287,7 @@ export default function Compra() {
     return cep.replace(/(\d{5})(\d{3})/, "$1-$2");
   };
 
-  // Função para buscar CEP na API ViaCEP (via backend proxy)
+  // Função para buscar CEP na API contratada (via backend)
   const handleBuscarCep = async (e) => {
     e.preventDefault();
     const cepLimpo = buscarCep.replace(/\D/g, "");
@@ -299,7 +299,7 @@ export default function Compra() {
 
     setBuscandoCep(true);
     try {
-      // Busca CEP via backend (que faz proxy para ViaCEP)
+      // Busca CEP via backend
       const response = await api.get(`/v1/cep/${cepLimpo}`);
       const data = response.data;
 
