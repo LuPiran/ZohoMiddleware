@@ -141,8 +141,8 @@ export default function Proposta() {
     { id: 1, nome: "", produtoId: "", quantidade: "1" },
   ]);
 
-  // Estado para produtos do Zoho (opções do select)
-  const [produtosZoho, setProdutosZoho] = useState([]);
+  // Estado para opções do select (catálogo Supabase)
+  const [produtosCatalogo, setProdutosCatalogo] = useState([]);
   const [carregandoProdutos, setCarregandoProdutos] = useState(false);
 
   // Estado para tipo de solicitação (fixo como "Proposta" nesta página)
@@ -178,14 +178,14 @@ export default function Proposta() {
       return;
     }
 
-    // Carrega produtos do Zoho ao montar o componente
+    // Carrega catálogo de produtos ao montar o componente
     const carregarProdutos = async () => {
       setCarregandoProdutos(true);
       try {
         const response = await productsService.getProducts();
         if (response.success) {
           const produtosData = response.data || [];
-          setProdutosZoho(produtosData);
+          setProdutosCatalogo(produtosData);
         } else {
           showToast("⚠️ Erro ao carregar produtos", "warning");
         }
@@ -1566,14 +1566,14 @@ export default function Proposta() {
                             const valor = e.target.value;
                             const opcaoSelecionada = e.selectedOption;
 
-                            // Busca o produto completo no array produtosZoho
+                            // Busca o produto completo no array produtosCatalogo
                             let produtoId = null;
 
                             if (opcaoSelecionada && opcaoSelecionada.id) {
                               produtoId = opcaoSelecionada.id;
                             } else if (valor) {
                               // Fallback: busca pelo nome se não tiver ID na opção
-                              const produtoSelecionado = produtosZoho.find(
+                              const produtoSelecionado = produtosCatalogo.find(
                                 (pz) => pz.nome === valor,
                               );
                               if (produtoSelecionado && produtoSelecionado.id) {
@@ -1593,10 +1593,10 @@ export default function Proposta() {
                               atualizarProdutoCompleto(produto.id, "", "");
                             }
                           }}
-                          options={produtosZoho.map((produtoZoho) => {
-                            const nomeProduto = produtoZoho.nome || "";
+                          options={produtosCatalogo.map((opcao) => {
+                            const nomeProduto = opcao.nome || "";
                             return {
-                              id: produtoZoho.id,
+                              id: opcao.id,
                               value: nomeProduto,
                               label: nomeProduto,
                               nome: nomeProduto,

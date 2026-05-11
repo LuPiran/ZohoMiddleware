@@ -79,7 +79,7 @@ export default function Header() {
       {showSplash && <SplashScreen message="Saindo..." />}
 
       <header className="app-header relative z-[35]">
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-3 sm:py-4 flex justify-between items-center">
+        <div className="flex w-full items-center justify-between px-3 py-3 sm:px-4 sm:py-4 md:px-6 lg:px-8">
           {/* Mobile/Tablet: Hambúrguer + Logo */}
           <div className="flex items-center gap-3 sm:gap-4 lg:hidden">
             <button

@@ -2,8 +2,18 @@ import express from "express";
 import { chamarZohoApi } from "../services/zohoApi.js";
 import { ENV } from "../config/env.js";
 import { anexarArquivosNoRegistro } from "../services/zohoAttachment.js";
+import { getSupabaseAdmin } from "../services/supabaseAdmin.js";
+import { authenticateToken } from "../services/jwtService.js";
 import { gerarNumeroProtocolo } from "../utils/protocol.js";
 import { sanitizeBrazilPhoneForApi } from "../utils/phone.js";
+import { sanitizeFormBodyForStorage } from "../utils/formSnapshot.js";
+import { uploadFormularioArquivosToBucket } from "../services/supabaseFormStorage.js";
+import { columnsFromOcorrenciaBody } from "../utils/formularioColumns.js";
+import {
+  buildProdutosResumo,
+  normalizarLinhasProdutosOcorrencia,
+} from "../utils/formularioProdutosResumo.js";
+import { resolveCadastroEquipe } from "../utils/formularioCadastroMeta.js";
 
 const router = express.Router();
 const MAX_ARQUIVOS_UPLOAD = 10;
@@ -13,7 +23,7 @@ const MAX_ARQUIVOS_UPLOAD = 10;
  * POST /api/ocorrencia
  * Body: dados da ocorrência
  */
-router.post("/", async (req, res) => {
+router.post("/", authenticateToken, async (req, res) => {
   try {
     const {
       nomePaciente,
@@ -28,7 +38,6 @@ router.post("/", async (req, res) => {
       ufCrm,
       celularMedico,
       crmMedico,
-      produto,
       numeroPedido,
       awb,
       numeroLote,
@@ -36,6 +45,9 @@ router.post("/", async (req, res) => {
       dataValidade,
       arquivos,
     } = req.body;
+
+    const linhasProdutos = normalizarLinhasProdutosOcorrencia(req.body);
+    const produto = linhasProdutos[0] || {};
 
     console.log("[OCORRENCIA API] Criando nova ocorrência no Zoho");
     console.log("[OCORRENCIA API] Dados recebidos:", {
@@ -57,6 +69,13 @@ router.post("/", async (req, res) => {
       return res.status(400).json({
         success: false,
         error: "Motivo da Ocorrência é obrigatório",
+      });
+    }
+
+    if (!linhasProdutos.length) {
+      return res.status(400).json({
+        success: false,
+        error: "É necessário informar ao menos um produto",
       });
     }
 
@@ -212,6 +231,56 @@ router.post("/", async (req, res) => {
           error.message,
         );
         // Não falha a requisição se o upload de arquivos falhar
+      }
+    }
+
+    const supabase = getSupabaseAdmin();
+    if (supabase && recordId) {
+      try {
+        const formulario = sanitizeFormBodyForStorage(req.body);
+
+        const { paths: anexosStorage, errors: storageErrors } =
+          await uploadFormularioArquivosToBucket(supabase, {
+            pastaRaiz: "Ocorrencia",
+            protocolo: numeroProtocolo,
+            arquivos: arquivos || [],
+          });
+        if (storageErrors.length) {
+          console.error(
+            "[OCORRENCIA API] Upload de anexos para o bucket Supabase:",
+            storageErrors,
+          );
+        }
+
+        const resumoProd = await buildProdutosResumo(
+          supabase,
+          linhasProdutos,
+        );
+        const cadastro = await resolveCadastroEquipe(supabase, req);
+
+        const { error: dbErr } = await supabase.from("ocorrencias").insert({
+          protocolo_portal: numeroProtocolo,
+          zoho_record_id: String(recordId),
+          status: "Criado",
+          formulario,
+          anexos_storage: anexosStorage,
+          produtos_linhas: resumoProd.linhas,
+          valor_total: resumoProd.valor_total,
+          quantidade_produtos: resumoProd.quantidade_produtos,
+          ...cadastro,
+          ...columnsFromOcorrenciaBody(req.body),
+        });
+        if (dbErr) {
+          console.error(
+            "[OCORRENCIA API] Erro ao salvar cópia do formulário em ocorrencias:",
+            dbErr,
+          );
+        }
+      } catch (persistErr) {
+        console.error(
+          "[OCORRENCIA API] Erro ao persistir formulário no banco local:",
+          persistErr,
+        );
       }
     }
 

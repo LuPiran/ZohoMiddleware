@@ -34,7 +34,12 @@ export const loginRateLimiter = rateLimit({
  */
 export const apiRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 200, // Máximo de 200 requisições (aumentado para suportar mais carga)
+  // Limite por IP: SPAs autenticadas podem gerar muitas leituras (listas, detalhes,
+  // filtros). 200/15min era fácil de atingir com HMR + várias abas.
+  max: Math.max(
+    50,
+    parseInt(String(process.env.API_RATE_LIMIT_MAX || "800"), 10) || 800,
+  ),
   message: {
     error: "Muitas requisições. Aguarde um momento antes de tentar novamente.",
     retryAfter: "15 minutos",

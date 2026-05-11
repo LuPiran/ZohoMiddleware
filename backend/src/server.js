@@ -12,6 +12,7 @@ import ocorrenciaRoutes from "./routes/ocorrencia.route.js";
 import salesOrderRoutes from "./routes/salesOrder.route.js";
 import propostaRoutes from "./routes/proposta.route.js";
 import savedFormsRoutes from "./routes/savedForms.route.js";
+import historicoRoutes from "./routes/historico.route.js";
 import { apiRateLimiter } from "./middleware/rateLimiter.js";
 
 const app = express();
@@ -87,6 +88,7 @@ app.use("/v1/ocorrencia", ocorrenciaRoutes);
 app.use("/v1/proposta", propostaRoutes);
 app.use("/v1/sales-orders", salesOrderRoutes);
 app.use("/v1/saved-forms", savedFormsRoutes);
+app.use("/v1/historico", historicoRoutes);
 
 //??Prepare a nossa aplicação para implementação
 if (shouldServeFrontend) {

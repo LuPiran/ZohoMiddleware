@@ -3,6 +3,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import {
   MdDashboard,
   MdPeople,
+  MdInventory2,
   MdGroups,
   MdShoppingCart,
   MdAssignment,
@@ -54,86 +55,169 @@ export default function Navbar() {
     };
   }, [isMenuOpen]);
 
-  const navItems = [
+  const navEntries = [
     {
+      kind: "link",
       path: ROUTES.DASHBOARD,
       label: "Home",
       icon: <MdDashboard className="text-xl" />,
-      show: true, // Sempre visível
+      show: true,
     },
     {
+      kind: "link",
       path: ROUTES.USUARIOS,
       label: "Usuários",
       icon: <MdPeople className="text-xl" />,
-      show: isAdmin, // Apenas para Admin Painel
+      show: isAdmin,
     },
     {
+      kind: "link",
+      path: ROUTES.PRODUTOS,
+      label: "Produtos",
+      icon: <MdInventory2 className="text-xl" />,
+      show: isAdmin,
+    },
+    {
+      kind: "link",
       path: ROUTES.EQUIPES,
       label: "Equipes",
       icon: <MdGroups className="text-xl" />,
       show: canSeeTeams,
     },
     {
-      path: ROUTES.COMPRA,
+      kind: "submenu",
+      key: "compra",
       label: "Compra",
       icon: <MdAssignment className="text-xl" />,
-      show: true, // Sempre visível
+      show: true,
+      isActive: (path) =>
+        path === ROUTES.COMPRA || path.startsWith("/historico/compra"),
+      items: [
+        { to: ROUTES.COMPRA, label: "Adicionar Compra" },
+        { to: ROUTES.HISTORICO_COMPRA, label: "Histórico de Compra" },
+      ],
     },
     {
-      path: ROUTES.RECOMPRA,
+      kind: "submenu",
+      key: "recompra",
       label: "Recompra",
       icon: <MdShoppingCart className="text-xl" />,
-      show: true, // Sempre visível
+      show: true,
+      isActive: (path) =>
+        path === ROUTES.RECOMPRA || path.startsWith("/historico/recompra"),
+      items: [
+        { to: ROUTES.RECOMPRA, label: "Adicionar Recompra" },
+        { to: ROUTES.HISTORICO_RECOMPRA, label: "Histórico de Recompra" },
+      ],
     },
     {
-      path: ROUTES.PROPOSTA,
+      kind: "submenu",
+      key: "proposta",
       label: "Proposta",
       icon: <MdDescription className="text-xl" />,
-      show: true, // Sempre visível
+      show: true,
+      isActive: (path) =>
+        path === ROUTES.PROPOSTA || path.startsWith("/historico/proposta"),
+      items: [
+        { to: ROUTES.PROPOSTA, label: "Adicionar Proposta" },
+        { to: ROUTES.HISTORICO_PROPOSTA, label: "Histórico de Proposta" },
+      ],
     },
     {
-      path: ROUTES.OCORRENCIA,
+      kind: "submenu",
+      key: "ocorrencia",
       label: "Ocorrência",
       icon: <MdReport className="text-xl" />,
-      show: true, // Sempre visível
+      show: true,
+      isActive: (path) =>
+        path === ROUTES.OCORRENCIA || path.startsWith("/historico/ocorrencia"),
+      items: [
+        { to: ROUTES.OCORRENCIA, label: "Adicionar Ocorrência" },
+        { to: ROUTES.HISTORICO_OCORRENCIA, label: "Histórico de Ocorrência" },
+      ],
     },
     {
+      kind: "link",
       path: ROUTES.SAVED_FORMS,
       label: "Formulários Salvos",
       icon: <MdBookmarks className="text-xl" />,
-      show: true, // Sempre visível
+      show: true,
     },
-      {
-        path: ROUTES.MANUAL,
-        label: "Manual",
-        icon: <MdBook className="text-xl" />,
-        show: true, // Sempre visível
-      },
-  ].filter((item) => item.show); // Filtra apenas itens visíveis
+    {
+      kind: "link",
+      path: ROUTES.MANUAL,
+      label: "Manual",
+      icon: <MdBook className="text-xl" />,
+      show: true,
+    },
+  ].filter((item) => item.show);
 
   return (
     <>
       {/* Menu desktop (sempre visível em lg+) */}
       <nav className="hidden lg:block bg-tegra-bg-primary border-b border-tegra-gray-medium relative z-20">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="flex justify-center space-x-1">
-            {navItems.map((item) => (
-              <SpringHover key={item.path} className="inline-flex">
-                <NavLink
-                  to={item.path}
-                  className={({ isActive }) =>
-                    `flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 ${
-                      isActive
-                        ? "text-tegra-blue-dark border-tegra-blue-dark"
-                        : "text-tegra-text-secondary border-transparent hover:text-tegra-blue-dark hover:border-tegra-blue-dark"
-                    }`
-                  }
+        <div className="w-full px-3 sm:px-4 md:px-6 lg:px-8">
+          <div className="flex justify-center space-x-1 flex-wrap">
+            {navEntries.map((entry) => {
+              if (entry.kind === "link") {
+                return (
+                  <SpringHover key={entry.path} className="inline-flex">
+                    <NavLink
+                      to={entry.path}
+                      className={({ isActive }) =>
+                        `flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 ${
+                          isActive
+                            ? "text-tegra-blue-dark border-tegra-blue-dark"
+                            : "text-tegra-text-secondary border-transparent hover:text-tegra-blue-dark hover:border-tegra-blue-dark"
+                        }`
+                      }
+                    >
+                      {entry.icon}
+                      {entry.label}
+                    </NavLink>
+                  </SpringHover>
+                );
+              }
+
+              const parentActive = entry.isActive(location.pathname);
+              return (
+                <SpringHover
+                  key={entry.key}
+                  className="relative group inline-flex"
                 >
-                  {item.icon}
-                  {item.label}
-                </NavLink>
-              </SpringHover>
-            ))}
+                  <div
+                    className={`flex items-center gap-1 px-4 py-3 text-sm font-medium transition-colors border-b-2 cursor-default ${
+                      parentActive
+                        ? "text-tegra-blue-dark border-tegra-blue-dark"
+                        : "text-tegra-text-secondary border-transparent group-hover:text-tegra-blue-dark group-hover:border-tegra-blue-dark"
+                    }`}
+                  >
+                    {entry.icon}
+                    {entry.label}
+                    <span className="text-[10px] opacity-70 ml-0.5" aria-hidden>
+                      ▼
+                    </span>
+                  </div>
+                  <div className="absolute left-0 top-full pt-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible z-[100] min-w-[220px] rounded-lg border border-tegra-gray-medium bg-tegra-bg-primary shadow-lg py-1">
+                    {entry.items.map((sub) => (
+                      <NavLink
+                        key={sub.to}
+                        to={sub.to}
+                        className={({ isActive }) =>
+                          `block px-4 py-2.5 text-sm transition-colors ${
+                            isActive
+                              ? "bg-tegra-gray-light text-tegra-blue-dark font-medium"
+                              : "text-tegra-text-secondary hover:bg-tegra-gray-light hover:text-tegra-blue-dark"
+                          }`
+                        }
+                      >
+                        {sub.label}
+                      </NavLink>
+                    ))}
+                  </div>
+                </SpringHover>
+              );
+            })}
           </div>
         </div>
       </nav>
@@ -180,24 +264,53 @@ export default function Navbar() {
         </div>
 
         {/* Itens do menu */}
-        <div className="flex flex-col py-2 flex-1">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              onClick={closeMenu}
-              className={({ isActive }) =>
-                `mobile-menu-item flex items-center gap-3 px-4 py-3 mx-2 my-1 text-sm font-medium transition-colors rounded-lg ${
-                  isActive
-                    ? "mobile-menu-item--active"
-                    : "text-tegra-text-secondary hover:text-tegra-blue-dark hover:bg-tegra-gray-light"
-                }`
-              }
-            >
-              {item.icon}
-              {item.label}
-            </NavLink>
-          ))}
+        <div className="flex flex-col py-2 flex-1 overflow-y-auto">
+          {navEntries.map((entry) => {
+            if (entry.kind === "link") {
+              return (
+                <NavLink
+                  key={entry.path}
+                  to={entry.path}
+                  onClick={closeMenu}
+                  className={({ isActive }) =>
+                    `mobile-menu-item flex items-center gap-3 px-4 py-3 mx-2 my-1 text-sm font-medium transition-colors rounded-lg ${
+                      isActive
+                        ? "mobile-menu-item--active"
+                        : "text-tegra-text-secondary hover:text-tegra-blue-dark hover:bg-tegra-gray-light"
+                    }`
+                  }
+                >
+                  {entry.icon}
+                  {entry.label}
+                </NavLink>
+              );
+            }
+
+            return (
+              <div key={entry.key} className="mx-2 my-2">
+                <div className="flex items-center gap-2 px-2 py-1 text-xs font-semibold uppercase tracking-wide text-tegra-text-secondary">
+                  {entry.icon}
+                  {entry.label}
+                </div>
+                {entry.items.map((sub) => (
+                  <NavLink
+                    key={sub.to}
+                    to={sub.to}
+                    onClick={closeMenu}
+                    className={({ isActive }) =>
+                      `mobile-menu-item flex items-center gap-2 pl-6 pr-4 py-2.5 my-0.5 text-sm font-medium transition-colors rounded-lg ${
+                        isActive
+                          ? "mobile-menu-item--active"
+                          : "text-tegra-text-secondary hover:text-tegra-blue-dark hover:bg-tegra-gray-light"
+                      }`
+                    }
+                  >
+                    {sub.label}
+                  </NavLink>
+                ))}
+              </div>
+            );
+          })}
         </div>
 
         {/* Separador */}

@@ -786,4 +786,6 @@ router.patch("/:id", authenticateToken, async (req, res) => {
   }
 });
 
+export { getAdminProfileByRequest, readProfileTipo };
+
 export default router;

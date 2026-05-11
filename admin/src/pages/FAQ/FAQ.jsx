@@ -125,7 +125,7 @@ const faqData = [
       },
       {
         pergunta: "O que mudou se os produtos não carregam na lista?",
-        resposta: "Na primeira vez que você acessa um formulário, o sistema faz uma busca por todos os produtos disponíveis no Zoho. Se a lista não aparecer imediatamente, aguarde alguns segundos. Se o problema persistir, recarregue a página (F5) e tente novamente.",
+        resposta: "Na primeira vez que você acessa um formulário, o sistema carrega o catálogo de produtos do portal. Se a lista não aparecer imediatamente, aguarde alguns segundos. Se o problema persistir, recarregue a página (F5) e tente novamente.",
       },
       {
         pergunta: "Posso não selecionar nenhum produto e enviar assim mesmo?",

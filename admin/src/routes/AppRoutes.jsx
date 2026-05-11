@@ -6,6 +6,7 @@ import Mfa from "../pages/Auth/Mfa";
 import Dashboard from "../pages/Dashboard/Dashboard";
 import PlatformUpdates from "../pages/PlatformUpdates/PlatformUpdates";
 import Users from "../pages/Users/Users";
+import Products from "../pages/Products/Products";
 import Recompra from "../pages/Recompra/Recompra";
 import Compra from "../pages/Compra/Compra";
 import Ocorrencia from "../pages/Ocorrencia/Ocorrencia";
@@ -16,6 +17,8 @@ import FAQ from "../pages/FAQ/FAQ";
 import Manual from "../pages/Manual/Manual";
 import Teams from "../pages/Teams/Teams";
 import TeamDetails from "../pages/Teams/TeamDetails";
+import HistoricoListPage from "../pages/Historico/HistoricoListPage";
+import HistoricoDetailPage from "../pages/Historico/HistoricoDetailPage";
 import ProtectedRoute from "../components/auth/ProtectedRoute";
 import AdminRoute from "../components/auth/AdminRoute";
 import TeamRoute from "../components/auth/TeamRoute";
@@ -72,6 +75,14 @@ const appRouteObjects = [
     ),
   },
   {
+    path: ROUTES.PRODUTOS,
+    element: (
+      <AdminRoute>
+        <Products />
+      </AdminRoute>
+    ),
+  },
+  {
     path: ROUTES.EQUIPES,
     element: (
       <TeamRoute>
@@ -108,6 +119,70 @@ const appRouteObjects = [
     element: (
       <ProtectedRoute>
         <Ocorrencia />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: `${ROUTES.HISTORICO_COMPRA}/:id`,
+    element: (
+      <ProtectedRoute>
+        <HistoricoDetailPage tipo="compra" />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: ROUTES.HISTORICO_COMPRA,
+    element: (
+      <ProtectedRoute>
+        <HistoricoListPage tipo="compra" />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: `${ROUTES.HISTORICO_RECOMPRA}/:id`,
+    element: (
+      <ProtectedRoute>
+        <HistoricoDetailPage tipo="recompra" />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: ROUTES.HISTORICO_RECOMPRA,
+    element: (
+      <ProtectedRoute>
+        <HistoricoListPage tipo="recompra" />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: `${ROUTES.HISTORICO_PROPOSTA}/:id`,
+    element: (
+      <ProtectedRoute>
+        <HistoricoDetailPage tipo="proposta" />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: ROUTES.HISTORICO_PROPOSTA,
+    element: (
+      <ProtectedRoute>
+        <HistoricoListPage tipo="proposta" />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: `${ROUTES.HISTORICO_OCORRENCIA}/:id`,
+    element: (
+      <ProtectedRoute>
+        <HistoricoDetailPage tipo="ocorrencia" />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: ROUTES.HISTORICO_OCORRENCIA,
+    element: (
+      <ProtectedRoute>
+        <HistoricoListPage tipo="ocorrencia" />
       </ProtectedRoute>
     ),
   },

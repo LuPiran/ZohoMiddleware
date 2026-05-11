@@ -2,8 +2,15 @@ import express from "express";
 import { chamarZohoApi } from "../services/zohoApi.js";
 import { ENV } from "../config/env.js";
 import { anexarArquivosNoRegistro } from "../services/zohoAttachment.js";
+import { getSupabaseAdmin } from "../services/supabaseAdmin.js";
+import { authenticateToken } from "../services/jwtService.js";
 import { gerarNumeroProtocolo } from "../utils/protocol.js";
 import { sanitizeBrazilPhoneForApi } from "../utils/phone.js";
+import { sanitizeFormBodyForStorage } from "../utils/formSnapshot.js";
+import { columnsFromCompraBody } from "../utils/formularioColumns.js";
+import { uploadFormularioArquivosToBucket } from "../services/supabaseFormStorage.js";
+import { buildProdutosResumo } from "../utils/formularioProdutosResumo.js";
+import { resolveCadastroEquipe } from "../utils/formularioCadastroMeta.js";
 
 const router = express.Router();
 const MAX_ARQUIVOS_UPLOAD = 10;
@@ -624,7 +631,7 @@ router.get("/cliente/:cpf", async (req, res) => {
  * POST /api/compra
  * Body: dados da compra
  */
-router.post("/", async (req, res) => {
+router.post("/", authenticateToken, async (req, res) => {
   try {
     const {
       nomePaciente,
@@ -913,6 +920,60 @@ router.post("/", async (req, res) => {
           error.message,
         );
         // Não falha a requisição se o upload de arquivos falhar
+      }
+    }
+
+    const supabase = getSupabaseAdmin();
+    if (supabase && recordId) {
+      try {
+        const formulario = sanitizeFormBodyForStorage(req.body);
+        const table =
+          String(tipoSolicitacao || "").trim() === "Recompra"
+            ? "recompras"
+            : "compras";
+        const pastaRaiz =
+          String(tipoSolicitacao || "").trim() === "Recompra"
+            ? "Recompra"
+            : "Compra";
+
+        const { paths: anexosStorage, errors: storageErrors } =
+          await uploadFormularioArquivosToBucket(supabase, {
+            pastaRaiz,
+            protocolo: numeroProtocolo,
+            arquivos: arquivos || [],
+          });
+        if (storageErrors.length) {
+          console.error(
+            "[COMPRA API] Upload de anexos para o bucket Supabase:",
+            storageErrors,
+          );
+        }
+
+        const resumoProd = await buildProdutosResumo(supabase, produtos || []);
+        const cadastro = await resolveCadastroEquipe(supabase, req);
+
+        const { error: dbErr } = await supabase.from(table).insert({
+          protocolo_portal: numeroProtocolo,
+          zoho_record_id: String(recordId),
+          formulario,
+          anexos_storage: anexosStorage,
+          produtos_linhas: resumoProd.linhas,
+          valor_total: resumoProd.valor_total,
+          quantidade_produtos: resumoProd.quantidade_produtos,
+          ...cadastro,
+          ...columnsFromCompraBody(req.body),
+        });
+        if (dbErr) {
+          console.error(
+            `[COMPRA API] Erro ao salvar cópia do formulário em ${table}:`,
+            dbErr,
+          );
+        }
+      } catch (persistErr) {
+        console.error(
+          "[COMPRA API] Erro ao persistir formulário no banco local:",
+          persistErr,
+        );
       }
     }
 

@@ -1,0 +1,134 @@
+-- Colunas detalhadas + anexos no Storage (JSON com paths).
+-- Executar no SQL Editor do Supabase após `formularios_portal.sql`.
+-- Seguro rodar mais de uma vez (IF NOT EXISTS).
+
+-- --- compras ---
+alter table public.compras add column if not exists nome text;
+alter table public.compras add column if not exists sobrenome text;
+alter table public.compras add column if not exists nome_completo text;
+alter table public.compras add column if not exists cpf text;
+alter table public.compras add column if not exists rg text;
+alter table public.compras add column if not exists celular text;
+alter table public.compras add column if not exists telefone text;
+alter table public.compras add column if not exists email text;
+alter table public.compras add column if not exists data_nascimento text;
+alter table public.compras add column if not exists representante_legal boolean;
+alter table public.compras add column if not exists nome_representante text;
+alter table public.compras add column if not exists rg_representante text;
+alter table public.compras add column if not exists cpf_representante text;
+alter table public.compras add column if not exists email_representante text;
+alter table public.compras add column if not exists celular_representante text;
+alter table public.compras add column if not exists data_nascimento_representante text;
+alter table public.compras add column if not exists campanha_diretoria boolean;
+alter table public.compras add column if not exists dados_medico_prescritor boolean;
+alter table public.compras add column if not exists nome_medico text;
+alter table public.compras add column if not exists crm_medico text;
+alter table public.compras add column if not exists uf_crm text;
+alter table public.compras add column if not exists crm_uf text;
+alter table public.compras add column if not exists email_medico text;
+alter table public.compras add column if not exists especialidade_medico text;
+alter table public.compras add column if not exists rua text;
+alter table public.compras add column if not exists numero_endereco text;
+alter table public.compras add column if not exists complemento text;
+alter table public.compras add column if not exists bairro text;
+alter table public.compras add column if not exists cep text;
+alter table public.compras add column if not exists cidade text;
+alter table public.compras add column if not exists estado text;
+alter table public.compras add column if not exists pais text;
+alter table public.compras add column if not exists negociacao_consultor boolean;
+alter table public.compras add column if not exists link_pagamento boolean;
+alter table public.compras add column if not exists tipo_link text;
+alter table public.compras add column if not exists forma_pagamento text;
+alter table public.compras add column if not exists termos_condicoes text;
+alter table public.compras add column if not exists observacao text;
+alter table public.compras add column if not exists anexos_storage jsonb default '[]'::jsonb;
+
+-- --- recompras (mesmas colunas) ---
+alter table public.recompras add column if not exists nome text;
+alter table public.recompras add column if not exists sobrenome text;
+alter table public.recompras add column if not exists nome_completo text;
+alter table public.recompras add column if not exists cpf text;
+alter table public.recompras add column if not exists rg text;
+alter table public.recompras add column if not exists celular text;
+alter table public.recompras add column if not exists telefone text;
+alter table public.recompras add column if not exists email text;
+alter table public.recompras add column if not exists data_nascimento text;
+alter table public.recompras add column if not exists representante_legal boolean;
+alter table public.recompras add column if not exists nome_representante text;
+alter table public.recompras add column if not exists rg_representante text;
+alter table public.recompras add column if not exists cpf_representante text;
+alter table public.recompras add column if not exists email_representante text;
+alter table public.recompras add column if not exists celular_representante text;
+alter table public.recompras add column if not exists data_nascimento_representante text;
+alter table public.recompras add column if not exists campanha_diretoria boolean;
+alter table public.recompras add column if not exists dados_medico_prescritor boolean;
+alter table public.recompras add column if not exists nome_medico text;
+alter table public.recompras add column if not exists crm_medico text;
+alter table public.recompras add column if not exists uf_crm text;
+alter table public.recompras add column if not exists crm_uf text;
+alter table public.recompras add column if not exists email_medico text;
+alter table public.recompras add column if not exists especialidade_medico text;
+alter table public.recompras add column if not exists rua text;
+alter table public.recompras add column if not exists numero_endereco text;
+alter table public.recompras add column if not exists complemento text;
+alter table public.recompras add column if not exists bairro text;
+alter table public.recompras add column if not exists cep text;
+alter table public.recompras add column if not exists cidade text;
+alter table public.recompras add column if not exists estado text;
+alter table public.recompras add column if not exists pais text;
+alter table public.recompras add column if not exists negociacao_consultor boolean;
+alter table public.recompras add column if not exists link_pagamento boolean;
+alter table public.recompras add column if not exists tipo_link text;
+alter table public.recompras add column if not exists forma_pagamento text;
+alter table public.recompras add column if not exists termos_condicoes text;
+alter table public.recompras add column if not exists observacao text;
+alter table public.recompras add column if not exists anexos_storage jsonb default '[]'::jsonb;
+
+-- --- propostas (mesmas colunas) ---
+alter table public.propostas add column if not exists nome text;
+alter table public.propostas add column if not exists sobrenome text;
+alter table public.propostas add column if not exists nome_completo text;
+alter table public.propostas add column if not exists cpf text;
+alter table public.propostas add column if not exists rg text;
+alter table public.propostas add column if not exists celular text;
+alter table public.propostas add column if not exists telefone text;
+alter table public.propostas add column if not exists email text;
+alter table public.propostas add column if not exists data_nascimento text;
+alter table public.propostas add column if not exists representante_legal boolean;
+alter table public.propostas add column if not exists nome_representante text;
+alter table public.propostas add column if not exists rg_representante text;
+alter table public.propostas add column if not exists cpf_representante text;
+alter table public.propostas add column if not exists email_representante text;
+alter table public.propostas add column if not exists celular_representante text;
+alter table public.propostas add column if not exists data_nascimento_representante text;
+alter table public.propostas add column if not exists campanha_diretoria boolean;
+alter table public.propostas add column if not exists dados_medico_prescritor boolean;
+alter table public.propostas add column if not exists nome_medico text;
+alter table public.propostas add column if not exists crm_medico text;
+alter table public.propostas add column if not exists uf_crm text;
+alter table public.propostas add column if not exists crm_uf text;
+alter table public.propostas add column if not exists email_medico text;
+alter table public.propostas add column if not exists especialidade_medico text;
+alter table public.propostas add column if not exists rua text;
+alter table public.propostas add column if not exists numero_endereco text;
+alter table public.propostas add column if not exists complemento text;
+alter table public.propostas add column if not exists bairro text;
+alter table public.propostas add column if not exists cep text;
+alter table public.propostas add column if not exists cidade text;
+alter table public.propostas add column if not exists estado text;
+alter table public.propostas add column if not exists pais text;
+alter table public.propostas add column if not exists negociacao_consultor boolean;
+alter table public.propostas add column if not exists link_pagamento boolean;
+alter table public.propostas add column if not exists tipo_link text;
+alter table public.propostas add column if not exists forma_pagamento text;
+alter table public.propostas add column if not exists termos_condicoes text;
+alter table public.propostas add column if not exists observacao text;
+alter table public.propostas add column if not exists anexos_storage jsonb default '[]'::jsonb;
+
+-- --- ocorrências: apenas metadados dos arquivos no bucket ---
+alter table public.ocorrencias add column if not exists anexos_storage jsonb default '[]'::jsonb;
+
+comment on column public.compras.anexos_storage is 'JSON array: [{ path, fileName, bucket }] no Storage Supabase.';
+comment on column public.recompras.anexos_storage is 'JSON array: [{ path, fileName, bucket }] no Storage Supabase.';
+comment on column public.propostas.anexos_storage is 'JSON array: [{ path, fileName, bucket }] no Storage Supabase.';
+comment on column public.ocorrencias.anexos_storage is 'JSON array: [{ path, fileName, bucket }] no Storage Supabase.';

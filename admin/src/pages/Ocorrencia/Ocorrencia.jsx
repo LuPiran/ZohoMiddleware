@@ -127,8 +127,8 @@ export default function Ocorrencia() {
     { id: 1, nome: "", produtoId: "", quantidade: "1", preco: "" },
   ]);
 
-  // Estado para produtos do Zoho (opções do select)
-  const [produtosZoho, setProdutosZoho] = useState([]);
+  // Estado para opções do select (catálogo Supabase)
+  const [produtosCatalogo, setProdutosCatalogo] = useState([]);
   const [carregandoProdutos, setCarregandoProdutos] = useState(false);
 
   // Estado para tipo de solicitação (apenas para Admin Painel)
@@ -177,14 +177,14 @@ export default function Ocorrencia() {
       return;
     }
 
-    // Carrega TODOS os produtos do Zoho ao montar o componente (sem filtrar por ativo)
+    // Carrega catálogo de produtos (Supabase) para o select
     const carregarProdutos = async () => {
       setCarregandoProdutos(true);
       try {
-        const response = await productsService.getAllProducts();
+        const response = await productsService.getProducts();
         if (response.success) {
           const produtosData = response.data || [];
-          setProdutosZoho(produtosData);
+          setProdutosCatalogo(produtosData);
         } else {
           showToast("⚠️ Erro ao carregar produtos", "warning");
         }
@@ -255,12 +255,19 @@ export default function Ocorrencia() {
             ""
           : String(productRef || "");
 
-      // Tenta encontrar o produto nas opções já carregadas do Zoho pelo id
+      // Catálogo local usa UUID; pedido Zoho traz id de produto diferente — casa por id ou por nome
+      const nomeNorm = String(nomeProdutoZoho || "").trim().toLowerCase();
       const produtoCatalogo =
-        produtosZoho.find((p) => p.id === produtoIdZoho) || null;
+        produtosCatalogo.find((p) => p.id === produtoIdZoho) ||
+        (nomeNorm
+          ? produtosCatalogo.find(
+              (p) => String(p.nome || "").trim().toLowerCase() === nomeNorm,
+            )
+          : null) ||
+        null;
 
       const nomeFinal = produtoCatalogo?.nome || nomeProdutoZoho || "";
-      const produtoIdFinal = produtoCatalogo?.id || produtoIdZoho || "";
+      const produtoIdFinal = produtoCatalogo?.id || "";
 
       return {
         id: index + 1,
@@ -1075,7 +1082,7 @@ export default function Ocorrencia() {
                             if (opcaoSelecionada && opcaoSelecionada.id) {
                               produtoId = opcaoSelecionada.id;
                             } else if (valor) {
-                              const produtoSelecionado = produtosZoho.find(
+                              const produtoSelecionado = produtosCatalogo.find(
                                 (pz) => pz.nome === valor
                               );
                               if (produtoSelecionado && produtoSelecionado.id) {
@@ -1089,10 +1096,10 @@ export default function Ocorrencia() {
                               atualizarProdutoCompleto(produto.id, "", "");
                             }
                           }}
-                          options={produtosZoho.map((produtoZoho) => {
-                            const nomeProduto = produtoZoho.nome || "";
+                          options={produtosCatalogo.map((opcao) => {
+                            const nomeProduto = opcao.nome || "";
                             return {
-                              id: produtoZoho.id,
+                              id: opcao.id,
                               value: nomeProduto,
                               label: nomeProduto,
                               nome: nomeProduto,

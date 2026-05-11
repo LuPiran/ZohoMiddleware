@@ -8,6 +8,7 @@ export const ROUTES = {
   DASHBOARD: "/dashboard",
   PLATFORM_UPDATES: "/atualizacoes-plataforma",
   USUARIOS: "/usuarios",
+  PRODUTOS: "/produtos",
   EQUIPES: "/equipes",
   RECOMPRA: "/recompra",
   COMPRA: "/compra",
@@ -17,6 +18,10 @@ export const ROUTES = {
   MANUAL: "/manual",
   AGRADECIMENTO: "/agradecimento",
   SAVED_FORMS: "/formularios-salvos",
+  HISTORICO_COMPRA: "/historico/compra",
+  HISTORICO_RECOMPRA: "/historico/recompra",
+  HISTORICO_PROPOSTA: "/historico/proposta",
+  HISTORICO_OCORRENCIA: "/historico/ocorrencia",
 };
 
 export const API_ENDPOINTS = {
@@ -46,6 +51,14 @@ export const API_ENDPOINTS = {
   PRODUCTS: {
     LIST: "/v1/products",
     LIST_ALL: "/v1/products/all",
+    CATALOG: "/v1/products/catalog",
+  },
+  HISTORICO: {
+    COMPRAS: "/v1/historico/compras",
+    RECOMPRAS: "/v1/historico/recompras",
+    PROPOSTAS: "/v1/historico/propostas",
+    OCORRENCIAS: "/v1/historico/ocorrencias",
+    FILTROS_CONSULTORES: "/v1/historico/filtros-consultores",
   },
 };
 

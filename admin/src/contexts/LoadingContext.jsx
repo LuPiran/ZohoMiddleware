@@ -9,12 +9,10 @@ const LoadingContext = createContext(null);
 export function LoadingProvider({ children }) {
   const [isLoading, setIsLoading] = useState(false);
 
-  const setLoading = (loading) => {
-    setIsLoading(loading);
-  };
-
+  // Usar o setter do useState diretamente: referência estável (evita loops de
+  // efeitos que dependem de setLoading, ex.: HistoricoListPage → fetch em toda render).
   return (
-    <LoadingContext.Provider value={{ isLoading, setLoading }}>
+    <LoadingContext.Provider value={{ isLoading, setLoading: setIsLoading }}>
       {children}
     </LoadingContext.Provider>
   );

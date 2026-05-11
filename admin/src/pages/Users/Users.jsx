@@ -901,8 +901,8 @@ export default function Users() {
             </form>
       </AnimatedModal>
 
-      {/* Overlay de loading ao buscar usuário */}
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
+      {/* Largura alinhada ao header (logo → sair): mesmo padding horizontal do Header */}
+      <div className="w-full px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
         {/* Cabeçalho */}
         <div className="mb-4 space-y-3 sm:mb-6">
           <div className="flex w-full items-center justify-between gap-3">
@@ -1090,7 +1090,7 @@ export default function Users() {
               </div>
 
               {/* Versão Desktop: Tabela */}
-              <div className="hidden md:block overflow-x-auto -mx-3 sm:mx-0">
+              <div className="hidden md:block overflow-x-auto">
                 <div className="inline-block min-w-full align-middle">
                   <table className="w-full">
                     {/* Cabeçalho da tabela */}

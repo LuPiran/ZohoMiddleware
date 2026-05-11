@@ -23,4 +23,6 @@ export const ENV = {
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN,
   SUPABASE_URL: process.env.SUPABASE_URL,
   SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+  /** Bucket Storage para anexos dos formulários (ex.: tegrapharma) */
+  SUPABASE_FORMULARIOS_BUCKET: process.env.SUPABASE_FORMULARIOS_BUCKET,
 };
