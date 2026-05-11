@@ -42,13 +42,13 @@ export default function Header() {
     setShowSplash(true);
 
     // Aguarda um pouco para mostrar o splash, depois desloga
-    setTimeout(() => {
+    setTimeout(async () => {
       try {
         // Marca que houve logout bem-sucedido (usa sessionStorage para garantir que funcione)
         sessionStorage.setItem(STORAGE_KEYS.LOGOUT_SUCCESS, "true");
 
         // Desloga (limpa ambos os storages)
-        authService.logout();
+        await authService.logout();
 
         // Navega para login usando replace para evitar histórico duplicado
         navigate(ROUTES.LOGIN, { replace: true });

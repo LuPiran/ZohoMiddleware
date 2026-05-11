@@ -1,90 +1,95 @@
-import { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useEffect, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
+import { AnimatePresence, motion } from "framer-motion";
+import { useSpring, animated, config } from "@react-spring/web";
+import TegraLosangosLoader from "../animation/TegraLosangosLoader";
+import { ROUTES } from "../../utils/constants";
 
+function RouteLoadingPulse() {
+  const springs = useSpring({
+    from: { opacity: 0.55 },
+    to: { opacity: 1 },
+    loop: { reverse: true },
+    config: { ...config.gentle, duration: 420 },
+  });
+
+  return (
+    <animated.p
+      style={springs}
+      className="route-loading-text !animate-none"
+    >
+      Carregando
+    </animated.p>
+  );
+}
+
+function RouteOverlay() {
+  return (
+    <motion.div
+      className="route-transition-overlay !animate-none"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+    >
+      <div className="route-transition-glass" />
+      <div className="route-transition-content !animate-none flex flex-col items-center justify-center gap-4">
+        <TegraLosangosLoader size="md" />
+        <RouteLoadingPulse />
+      </div>
+    </motion.div>
+  );
+}
+
+/**
+ * Overlay breve ao trocar de rota: Framer Motion (fade), losangos Tegra com GSAP (desenho/desfazer), React Spring (texto).
+ */
 export default function RouteTransition({ children }) {
   const location = useLocation();
-  const [isTransitioning, setIsTransitioning] = useState(false);
-  const [isExiting, setIsExiting] = useState(false);
-  const [displayChildren, setDisplayChildren] = useState(children);
-  const [previousPath, setPreviousPath] = useState(location.pathname);
+  const [showOverlay, setShowOverlay] = useState(false);
+  const firstNavRef = useRef(true);
+  const isAuthRoute =
+    location.pathname === ROUTES.LOGIN || location.pathname === ROUTES.MFA;
 
   useEffect(() => {
-    // Detecta mudança de rota (exceto no primeiro render)
-    if (previousPath !== null && previousPath !== location.pathname) {
-      // Verifica se é uma transição de login (não mostra loading nesse caso)
-      const skipLoading = sessionStorage.getItem('SKIP_ROUTE_LOADING');
-      
-      if (skipLoading === 'true') {
-        // Limpa o flag e apenas troca o conteúdo sem animação de loading
-        sessionStorage.removeItem('SKIP_ROUTE_LOADING');
-        setDisplayChildren(children);
-        setPreviousPath(location.pathname);
-      } else {
-        // Mostra animação normal de loading
-        setIsTransitioning(true);
-        setIsExiting(false);
-        
-        // Delay de 1 segundo antes de trocar o conteúdo
-        const contentTimer = setTimeout(() => {
-          setDisplayChildren(children);
-          // Inicia animação de saída após trocar conteúdo
-          setTimeout(() => {
-            setIsExiting(true);
-          }, 100);
-        }, 1000);
-
-        // Finaliza a transição após animação de saída
-        const transitionTimer = setTimeout(() => {
-          setIsTransitioning(false);
-          setIsExiting(false);
-          setPreviousPath(location.pathname);
-        }, 1400);
-
-        return () => {
-          clearTimeout(contentTimer);
-          clearTimeout(transitionTimer);
-        };
-      }
-    } else if (previousPath === null) {
-      // Primeiro render - só atualiza previousPath
-      setDisplayChildren(children);
-      setPreviousPath(location.pathname);
+    if (firstNavRef.current) {
+      firstNavRef.current = false;
+      return undefined;
     }
-  }, [location.pathname, children]);
+
+    const skip = sessionStorage.getItem("SKIP_ROUTE_LOADING");
+    if (skip === "true") {
+      sessionStorage.removeItem("SKIP_ROUTE_LOADING");
+      return undefined;
+    }
+
+    setShowOverlay(true);
+    const t = window.setTimeout(() => setShowOverlay(false), 400);
+    return () => window.clearTimeout(t);
+  }, [location.pathname]);
+
+  // Evita scroll/área branca apenas em Login/2FA e durante loading overlay.
+  useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+    const shouldLock = isAuthRoute || showOverlay;
+    html.style.overflow = shouldLock ? "hidden" : "";
+    body.style.overflow = shouldLock ? "hidden" : "";
+
+    return () => {
+      html.style.overflow = "";
+      body.style.overflow = "";
+    };
+  }, [isAuthRoute, showOverlay]);
 
   return (
     <>
-      {displayChildren}
-      {isTransitioning && (
-        <div className={`route-transition-overlay ${isExiting ? 'route-transition-exit' : ''}`}>
-          <div className="route-transition-glass"></div>
-          <div className="route-transition-content">
-            <div className="route-loader-container">
-              <img src="/logoCorp.png" alt="Logo corporativo" className="route-logo" />
-              <svg className="route-spinner" viewBox="0 0 120 120">
-                <defs>
-                  <linearGradient id="spinnerGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" style={{ stopColor: '#8FA9C1', stopOpacity: 1 }} />
-                    <stop offset="50%" style={{ stopColor: '#E5989B', stopOpacity: 1 }} />
-                    <stop offset="100%" style={{ stopColor: '#8FA9C1', stopOpacity: 0.3 }} />
-                  </linearGradient>
-                </defs>
-                <circle
-                  className="route-spinner-circle"
-                  cx="60"
-                  cy="60"
-                  r="54"
-                  fill="none"
-                  stroke="url(#spinnerGradient)"
-                  strokeWidth="4"
-                  strokeLinecap="round"
-                />
-              </svg>
-            </div>
-            <p className="route-loading-text">Carregando</p>
-          </div>
-        </div>
-      )}
+      <div className="flex min-h-screen w-full flex-1 flex-col">
+        {children}
+      </div>
+      <AnimatePresence>
+        {showOverlay && <RouteOverlay key={location.pathname} />}
+      </AnimatePresence>
     </>
   );
 }

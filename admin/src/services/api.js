@@ -1,5 +1,6 @@
 import axios from "axios";
 import { STORAGE_KEYS, ROUTES } from "../utils/constants";
+import { supabase } from "./supabaseClient";
 
 const envApiBaseUrl = (import.meta.env.VITE_API_URL || "").trim();
 const appHost = typeof window !== "undefined" ? window.location.hostname : "";
@@ -29,17 +30,28 @@ function getToken() {
 }
 
 // Interceptor para adicionar token JWT em todas as requisições
+async function getAccessToken() {
+  // Preferimos o token atual da sessão do Supabase, pois o client pode
+  // fazer refresh automático e o token salvo em STORAGE_KEYS.TOKEN pode ficar desatualizado.
+  try {
+    const { data } = await supabase.auth.getSession();
+    const sessionToken = data?.session?.access_token;
+    return sessionToken || getToken();
+  } catch {
+    // Fallback caso a sessão não esteja disponível ainda.
+    return getToken();
+  }
+}
+
 api.interceptors.request.use(
-  (config) => {
-    const token = getToken();
+  async (config) => {
+    const token = await getAccessToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  },
+  (error) => Promise.reject(error),
 );
 
 // Interceptor para tratar erros de autenticação
@@ -61,20 +73,29 @@ api.interceptors.response.use(
       error._suppressConsoleLog = true;
     }
 
+    const method = error.config?.method?.toLowerCase() || "";
+    const url = error.config?.url || "";
+    const isUsersMutateRequest =
+      (method === "post" || method === "patch") &&
+      (url.includes("/v1/users") || url.includes("v1/users"));
+
     if (
       (error.response?.status === 401 || error.response?.status === 403) &&
       !isLoginRoute
     ) {
-      // Token inválido ou expirado - limpa ambos os storages e redireciona
-      // Apenas se NÃO for uma tentativa de login
-      localStorage.removeItem(STORAGE_KEYS.USER);
-      localStorage.removeItem(STORAGE_KEYS.TOKEN);
-      localStorage.removeItem(STORAGE_KEYS.IS_AUTHENTICATED);
-      localStorage.removeItem(STORAGE_KEYS.REMEMBER_ME);
-      sessionStorage.removeItem(STORAGE_KEYS.USER);
-      sessionStorage.removeItem(STORAGE_KEYS.TOKEN);
-      sessionStorage.removeItem(STORAGE_KEYS.IS_AUTHENTICATED);
-      window.location.href = ROUTES.LOGIN;
+      // Em criar/editar usuário, não forçamos logout/redirect em 401/403 (ex.: permissão).
+      if (!isUsersMutateRequest) {
+        // Token inválido ou expirado - limpa ambos os storages e redireciona
+        // Apenas se NÃO for uma tentativa de login
+        localStorage.removeItem(STORAGE_KEYS.USER);
+        localStorage.removeItem(STORAGE_KEYS.TOKEN);
+        localStorage.removeItem(STORAGE_KEYS.IS_AUTHENTICATED);
+        localStorage.removeItem(STORAGE_KEYS.REMEMBER_ME);
+        sessionStorage.removeItem(STORAGE_KEYS.USER);
+        sessionStorage.removeItem(STORAGE_KEYS.TOKEN);
+        sessionStorage.removeItem(STORAGE_KEYS.IS_AUTHENTICATED);
+        window.location.href = ROUTES.LOGIN;
+      }
     }
     return Promise.reject(error);
   },

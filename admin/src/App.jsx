@@ -10,22 +10,24 @@ import RouteTransition from "./components/navigation/RouteTransition";
 function App() {
   return (
     <ToastProvider>
-      <LoadingProvider>
-        <MenuProvider>
-          <UserProvider>
-            <BrowserRouter
-              future={{
-                v7_relativeSplatPath: true,
-                v7_startTransition: true,
-              }}
-            >
-              <RouteTransition>
-                <AppRoutes />
-              </RouteTransition>
-            </BrowserRouter>
-          </UserProvider>
-        </MenuProvider>
-      </LoadingProvider>
+      <div className="flex min-h-screen w-full flex-1 flex-col">
+        <LoadingProvider>
+          <MenuProvider>
+            <UserProvider>
+              <BrowserRouter
+                future={{
+                  v7_relativeSplatPath: true,
+                  v7_startTransition: true,
+                }}
+              >
+                <RouteTransition>
+                  <AppRoutes />
+                </RouteTransition>
+              </BrowserRouter>
+            </UserProvider>
+          </MenuProvider>
+        </LoadingProvider>
+      </div>
     </ToastProvider>
   );
 }

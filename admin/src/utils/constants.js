@@ -4,9 +4,11 @@
 
 export const ROUTES = {
   LOGIN: "/",
+  MFA: "/2fa",
   DASHBOARD: "/dashboard",
   PLATFORM_UPDATES: "/atualizacoes-plataforma",
   USUARIOS: "/usuarios",
+  EQUIPES: "/equipes",
   RECOMPRA: "/recompra",
   COMPRA: "/compra",
   OCORRENCIA: "/ocorrencia",
@@ -20,14 +22,17 @@ export const ROUTES = {
 export const API_ENDPOINTS = {
   AUTH: {
     LOGIN: "/v1/auth/login",
-    CHECK_EMAIL: "/v1/auth/check-email",
   },
   UPLOAD: {
     INVOICE: "/v1/upload",
   },
   USERS: {
     LIST: "/v1/users",
+    CREATE: "/v1/users",
     TOGGLE_STATUS: "/v1/users/:id/toggle-status",
+  },
+  TEAMS: {
+    LIST: "/v1/teams",
   },
   COMPRA: {
     CRIAR: "/v1/compra",
@@ -49,6 +54,13 @@ export const STORAGE_KEYS = {
   TOKEN: "token",
   IS_AUTHENTICATED: "isAuthenticated",
   REMEMBER_ME: "rememberMe",
+  MFA_PENDING: "mfaPending",
+  MFA_PENDING_EMAIL: "mfaPendingEmail",
+  MFA_PENDING_USER: "mfaPendingUser",
+  MFA_PENDING_REMEMBER: "mfaPendingRemember",
+  // Controle local para evitar reenviar OTP em excesso (rate limit)
+  MFA_LAST_OTP_SENT_AT: "mfaLastOtpSentAt",
+  MFA_LAST_OTP_EMAIL: "mfaLastOtpEmail",
   LOGOUT_SUCCESS: "logoutSuccess",
   ACCOUNT_INACTIVE: "accountInactive",
   LOGIN_SUCCESS: "loginSuccess",

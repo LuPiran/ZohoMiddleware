@@ -27,7 +27,7 @@ export function ToastProvider({ children }) {
     <ToastContext.Provider value={{ showToast, removeToast }}>
       {children}
       <div
-        className="fixed top-4 right-4 z-[99999] flex flex-col gap-2 items-end pointer-events-none"
+        className="pointer-events-none fixed top-4 right-4 z-[99999] flex shrink-0 flex-col items-end gap-2"
         aria-live="polite"
         aria-atomic="false"
       >

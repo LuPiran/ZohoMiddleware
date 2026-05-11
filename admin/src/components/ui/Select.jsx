@@ -1,5 +1,6 @@
 import ReactSelect from "react-select";
 import { useMemo, useEffect } from "react";
+import { TegraAnimatedMenu } from "./TegraAnimatedMenu";
 
 /**
  * Componente de Select reutilizável usando react-select com design customizado
@@ -217,6 +218,10 @@ export default function Select({
         menuPortalTarget={document.body}
         menuPlacement="auto"
         {...props}
+        components={{
+          Menu: TegraAnimatedMenu,
+          ...props.components,
+        }}
       />
       {error && <p className="mt-1 text-sm text-tegra-error">{error}</p>}
     </div>

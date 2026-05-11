@@ -26,6 +26,7 @@ export default function Login() {
   const { showToast } = useToast();
   const logoutToastShownRef = useRef(false); // Usa ref para evitar re-renderizações
   const errorTransitionTimerRef = useRef(null);
+  const submitGuardRef = useRef(false); // Evita submits duplicados (rate limit do OTP)
 
   // Verifica se houve logout bem-sucedido ou conta inativa ao montar o componente
   useEffect(() => {
@@ -76,8 +77,11 @@ export default function Login() {
   async function handleSubmit(e) {
     e.preventDefault();
 
+    if (submitGuardRef.current || loading) return;
+    submitGuardRef.current = true;
     // Validação: campos obrigatórios
     if (!email.trim() || !senha.trim()) {
+      submitGuardRef.current = false;
       triggerErrorTransition();
       showToast("❌ Os campos são obrigatórios", "error");
       return;
@@ -87,18 +91,12 @@ export default function Login() {
 
     try {
       // Aguarda a resposta completa da API após verificar credenciais
-      const response = await authService.login(email, senha);
+      const response = await authService.login(email, senha, rememberMe);
 
       // Verifica se a resposta foi bem-sucedida após a verificação
       if (response && response.success) {
-        // Credenciais corretas - salva usuário e token com preferência de "Manter conectado"
-        authService.saveUser(response.usuario, response.token, rememberMe);
-
-        // Exibe popup de novidades uma vez após o login
-        sessionStorage.setItem(STORAGE_KEYS.LOGIN_SUCCESS, "true");
-
-        // Flag para pular a tela de loading na transição de rota
-        sessionStorage.setItem("SKIP_ROUTE_LOADING", "true");
+        showToast("📧 Codigo de verificacao enviado para seu e-mail.", "info", 3500);
+        // Credenciais validadas: aguarda validacao do codigo recebido por e-mail.
 
         // Aguarda um pouco antes de redirecionar
         setTimeout(() => {
@@ -106,7 +104,7 @@ export default function Login() {
             setIsTransitioning(true);
           });
           setTimeout(() => {
-            navigate(ROUTES.DASHBOARD);
+            navigate(response.requires2fa ? ROUTES.MFA : ROUTES.DASHBOARD);
           }, LOGIN_TRANSITION_MS);
         }, LOGIN_PRE_REDIRECT_DELAY_MS);
       } else {
@@ -127,18 +125,16 @@ export default function Login() {
       }
     } catch (err) {
       // Erro na requisição - volta para tela de login
+      submitGuardRef.current = false;
       setLoading(false);
 
       const errorMessage = err.error || err.message || err.toString();
       const statusCode = err.status || err.response?.status;
 
-      // Verifica se é erro de rate limiting (429 - Too Many Requests)
+      // Supabase rate limit para envio de OTP
       if (statusCode === 429) {
-        const rateLimitMessage =
-          err.error ||
-          err.response?.data?.error ||
-          "Muitas tentativas de login. Aguarde 15 minutos antes de tentar novamente.";
-        showToast(`⏱️ ${rateLimitMessage}`, "warning");
+        triggerErrorTransition();
+        showToast(errorMessage || "Aguarde alguns segundos e tente novamente.", "warning", 6000);
         return;
       }
 
@@ -186,9 +182,13 @@ export default function Login() {
           showToast("❌ E-mail ou Senha incorretos", "error");
         }, 500);
       } else {
-        // Outro tipo de erro (rede, servidor, etc)
+        // Outro tipo de erro (rede, servidor, falha SMTP no OTP, etc.)
         triggerErrorTransition();
-        showToast("❌ Erro ao fazer login. Tente novamente.", "error");
+        const detail =
+          statusCode === 500 || errorMessage.length > 80
+            ? errorMessage
+            : "❌ Erro ao fazer login. Tente novamente.";
+        showToast(detail, statusCode === 500 ? "warning" : "error", 9000);
       }
     }
   }
@@ -205,7 +205,7 @@ export default function Login() {
 
   return (
     <>
-      <div className="min-h-screen flex items-center justify-center p-4 sm:p-6 relative">
+      <div className="fixed inset-0 z-0 box-border flex w-full items-center justify-center overflow-hidden p-4 sm:p-6">
         <div
           className={`login-transition ${isTransitioning ? "is-active" : ""}`}
         />

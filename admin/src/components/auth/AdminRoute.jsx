@@ -8,6 +8,10 @@ import { ROUTES } from "../../utils/constants";
  * Redireciona para Dashboard se não tiver permissão
  */
 export default function AdminRoute({ children }) {
+  if (authService.isMfaPending()) {
+    return <Navigate to={ROUTES.MFA} replace />;
+  }
+
   // Verifica autenticação
   if (!authService.isAuthenticated()) {
     return <Navigate to={ROUTES.LOGIN} replace />;

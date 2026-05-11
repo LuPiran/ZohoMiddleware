@@ -1,13 +1,14 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import Select from "react-select";
 import { useNavigate } from "react-router-dom";
 import { authService } from "../../services/auth";
 import { usersService } from "../../services/users";
 import MainLayout from "../../components/layout/MainLayout";
 import { ROUTES } from "../../utils/constants";
-import { hasAdminPanelPermission } from "../../utils/permissions";
 import { useLoading } from "../../contexts/LoadingContext";
 import Avatar from "../../components/ui/Avatar";
 import Input from "../../components/ui/Input";
+import Button from "../../components/ui/Button";
 import {
   MdSearch,
   MdFilterList,
@@ -18,18 +19,46 @@ import {
   MdLastPage,
   MdChevronLeft,
   MdChevronRight,
+  MdAdd,
+  MdVisibility,
+  MdVisibilityOff,
 } from "react-icons/md";
 import { useToast } from "../../components/feedback/auth/ToastContainer";
+import UsersFilterDrawer from "../../components/users/UsersFilterDrawer";
+import AnimatedModal from "../../components/ui/AnimatedModal";
+import { TegraAnimatedMenu } from "../../components/ui/TegraAnimatedMenu";
+import { getTegraSelectStyles } from "../../utils/reactSelectTegraStyles";
+
+const DEFAULT_USER_FILTERS = {
+  status: "all",
+  createdFrom: null,
+  createdTo: null,
+  modifiedFrom: null,
+  modifiedTo: null,
+};
+
+const USER_TYPES = ["Consultor", "Gerente", "Diretoria", "Admin"];
 
 export default function Users() {
+  const userTypes = USER_TYPES;
+  const tipoSelectOptions = useMemo(
+    () => USER_TYPES.map((t) => ({ value: t, label: t })),
+    [],
+  );
+  const modalSelectStyles = useMemo(
+    () => getTegraSelectStyles({ menuPortalZIndex: 10000 }),
+    [],
+  );
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { setLoading } = useLoading();
   const [usuarios, setUsuarios] = useState([]);
   const [localLoading, setLocalLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [buscandoUsuario, setBuscandoUsuario] = useState(false);
-  const [isSearchActive, setIsSearchActive] = useState(false);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [appliedFilters, setAppliedFilters] = useState(DEFAULT_USER_FILTERS);
+  const [filterDraft, setFilterDraft] = useState(DEFAULT_USER_FILTERS);
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pagination, setPagination] = useState({
     page: 1,
@@ -37,6 +66,58 @@ export default function Users() {
     total: 0,
     totalPages: 1,
   });
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isCreatingUser, setIsCreatingUser] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [newUserForm, setNewUserForm] = useState({
+    nome: "",
+    email: "",
+    senha: "",
+    confirmarSenha: "",
+    tipo: "Consultor",
+  });
+
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [editingUserId, setEditingUserId] = useState(null);
+  const [editUserForm, setEditUserForm] = useState({
+    nome: "",
+    email: "",
+    tipo: "Consultor",
+    senha: "",
+    confirmarSenha: "",
+  });
+  const [showEditPassword, setShowEditPassword] = useState(false);
+  const [showEditConfirmPassword, setShowEditConfirmPassword] = useState(false);
+  const isAdmin = String(authService.getUser()?.tipo || "").toLowerCase() === "admin";
+
+  const filtersSignature = useMemo(
+    () =>
+      JSON.stringify({
+        status: appliedFilters.status,
+        createdFrom: appliedFilters.createdFrom?.toISOString?.() ?? null,
+        createdTo: appliedFilters.createdTo?.toISOString?.() ?? null,
+        modifiedFrom: appliedFilters.modifiedFrom?.toISOString?.() ?? null,
+        modifiedTo: appliedFilters.modifiedTo?.toISOString?.() ?? null,
+      }),
+    [appliedFilters],
+  );
+
+  const debounceTimerRef = useRef(null);
+  const prevDebouncedRef = useRef(debouncedSearch);
+  const prevFiltersSigRef = useRef(filtersSignature);
+  const firstLoadRef = useRef(true);
+  const searchFetchIdRef = useRef(0);
+
+  /** Busca contínua: atualiza a lista enquanto o usuário digita (com debounce curto). */
+  useEffect(() => {
+    clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = setTimeout(() => {
+      setDebouncedSearch(searchTerm.trim());
+    }, 280);
+    return () => clearTimeout(debounceTimerRef.current);
+  }, [searchTerm]);
 
   useEffect(() => {
     // Verifica autenticação
@@ -46,77 +127,140 @@ export default function Users() {
     }
 
     // Verifica permissão de Admin Painel
-    if (!hasAdminPanelPermission()) {
+    const currentUser = authService.getUser();
+    const userTipo = (currentUser?.tipo || currentUser?.Tipo || "").toLowerCase();
+    if (userTipo !== "admin") {
       showToast("❌ Você não tem permissão para acessar esta página", "error");
       navigate(ROUTES.DASHBOARD);
       return;
     }
   }, [navigate, showToast]);
 
-  const fetchUsers = useCallback(async (search = "", showGlobalLoading = false) => {
-    try {
-      setLocalLoading(true);
-      // Só ativa loading global se solicitado (não durante busca manual)
-      if (showGlobalLoading) {
-        setLoading(true);
-      }
-      
-      const response = await usersService.getUsers({
-        page: currentPage,
-        perPage: 10, // Sempre 10 itens por página
-        search: search,
-      });
-
-      if (response.success) {
-        setUsuarios(response.data || []);
-        setPagination(
-          response.pagination || {
-            page: currentPage,
-            perPage: 10,
-            total: 0,
-            totalPages: 1,
-          },
-        );
-
-        // Desativa loading após dados serem processados
-        setLocalLoading(false);
-        // Só desativa loading global se foi ativado
+  const fetchUsers = useCallback(
+    async (showGlobalLoading = false) => {
+      const id = ++searchFetchIdRef.current;
+      try {
+        setLocalLoading(true);
         if (showGlobalLoading) {
-          requestAnimationFrame(() => {
-            setTimeout(() => {
-              setLoading(false);
-            }, 150);
-          });
+          setLoading(true);
+        }
+
+        const response = await usersService.getUsers({
+          page: currentPage,
+          perPage: 10,
+          search: debouncedSearch,
+          statusFilter: appliedFilters.status,
+          createdFrom: appliedFilters.createdFrom,
+          createdTo: appliedFilters.createdTo,
+          modifiedFrom: appliedFilters.modifiedFrom,
+          modifiedTo: appliedFilters.modifiedTo,
+        });
+
+        if (id !== searchFetchIdRef.current) {
+          return;
+        }
+
+        if (response.success) {
+          const usersWithoutAdmin = (response.data || []).filter(
+            (user) => String(user?.tipo || "").toLowerCase() !== "admin",
+          );
+          setUsuarios(usersWithoutAdmin);
+          setPagination(
+            response.pagination || {
+              page: currentPage,
+              perPage: 10,
+              total: 0,
+              totalPages: 1,
+            },
+          );
+
+          setLocalLoading(false);
+          if (showGlobalLoading) {
+            requestAnimationFrame(() => {
+              setTimeout(() => {
+                setLoading(false);
+              }, 150);
+            });
+          }
+        }
+      } catch (error) {
+        if (id !== searchFetchIdRef.current) {
+          return;
+        }
+        console.error("Erro ao buscar usuários:", error);
+        if (error.status === 429) {
+          showToast("⏱️ Muitas requisições. Aguarde um momento.", "warning");
+        } else {
+          showToast("❌ Erro ao carregar usuários", "error");
+        }
+        setLocalLoading(false);
+        if (showGlobalLoading) {
+          setLoading(false);
         }
       }
-    } catch (error) {
-      console.error("Erro ao buscar usuários:", error);
-      if (error.status === 429) {
-        showToast("⏱️ Muitas requisições. Aguarde um momento.", "warning");
-      } else {
-        showToast("❌ Erro ao carregar usuários", "error");
-      }
-      setLocalLoading(false);
-      if (showGlobalLoading) {
-        setLoading(false);
-      }
-    }
-  }, [currentPage, showToast, setLoading]);
+    },
+    [currentPage, debouncedSearch, appliedFilters, showToast, setLoading],
+  );
 
-  // Carrega usuários apenas quando a página muda (não busca automaticamente)
-  // Este useEffect só carrega usuários quando não há busca ativa
   useEffect(() => {
-    // IMPORTANTE: Não executa se houver busca ativa - a busca manual cuida disso
-    if (isSearchActive) {
-      return; // Sai imediatamente se há busca ativa
+    const searchChanged = prevDebouncedRef.current !== debouncedSearch;
+    const filtersChanged = prevFiltersSigRef.current !== filtersSignature;
+    const isQueryChange = searchChanged || filtersChanged;
+
+    if (isQueryChange && currentPage !== 1) {
+      prevDebouncedRef.current = debouncedSearch;
+      prevFiltersSigRef.current = filtersSignature;
+      setCurrentPage(1);
+      return;
     }
-    
-    // Só busca automaticamente se não houver termo de busca
-    // Usa showGlobalLoading=true apenas no carregamento inicial
-    if (!searchTerm.trim()) {
-      fetchUsers("", true);
+
+    prevDebouncedRef.current = debouncedSearch;
+    prevFiltersSigRef.current = filtersSignature;
+
+    const showGlobalLoading = firstLoadRef.current;
+    if (firstLoadRef.current) {
+      firstLoadRef.current = false;
     }
-  }, [currentPage, searchTerm, isSearchActive]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    fetchUsers(showGlobalLoading);
+  }, [currentPage, debouncedSearch, filtersSignature, fetchUsers]);
+
+  function flushSearch(e) {
+    e?.preventDefault?.();
+    clearTimeout(debounceTimerRef.current);
+    setDebouncedSearch(searchTerm.trim());
+  }
+
+  function openFilterDrawer() {
+    setFilterDraft({ ...appliedFilters });
+    setFilterDrawerOpen(true);
+  }
+
+  function handleApplyFilters() {
+    const { createdFrom, createdTo, modifiedFrom, modifiedTo } = filterDraft;
+    if (createdFrom && createdTo && createdFrom > createdTo) {
+      showToast(
+        "❌ Na criação: a data inicial deve ser anterior ou igual à final.",
+        "error",
+      );
+      return;
+    }
+    if (modifiedFrom && modifiedTo && modifiedFrom > modifiedTo) {
+      showToast(
+        "❌ Na modificação: a data inicial deve ser anterior ou igual à final.",
+        "error",
+      );
+      return;
+    }
+    setAppliedFilters({ ...filterDraft });
+    setFilterDrawerOpen(false);
+  }
+
+  function handleResetFilters() {
+    setFilterDraft({ ...DEFAULT_USER_FILTERS });
+    setAppliedFilters({ ...DEFAULT_USER_FILTERS });
+    setFilterDrawerOpen(false);
+  }
 
   // Formata data para exibição
   const formatDate = (dateString) => {
@@ -132,104 +276,6 @@ export default function Users() {
       return { date: dateStr, time: timeStr };
     } catch (error) {
       return { date: "-", time: "" };
-    }
-  };
-
-  // Função para buscar usuário por nome (ao clicar no ícone de lupa)
-  const handleBuscarUsuario = async (e) => {
-    e.preventDefault();
-    
-    if (!searchTerm.trim()) {
-      // Se não há termo de busca, carrega todos os usuários
-      setCurrentPage(1);
-      setIsSearchActive(false); // Remove busca ativa
-      setBuscandoUsuario(true);
-      setLocalLoading(true);
-      try {
-        const response = await usersService.getUsers({
-          page: 1,
-          perPage: 10,
-          search: "",
-        });
-
-        if (response.success) {
-          setUsuarios(response.data || []);
-          setPagination(
-            response.pagination || {
-              page: 1,
-              perPage: 10,
-              total: 0,
-              totalPages: 1,
-            },
-          );
-          setLocalLoading(false);
-        }
-      } catch (error) {
-        console.error("Erro ao carregar usuários:", error);
-        setLocalLoading(false);
-      } finally {
-        setBuscandoUsuario(false);
-      }
-      return;
-    }
-
-    // Marca busca ativa ANTES de mudar a página para evitar que o useEffect execute
-    setIsSearchActive(true);
-    setBuscandoUsuario(true);
-    setCurrentPage(1);
-    setLocalLoading(true);
-
-    try {
-      // showGlobalLoading=false para não mostrar splash screen, apenas o overlay
-      const response = await usersService.getUsers({
-        page: 1,
-        perPage: 10,
-        search: searchTerm.trim(),
-      });
-
-      if (response.success) {
-        const usuariosEncontrados = response.data || [];
-        
-        // Atualiza a lista de usuários com os resultados da busca
-        setUsuarios(usuariosEncontrados);
-        setPagination(
-          response.pagination || {
-            page: 1,
-            perPage: 10,
-            total: usuariosEncontrados.length,
-            totalPages: 1,
-          },
-        );
-
-        // Desativa loading
-        setLocalLoading(false);
-        setBuscandoUsuario(false);
-        // Mantém isSearchActive como true para evitar que o useEffect sobrescreva
-
-        // Mostra toast baseado no resultado
-        if (usuariosEncontrados.length > 0) {
-          showToast("✅ Usuário encontrado", "success", 2000);
-        } else {
-          showToast("❌ Usuário não encontrado", "error", 3000);
-        }
-      } else {
-        setUsuarios([]);
-        setLocalLoading(false);
-        setBuscandoUsuario(false);
-        setIsSearchActive(false);
-        showToast("❌ Usuário não encontrado", "error", 3000);
-      }
-    } catch (error) {
-      console.error("Erro ao buscar usuário:", error);
-      setUsuarios([]);
-      setLocalLoading(false);
-      setBuscandoUsuario(false);
-      setIsSearchActive(false);
-      if (error.status === 429) {
-        showToast("⏱️ Muitas requisições. Aguarde um momento.", "warning");
-      } else {
-        showToast("❌ Usuário não encontrado", "error", 3000);
-      }
     }
   };
 
@@ -285,72 +331,638 @@ export default function Users() {
     }
   };
 
+  const passwordChecks = {
+    minLength: newUserForm.senha.length >= 8,
+    uppercase: /[A-Z]/.test(newUserForm.senha),
+    lowercase: /[a-z]/.test(newUserForm.senha),
+    number: /\d/.test(newUserForm.senha),
+    special: /[^A-Za-z0-9]/.test(newUserForm.senha),
+  };
+
+  const passedChecks = Object.values(passwordChecks).filter(Boolean).length;
+  const strengthPercentage = (passedChecks / 5) * 100;
+  const passwordStrength =
+    passedChecks <= 2 ? "fraca" : passedChecks <= 4 ? "media" : "forte";
+
+  const passwordRequirementsText = [
+    !passwordChecks.minLength ? "pelo menos 8 caracteres" : null,
+    !passwordChecks.uppercase ? "1 letra maiúscula" : null,
+    !passwordChecks.lowercase ? "1 letra minúscula" : null,
+    !passwordChecks.number ? "1 número" : null,
+    !passwordChecks.special ? "1 caractere especial" : null,
+  ]
+    .filter(Boolean)
+    .join(", ");
+
+  const passwordBarColor =
+    passwordStrength === "forte"
+      ? "bg-tegra-success"
+      : passwordStrength === "media"
+        ? "bg-yellow-500"
+        : "bg-tegra-error";
+
+  function resetCreateUserForm() {
+    setNewUserForm({
+      nome: "",
+      email: "",
+      senha: "",
+      confirmarSenha: "",
+      tipo: "Consultor",
+    });
+    setShowPassword(false);
+    setShowConfirmPassword(false);
+  }
+
+  function handleOpenCreateModal() {
+    resetCreateUserForm();
+    setIsCreateModalOpen(true);
+  }
+
+  function handleCloseCreateModal() {
+    if (isCreatingUser) return;
+    setIsCreateModalOpen(false);
+    resetCreateUserForm();
+  }
+
+  function openEditModal(usuario) {
+    const tipoRaw = (usuario.tipo || "Consultor").trim();
+    const tipoValid = userTypes.includes(tipoRaw) ? tipoRaw : "Consultor";
+    setEditingUserId(usuario.id);
+    setEditUserForm({
+      nome: usuario.nome || "",
+      email: usuario.email || "",
+      tipo: tipoValid,
+      senha: "",
+      confirmarSenha: "",
+    });
+    setShowEditPassword(false);
+    setShowEditConfirmPassword(false);
+    setIsEditModalOpen(true);
+  }
+
+  function handleCloseEditModal() {
+    if (isSavingEdit) return;
+    setIsEditModalOpen(false);
+    setEditingUserId(null);
+    setEditUserForm({
+      nome: "",
+      email: "",
+      tipo: "Consultor",
+      senha: "",
+      confirmarSenha: "",
+    });
+    setShowEditPassword(false);
+    setShowEditConfirmPassword(false);
+  }
+
+  const editPasswordChecks = {
+    minLength: editUserForm.senha.length >= 8,
+    uppercase: /[A-Z]/.test(editUserForm.senha),
+    lowercase: /[a-z]/.test(editUserForm.senha),
+    number: /\d/.test(editUserForm.senha),
+    special: /[^A-Za-z0-9]/.test(editUserForm.senha),
+  };
+  const editPassedChecks = Object.values(editPasswordChecks).filter(Boolean).length;
+  const editStrengthPercentage =
+    editUserForm.senha.length > 0 ? (editPassedChecks / 5) * 100 : 0;
+  const editPasswordStrength =
+    editUserForm.senha.length === 0
+      ? ""
+      : editPassedChecks <= 2
+        ? "fraca"
+        : editPassedChecks <= 4
+          ? "media"
+          : "forte";
+  const editPasswordRequirementsText = [
+    !editPasswordChecks.minLength ? "pelo menos 8 caracteres" : null,
+    !editPasswordChecks.uppercase ? "1 letra maiúscula" : null,
+    !editPasswordChecks.lowercase ? "1 letra minúscula" : null,
+    !editPasswordChecks.number ? "1 número" : null,
+    !editPasswordChecks.special ? "1 caractere especial" : null,
+  ]
+    .filter(Boolean)
+    .join(", ");
+  const editPasswordBarColor =
+    editUserForm.senha.length === 0
+      ? "bg-tegra-gray-light"
+      : editPasswordStrength === "forte"
+        ? "bg-tegra-success"
+        : editPasswordStrength === "media"
+          ? "bg-yellow-500"
+          : "bg-tegra-error";
+
+  function validateEditUserForm() {
+    const nome = editUserForm.nome.trim();
+    const email = editUserForm.email.trim().toLowerCase();
+    const senha = editUserForm.senha;
+    const confirmarSenha = editUserForm.confirmarSenha;
+
+    if (!nome || !email || !editUserForm.tipo.trim()) {
+      showToast("❌ Nome, e-mail e tipo são obrigatórios", "error");
+      return false;
+    }
+
+    if (!email.includes("@") || !email.includes(".")) {
+      showToast("❌ O e-mail deve ser válido (conter @ e .)", "error");
+      return false;
+    }
+
+    if (senha || confirmarSenha) {
+      if (editPasswordRequirementsText) {
+        showToast("❌ A nova senha não atende aos critérios mínimos", "error");
+        return false;
+      }
+      if (senha !== confirmarSenha) {
+        showToast("❌ As senhas devem coincidir", "error");
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  async function handleSubmitEdit(e) {
+    e.preventDefault();
+    if (!editingUserId || !validateEditUserForm()) return;
+
+    try {
+      setIsSavingEdit(true);
+      setLoading(true);
+      const payload = {
+        nome: editUserForm.nome.trim(),
+        email: editUserForm.email.trim().toLowerCase(),
+        tipo: editUserForm.tipo.trim(),
+        senha: editUserForm.senha.trim() || undefined,
+      };
+      const response = await usersService.updateUser(editingUserId, payload);
+      if (response.success) {
+        showToast("✅ Usuário atualizado com sucesso", "success");
+        handleCloseEditModal();
+        await fetchUsers(false);
+      }
+    } catch (error) {
+      if (error.status === 409) {
+        showToast("❌ Este e-mail já está em uso", "error");
+      } else if (error.status === 403 && error.code === "TIPO_NAO_ADMIN") {
+        showToast(
+          `❌ Sem permissão (tipo no banco: ${error.tipoLido ?? "—"}).`,
+          "error",
+          6000,
+        );
+      } else {
+        showToast(error.error || "❌ Erro ao atualizar usuário", "error");
+      }
+    } finally {
+      setIsSavingEdit(false);
+      setLoading(false);
+    }
+  }
+
+  function validateCreateUserForm() {
+    const nome = newUserForm.nome.trim();
+    const email = newUserForm.email.trim().toLowerCase();
+    const senha = newUserForm.senha;
+    const confirmarSenha = newUserForm.confirmarSenha;
+
+    if (!nome || !email || !senha || !confirmarSenha || !newUserForm.tipo.trim()) {
+      showToast("❌ Os campos não podem ser vazios", "error");
+      return false;
+    }
+
+    if (!email.includes("@") || !email.includes(".")) {
+      showToast("❌ O e-mail deve ser válido (conter @ e .)", "error");
+      return false;
+    }
+
+    if (passwordRequirementsText) {
+      showToast("❌ A senha não atende aos critérios mínimos", "error");
+      return false;
+    }
+
+    if (senha !== confirmarSenha) {
+      showToast("❌ As senhas devem coincidir", "error");
+      return false;
+    }
+
+    return true;
+  }
+
+  async function handleCreateUser(e) {
+    e.preventDefault();
+    if (!validateCreateUserForm()) return;
+
+    try {
+      setIsCreatingUser(true);
+      setLoading(true);
+      const payload = {
+        nome: newUserForm.nome.trim(),
+        email: newUserForm.email.trim().toLowerCase(),
+        senha: newUserForm.senha,
+        tipo: newUserForm.tipo.trim(),
+      };
+      const response = await usersService.createUser(payload);
+
+      if (response.success) {
+        showToast("✅ Usuário criado com sucesso", "success");
+        handleCloseCreateModal();
+        await fetchUsers(false);
+        navigate(ROUTES.USUARIOS, { replace: true });
+      }
+    } catch (error) {
+      if (error.status === 409) {
+        showToast("❌ Este e-mail já está cadastrado", "error");
+      } else if (error.status === 403 && error.code === "TIPO_NAO_ADMIN") {
+        showToast(
+          `❌ Seu perfil no banco não está como Admin (tipo atual: ${error.tipoLido ?? "—"}).`,
+          "error",
+          6000,
+        );
+      } else {
+        showToast(error.error || "❌ Erro ao criar usuário", "error");
+      }
+    } finally {
+      setIsCreatingUser(false);
+      setLoading(false);
+    }
+  }
+
   return (
     <MainLayout>
+      <UsersFilterDrawer
+        open={filterDrawerOpen}
+        onClose={() => setFilterDrawerOpen(false)}
+        draft={filterDraft}
+        setDraft={setFilterDraft}
+        onApply={handleApplyFilters}
+        onReset={handleResetFilters}
+      />
+
+      <AnimatedModal
+        open={isCreateModalOpen}
+        onClose={handleCloseCreateModal}
+        panelClassName="max-h-[90vh] overflow-y-auto"
+      >
+            <div className="flex items-center justify-between px-5 py-4 border-b border-tegra-gray-medium">
+              <h2 className="text-lg sm:text-xl font-bold text-tegra-text-primary">
+                Criar usuário
+              </h2>
+              <button
+                type="button"
+                onClick={handleCloseCreateModal}
+                className="text-tegra-text-secondary hover:text-tegra-text-primary transition"
+                disabled={isCreatingUser}
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateUser} className="px-5 py-4 space-y-4">
+              <Input
+                label="Nome"
+                value={newUserForm.nome}
+                onChange={(e) =>
+                  setNewUserForm((prev) => ({ ...prev, nome: e.target.value }))
+                }
+                placeholder="Nome completo"
+                disabled={isCreatingUser}
+              />
+
+              <Input
+                label="Email"
+                type="email"
+                value={newUserForm.email}
+                onChange={(e) =>
+                  setNewUserForm((prev) => ({ ...prev, email: e.target.value }))
+                }
+                placeholder="email@dominio.com"
+                disabled={isCreatingUser}
+              />
+
+              <div>
+                <Input
+                  label="Senha"
+                  type={showPassword ? "text" : "password"}
+                  value={newUserForm.senha}
+                  onChange={(e) =>
+                    setNewUserForm((prev) => ({ ...prev, senha: e.target.value }))
+                  }
+                  placeholder="Digite uma senha forte"
+                  disabled={isCreatingUser}
+                  iconRight={
+                    showPassword ? (
+                      <MdVisibilityOff className="text-xl" />
+                    ) : (
+                      <MdVisibility className="text-xl" />
+                    )
+                  }
+                  onIconClick={() => setShowPassword((prev) => !prev)}
+                />
+                <div className="mt-2">
+                  <div className="h-2 w-full rounded-full bg-tegra-gray-light overflow-hidden">
+                    <div
+                      className={`h-full transition-all duration-300 ${passwordBarColor}`}
+                      style={{ width: `${strengthPercentage}%` }}
+                    />
+                  </div>
+                  <p
+                    className={`mt-1 text-xs ${
+                      passwordStrength === "forte"
+                        ? "text-tegra-success"
+                        : passwordStrength === "media"
+                          ? "text-yellow-600"
+                          : "text-tegra-error"
+                    }`}
+                  >
+                    Força da senha: {passwordStrength}
+                  </p>
+                  <p className="mt-1 text-xs text-tegra-text-secondary">
+                    {passwordRequirementsText
+                      ? `Falta: ${passwordRequirementsText}`
+                      : "Senha atende a todos os critérios"}
+                  </p>
+                </div>
+              </div>
+
+              <Input
+                label="Confirmar senha"
+                type={showConfirmPassword ? "text" : "password"}
+                value={newUserForm.confirmarSenha}
+                onChange={(e) =>
+                  setNewUserForm((prev) => ({
+                    ...prev,
+                    confirmarSenha: e.target.value,
+                  }))
+                }
+                placeholder="Repita a senha"
+                disabled={isCreatingUser}
+                iconRight={
+                  showConfirmPassword ? (
+                    <MdVisibilityOff className="text-xl" />
+                  ) : (
+                    <MdVisibility className="text-xl" />
+                  )
+                }
+                onIconClick={() => setShowConfirmPassword((prev) => !prev)}
+              />
+
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-tegra-text-secondary mb-1.5 sm:mb-2">
+                  Tipo
+                </label>
+                <Select
+                  instanceId="users-create-tipo"
+                  options={tipoSelectOptions}
+                  value={
+                    tipoSelectOptions.find((o) => o.value === newUserForm.tipo) ||
+                    tipoSelectOptions[0]
+                  }
+                  onChange={(opt) =>
+                    setNewUserForm((prev) => ({
+                      ...prev,
+                      tipo: opt?.value ?? "Consultor",
+                    }))
+                  }
+                  isDisabled={isCreatingUser}
+                  styles={modalSelectStyles}
+                  components={{ Menu: TegraAnimatedMenu }}
+                  menuPortalTarget={
+                    typeof document !== "undefined" ? document.body : null
+                  }
+                  menuPosition="fixed"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={handleCloseCreateModal}
+                  disabled={isCreatingUser}
+                >
+                  Cancelar
+                </Button>
+                <Button type="submit" loading={isCreatingUser} variant="primary">
+                  Criar usuário
+                </Button>
+              </div>
+            </form>
+      </AnimatedModal>
+
+      <AnimatedModal
+        open={isEditModalOpen}
+        onClose={handleCloseEditModal}
+        panelClassName="max-h-[90vh] overflow-y-auto"
+      >
+            <div className="flex items-center justify-between px-5 py-4 border-b border-tegra-gray-medium">
+              <h2 className="text-lg sm:text-xl font-bold text-tegra-text-primary">
+                Editar usuário
+              </h2>
+              <button
+                type="button"
+                onClick={handleCloseEditModal}
+                className="text-tegra-text-secondary hover:text-tegra-text-primary transition"
+                disabled={isSavingEdit}
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitEdit} className="px-5 py-4 space-y-4">
+              <Input
+                label="Nome"
+                value={editUserForm.nome}
+                onChange={(e) =>
+                  setEditUserForm((prev) => ({ ...prev, nome: e.target.value }))
+                }
+                placeholder="Nome completo"
+                disabled={isSavingEdit}
+              />
+
+              <Input
+                label="Email"
+                type="email"
+                value={editUserForm.email}
+                onChange={(e) =>
+                  setEditUserForm((prev) => ({ ...prev, email: e.target.value }))
+                }
+                placeholder="email@dominio.com"
+                disabled={isSavingEdit}
+              />
+
+              <div>
+                <Input
+                  label="Nova senha (opcional)"
+                  type={showEditPassword ? "text" : "password"}
+                  value={editUserForm.senha}
+                  onChange={(e) =>
+                    setEditUserForm((prev) => ({ ...prev, senha: e.target.value }))
+                  }
+                  placeholder="Deixe em branco para manter a senha atual"
+                  disabled={isSavingEdit}
+                  iconRight={
+                    showEditPassword ? (
+                      <MdVisibilityOff className="text-xl" />
+                    ) : (
+                      <MdVisibility className="text-xl" />
+                    )
+                  }
+                  onIconClick={() => setShowEditPassword((prev) => !prev)}
+                />
+                {editUserForm.senha.length > 0 && (
+                  <div className="mt-2">
+                    <div className="h-2 w-full rounded-full bg-tegra-gray-light overflow-hidden">
+                      <div
+                        className={`h-full transition-all duration-300 ${editPasswordBarColor}`}
+                        style={{ width: `${editStrengthPercentage}%` }}
+                      />
+                    </div>
+                    <p
+                      className={`mt-1 text-xs ${
+                        editPasswordStrength === "forte"
+                          ? "text-tegra-success"
+                          : editPasswordStrength === "media"
+                            ? "text-yellow-600"
+                            : "text-tegra-error"
+                      }`}
+                    >
+                      Força da senha: {editPasswordStrength}
+                    </p>
+                    <p className="mt-1 text-xs text-tegra-text-secondary">
+                      {editPasswordRequirementsText
+                        ? `Falta: ${editPasswordRequirementsText}`
+                        : "Senha atende a todos os critérios"}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <Input
+                label="Confirmar nova senha"
+                type={showEditConfirmPassword ? "text" : "password"}
+                value={editUserForm.confirmarSenha}
+                onChange={(e) =>
+                  setEditUserForm((prev) => ({
+                    ...prev,
+                    confirmarSenha: e.target.value,
+                  }))
+                }
+                placeholder="Repita a nova senha"
+                disabled={isSavingEdit}
+                iconRight={
+                  showEditConfirmPassword ? (
+                    <MdVisibilityOff className="text-xl" />
+                  ) : (
+                    <MdVisibility className="text-xl" />
+                  )
+                }
+                onIconClick={() => setShowEditConfirmPassword((prev) => !prev)}
+              />
+
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-tegra-text-secondary mb-1.5 sm:mb-2">
+                  Tipo
+                </label>
+                <Select
+                  instanceId="users-edit-tipo"
+                  options={tipoSelectOptions}
+                  value={
+                    tipoSelectOptions.find((o) => o.value === editUserForm.tipo) ||
+                    tipoSelectOptions[0]
+                  }
+                  onChange={(opt) =>
+                    setEditUserForm((prev) => ({
+                      ...prev,
+                      tipo: opt?.value ?? "Consultor",
+                    }))
+                  }
+                  isDisabled={isSavingEdit}
+                  styles={modalSelectStyles}
+                  components={{ Menu: TegraAnimatedMenu }}
+                  menuPortalTarget={
+                    typeof document !== "undefined" ? document.body : null
+                  }
+                  menuPosition="fixed"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={handleCloseEditModal}
+                  disabled={isSavingEdit}
+                >
+                  Cancelar
+                </Button>
+                <Button type="submit" loading={isSavingEdit} variant="primary">
+                  Salvar alterações
+                </Button>
+              </div>
+            </form>
+      </AnimatedModal>
+
       {/* Overlay de loading ao buscar usuário */}
-      {buscandoUsuario && (
-        <div className="cpf-loading-overlay" aria-live="polite">
-          <div className="cpf-loading-glass" role="status">
-            <div className="cpf-loading-spinner" />
-            <p className="cpf-loading-text">Buscando usuário...</p>
-          </div>
-        </div>
-      )}
-
       <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
-        {/* Cabeçalho com título e busca */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 mb-4 sm:mb-6">
-          <h1 className="text-xl sm:text-2xl font-bold text-tegra-text-primary">
-            Usuários
-          </h1>
+        {/* Cabeçalho */}
+        <div className="mb-4 space-y-3 sm:mb-6">
+          <div className="flex w-full items-center justify-between gap-3">
+            <h1 className="text-xl sm:text-2xl font-bold text-tegra-text-primary">
+              Usuários
+            </h1>
+            {isAdmin && (
+              <Button type="button" variant="primary" onClick={handleOpenCreateModal}>
+                <span className="inline-flex items-center gap-1.5">
+                  <MdAdd className="text-lg" />
+                  Adicionar
+                </span>
+              </Button>
+            )}
+          </div>
 
-          {/* Barra de busca e filtro */}
-          <div className="flex items-center gap-2 w-full sm:w-auto">
+          {/* Barra de busca e filtro (abaixo do botão) */}
+          <div className="flex w-full items-center justify-end gap-2">
             <div className="flex-1 sm:flex-initial sm:w-64">
               <Input
                 label=""
                 type="text"
                 value={searchTerm}
-                onChange={(e) => {
-                  // Apenas atualiza o valor, não busca automaticamente
-                  setSearchTerm(e.target.value);
-                }}
-                placeholder="Buscar por nome..."
-                icon={<MdSearch className="text-xl" />}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Buscar por nome ou e-mail..."
                 iconRight={<MdSearch className="text-xl" />}
                 onIconClick={(e) => {
                   e.preventDefault();
-                  if (!buscandoUsuario) {
-                    handleBuscarUsuario(e);
-                  }
+                  flushSearch(e);
                 }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();
-                    if (!buscandoUsuario) {
-                      handleBuscarUsuario(e);
-                    }
+                    flushSearch(e);
                   }
                 }}
-                disabled={buscandoUsuario}
               />
             </div>
             <button
-              className="p-2 border-2 border-tegra-blue-dark rounded-lg text-tegra-blue-dark hover:bg-tegra-blue-light transition"
+              type="button"
+              onClick={openFilterDrawer}
+              className="relative p-2 border-2 border-tegra-blue-dark rounded-lg text-tegra-blue-dark hover:bg-tegra-blue-light transition"
               title="Filtrar"
+              aria-label="Abrir filtros"
             >
               <MdFilterList className="text-lg sm:text-xl" />
+              {(appliedFilters.status !== "all" ||
+                appliedFilters.createdFrom ||
+                appliedFilters.createdTo ||
+                appliedFilters.modifiedFrom ||
+                appliedFilters.modifiedTo) && (
+                <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-tegra-teal ring-2 ring-white" />
+              )}
             </button>
           </div>
         </div>
 
         {/* Tabela/Cards */}
         <div className="bg-tegra-bg-primary rounded-lg shadow-md overflow-hidden">
-          {buscandoUsuario ? (
-            <div className="p-6 sm:p-8 text-center text-tegra-text-secondary text-sm sm:text-base">
-              Buscando usuário...
-            </div>
-          ) : localLoading && usuarios.length === 0 ? (
+          {localLoading && usuarios.length === 0 ? (
             <div className="p-6 sm:p-8 text-center text-tegra-text-secondary text-sm sm:text-base">
               Carregando usuários...
             </div>
@@ -438,6 +1050,8 @@ export default function Users() {
                         {/* Ações */}
                         <div className="flex items-center justify-end gap-2 pt-3 border-t border-tegra-gray-medium">
                           <button
+                            type="button"
+                            onClick={() => openEditModal(usuario)}
                             className="p-2 text-tegra-blue-dark hover:bg-tegra-blue-light rounded transition"
                             title="Editar"
                             aria-label="Editar usuário"
@@ -584,6 +1198,8 @@ export default function Users() {
                             <td className="px-4 md:px-6 py-4">
                               <div className="flex items-center justify-center gap-2">
                                 <button
+                                  type="button"
+                                  onClick={() => openEditModal(usuario)}
                                   className="p-2 text-tegra-blue-dark hover:bg-tegra-blue-light rounded transition"
                                   title="Editar"
                                   aria-label="Editar usuário"

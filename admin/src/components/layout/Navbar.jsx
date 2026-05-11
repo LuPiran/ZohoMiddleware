@@ -3,6 +3,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import {
   MdDashboard,
   MdPeople,
+  MdGroups,
   MdShoppingCart,
   MdAssignment,
   MdReport,
@@ -14,7 +15,8 @@ import {
   MdBook,
 } from "react-icons/md";
 import { ROUTES } from "../../utils/constants";
-import { hasAdminPanelPermission } from "../../utils/permissions";
+import SpringHover from "../animation/SpringHover";
+import { hasAdminPanelPermission, isGerente } from "../../utils/permissions";
 import { useMenu } from "../../contexts/MenuContext";
 import { useUserDropdown } from "../../contexts/UserContext";
 
@@ -26,6 +28,7 @@ export default function Navbar() {
   const { showUserDropdown, setShowUserDropdown } = useUserDropdown();
   const location = useLocation();
   const isAdmin = hasAdminPanelPermission();
+  const canSeeTeams = isAdmin || isGerente();
   const prevPathnameRef = useRef(location.pathname);
 
   // Fecha o menu apenas quando a rota realmente muda (não na primeira renderização)
@@ -63,6 +66,12 @@ export default function Navbar() {
       label: "Usuários",
       icon: <MdPeople className="text-xl" />,
       show: isAdmin, // Apenas para Admin Painel
+    },
+    {
+      path: ROUTES.EQUIPES,
+      label: "Equipes",
+      icon: <MdGroups className="text-xl" />,
+      show: canSeeTeams,
     },
     {
       path: ROUTES.COMPRA,
@@ -109,20 +118,21 @@ export default function Navbar() {
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
           <div className="flex justify-center space-x-1">
             {navItems.map((item) => (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                className={({ isActive }) =>
-                  `flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 ${
-                    isActive
-                      ? "text-tegra-blue-dark border-tegra-blue-dark"
-                      : "text-tegra-text-secondary border-transparent hover:text-tegra-blue-dark hover:border-tegra-blue-dark"
-                  }`
-                }
-              >
-                {item.icon}
-                {item.label}
-              </NavLink>
+              <SpringHover key={item.path} className="inline-flex">
+                <NavLink
+                  to={item.path}
+                  className={({ isActive }) =>
+                    `flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 ${
+                      isActive
+                        ? "text-tegra-blue-dark border-tegra-blue-dark"
+                        : "text-tegra-text-secondary border-transparent hover:text-tegra-blue-dark hover:border-tegra-blue-dark"
+                    }`
+                  }
+                >
+                  {item.icon}
+                  {item.label}
+                </NavLink>
+              </SpringHover>
             ))}
           </div>
         </div>

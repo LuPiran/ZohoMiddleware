@@ -10,10 +10,17 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@react-spring/web": "^10.0.3",
+    "@supabase/supabase-js": "^2.100.1",
     "@tailwindcss/vite": "^4.1.18",
     "axios": "^1.13.3",
+    "date-fns": "^4.1.0",
+    "flubber": "^0.4.2",
+    "framer-motion": "^12.38.0",
+    "gsap": "^3.14.2",
     "jspdf": "^4.1.0",
     "react": "^19.2.0",
+    "react-datepicker": "^9.1.0",
     "react-dom": "^19.2.0",
     "react-icons": "^5.5.0",
     "react-router-dom": "^6.30.3",

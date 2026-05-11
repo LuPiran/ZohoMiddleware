@@ -16,13 +16,15 @@ export function hasAdminPanelPermission() {
     user.profile ||
     user.Perfil_Usuario ||
     user.perfil_usuario ||
+    user.tipo ||
+    user.Tipo ||
     "";
 
-  // Verifica se o perfil é "Admin Painel"
+  // Mantem compatibilidade com legado Zoho e novo modelo Supabase.
   return (
     perfil &&
     typeof perfil === "string" &&
-    perfil.trim().toLowerCase() === "admin painel"
+    ["admin painel", "admin", "diretoria"].includes(perfil.trim().toLowerCase())
   );
 }
 
@@ -42,6 +44,8 @@ export function isAdminPortal() {
     user.profile ||
     user.Perfil_Usuario ||
     user.perfil_usuario ||
+    user.tipo ||
+    user.Tipo ||
     "";
 
   // Verifica se o perfil é "Admin Portal"
@@ -50,4 +54,15 @@ export function isAdminPortal() {
     typeof perfil === "string" &&
     perfil.trim().toLowerCase() === "admin portal"
   );
+}
+
+export function isGerente() {
+  const user = authService.getUser();
+  if (!user) return false;
+  const tipo = String(user.tipo || user.Tipo || "").trim().toLowerCase();
+  return tipo === "gerente";
+}
+
+export function hasTeamPermission() {
+  return hasAdminPanelPermission() || isGerente();
 }

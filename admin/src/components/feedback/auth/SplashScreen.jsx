@@ -1,32 +1,28 @@
+import { useSpring, animated, config } from "@react-spring/web";
+import TegraLosangosLoader from "../../animation/TegraLosangosLoader";
 
 /**
- * Componente de Splash Screen
- * Tela de carregamento reutilizável
+ * Splash com losangos Tegra desenhados via GSAP (efeito DrawSVG) + texto em leve pulso (React Spring).
  */
 export default function SplashScreen({ message = "Carregando..." }) {
+  const textSpring = useSpring({
+    from: { opacity: 0.65 },
+    to: { opacity: 1 },
+    loop: { reverse: true },
+    config: { ...config.gentle, duration: 550 },
+  });
+
   return (
-    <div className="fixed inset-0 bg-tegra-bg-primary flex items-center justify-center z-50">
-      <div className="flex flex-col items-center gap-6">
-        {/* Logo com círculo girando em volta */}
-        <div className="relative w-40 h-40 flex items-center justify-center">
-          {/* Círculo girando em volta */}
-          <div className="absolute inset-0 border-4 border-tegra-teal border-t-transparent rounded-full animate-spin"></div>
-
-          {/* Logo no centro */}
-          <div className="relative z-10">
-            <img
-              src="/logoCorp.png"
-              alt="Logo corporativo"
-              className="h-20 w-auto object-contain"
-            />
-          </div>
-        </div>
-
-        {/* Mensagem opcional */}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-tegra-bg-primary/95 backdrop-blur-sm">
+      <div className="flex flex-col items-center gap-8">
+        <TegraLosangosLoader size="lg" />
         {message && (
-          <p className="text-tegra-text-secondary text-sm font-medium animate-pulse">
+          <animated.p
+            style={textSpring}
+            className="text-tegra-text-secondary text-sm font-medium text-center max-w-xs px-4"
+          >
             {message}
-          </p>
+          </animated.p>
         )}
       </div>
     </div>

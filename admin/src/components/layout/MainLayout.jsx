@@ -6,6 +6,7 @@ import { getPlatformUpdateStorageKey, ROUTES } from "../../utils/constants";
 import { authService } from "../../services/auth";
 import Header from "./Header";
 import Navbar from "./Navbar";
+import BounceFooter from "./BounceFooter";
 
 /**
  * Layout principal da aplicação
@@ -35,10 +36,11 @@ export default function MainLayout({ children }) {
   }
 
   return (
-    <div className="min-h-screen bg-tegra-bg-secondary">
+    <div className="flex min-h-screen w-full flex-1 flex-col bg-tegra-bg-secondary">
       <Header />
       <Navbar />
-      <main>{children}</main>
+      <main className="flex min-h-0 flex-1 flex-col">{children}</main>
+      <BounceFooter />
       {!isFaqRoute && (
         <NavLink
           to={ROUTES.FAQ}
