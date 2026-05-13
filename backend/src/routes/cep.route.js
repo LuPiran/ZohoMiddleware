@@ -41,7 +41,7 @@ router.get("/:cep", async (req, res) => {
   try {
     const { cep } = req.params;
     const cepLimpo = cep.replace(/\D/g, "");
-    const cepProvider = (ENV.CEP_PROVIDER || "viacep").trim().toLowerCase();
+    const cepProvider = (ENV.CEP_PROVIDER || "contracted").trim().toLowerCase();
 
     console.log(
       "[CEP API] Requisição recebida - CEP original:",
@@ -84,20 +84,13 @@ router.get("/:cep", async (req, res) => {
     const cepApiPassword = (ENV.CEP_API_PASSWORD || "").trim();
 
     if (!cepApiUrl || !cepApiPassword) {
-      console.warn(
-        "[CEP API] Configuração ausente para provedor contratado; usando fallback ViaCEP",
+      console.error(
+        "[CEP API] Configuração ausente para provedor contratado (CEP_API_URL/CEP_API_PASSWORD)",
       );
-
-      const viaCepData = await fetchViaCep(cepLimpo, requestTimeout);
-
-      if (!viaCepData) {
-        return res.status(404).json({
-          erro: true,
-          message: "CEP não encontrado",
-        });
-      }
-
-      return res.json(viaCepData);
+      return res.status(500).json({
+        erro: true,
+        message: "Serviço de CEP contratado não está configurado no servidor",
+      });
     }
 
     console.log("[CEP API] Usando provedor contratado:", cepApiUrl);
