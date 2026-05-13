@@ -238,6 +238,12 @@ export default function SavedForms() {
     setOcorrenciasBandejaAberta(true);
   };
 
+  const filtroStatusOcorrenciaMap = {
+    nao_atendida: "nao_atendida",
+    em_tratamento: "em_tratamento",
+    resolvidas: "resolvida",
+  };
+
   const filteredForms = forms.filter((form) => {
     if (filtroAtivo === "todos") {
       return true;
@@ -248,7 +254,8 @@ export default function SavedForms() {
     }
 
     if (["nao_atendida", "em_tratamento", "resolvidas"].includes(filtroAtivo)) {
-      return form.tipo === "ocorrencia" && form.crmStatus === filtroAtivo;
+      const statusEsperado = filtroStatusOcorrenciaMap[filtroAtivo];
+      return form.tipo === "ocorrencia" && form.crmStatus === statusEsperado;
     }
 
     return form.tipo === filtroAtivo;
