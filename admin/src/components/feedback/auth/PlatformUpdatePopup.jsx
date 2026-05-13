@@ -9,11 +9,11 @@ import {
 } from "react-icons/md";
 
 const UPDATE_CONTENT = {
-  badge: "Release V3.5",
+  badge: "Release V3.6",
   date: "Atualizado em 13/05/2026",
   title: "Novidades do Portal",
   description:
-    "Atualizamos o portal com foco em ocorrências, correção de CEP e novas camadas de validação para reduzir ao máximo a chance de alguma solicitação não subir.",
+    "Atualizamos o portal com foco em ocorrências, aumento do prazo dos rascunhos, correção de CEP e novas camadas de validação para reduzir ao máximo a chance de alguma solicitação não subir.",
 };
 
 const TRACKING_HIGHLIGHT = {
@@ -29,6 +29,12 @@ const DEFAULT_HIGHLIGHTS = [
     text: "As ocorrências enviadas agora permanecem em Formulários Salvos até o BackOffice tratar a solicitação no CRM, permitindo acompanhar o andamento com mais transparência.",
     icon: MdChecklist,
     iconClass: "bg-indigo-100 text-indigo-700",
+  },
+  {
+    label: "Rascunhos com mais tempo de vida:",
+    text: "Os formulários salvos como rascunho agora ficam disponíveis por 15 dias antes da expiração automática, dando mais flexibilidade para concluir o envio.",
+    icon: MdChecklist,
+    iconClass: "bg-blue-100 text-blue-700",
   },
   {
     label: "Analista responsável visível:",

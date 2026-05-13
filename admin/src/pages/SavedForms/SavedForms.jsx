@@ -96,14 +96,14 @@ export default function SavedForms() {
     });
   };
 
-  const addDays = (dateString, days = 10) => {
+  const addDays = (dateString, days = 15) => {
     const result = new Date(dateString);
     result.setDate(result.getDate() + days);
     return result;
   };
 
   const formatarTempoRestante = (dataSalvamento) => {
-    const expirationDate = addDays(dataSalvamento, 10);
+    const expirationDate = addDays(dataSalvamento, 15);
     const diffMs = expirationDate.getTime() - currentTime;
 
     if (diffMs <= 0) {
@@ -552,7 +552,7 @@ export default function SavedForms() {
           <p className="text-xs sm:text-sm text-tegra-text-secondary">
             <span className="font-semibold text-tegra-blue-dark">💡 Dica:</span> Os formulários salvos
             ficam vinculados ao seu usuário e podem ser acessados em outros dispositivos com o mesmo login.
-            Para manter o sistema leve, eles expiram automaticamente após 10 dias.
+            Para manter o sistema leve, eles expiram automaticamente após 15 dias.
           </p>
         </div>
       </div>

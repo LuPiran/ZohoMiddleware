@@ -8,7 +8,7 @@ const faqData = [
     itens: [
       {
         pergunta: "Posso interromper o preenchimento de um formulário e continuar depois?",
-        resposta: "Sim! Em qualquer formulário (Compra, Recompra, Proposta ou Ocorrência), você pode clicar no botão <strong>'Salvar formulário'</strong> (botão cinza secundário). Isso criará um rascunho que será armazenado. Você pode acessá-lo depois no menu <strong>'Formulários Salvos'</strong>. Lá você verá o prazo de expiração (que é de <strong>10 dias</strong>) e poderá clicar em 'Recuperar' para voltar exatamente de onde parou.",
+        resposta: "Sim! Em qualquer formulário (Compra, Recompra, Proposta ou Ocorrência), você pode clicar no botão <strong>'Salvar formulário'</strong> (botão cinza secundário). Isso criará um rascunho que será armazenado. Você pode acessá-lo depois no menu <strong>'Formulários Salvos'</strong>. Lá você verá o prazo de expiração (que é de <strong>15 dias</strong>) e poderá clicar em 'Recuperar' para voltar exatamente de onde parou.",
       },
       {
         pergunta: "Como tenho certeza de que não digitei nada errado antes de enviar?",
@@ -20,7 +20,7 @@ const faqData = [
       },
       {
         pergunta: "Por que meu rascunho expirou?",
-        resposta: "Os rascunhos têm validade de 10 dias. Após esse período, o rascunho é automaticamente removido do sistema. Lembre-se de finalizar ou recuperar seus rascunhos periodicamente.",
+        resposta: "Os rascunhos têm validade de 15 dias. Após esse período, o rascunho é automaticamente removido do sistema. Lembre-se de finalizar ou recuperar seus rascunhos periodicamente.",
       },
     ],
   },
@@ -159,7 +159,7 @@ const faqData = [
       },
       {
         pergunta: "Onde vejo meus formulários salvos?",
-        resposta: "Clique em <strong>'Formulários Salvos'</strong> no menu. Lá você verá uma lista com todos os rascunhos que você salvou, a data de salvamento, o tipo de formulário e quanto tempo falta para expirar (10 dias).",
+        resposta: "Clique em <strong>'Formulários Salvos'</strong> no menu. Lá você verá uma lista com todos os rascunhos que você salvou, a data de salvamento, o tipo de formulário e quanto tempo falta para expirar (15 dias).",
       },
       {
         pergunta: "Como volto à Home do Dashboard?",
