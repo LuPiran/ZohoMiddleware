@@ -749,6 +749,7 @@ export default function Compra() {
         await marcarFormularioComoEnviado({
           tipo: "compra",
           protocolo: response.protocolo,
+          zohoRecordId: response.data?.id || null,
           titulo: `Compra - ${nomePaciente || "Sem paciente"}`,
           paciente: nomePaciente || "",
           cpf: cpfPaciente || "",

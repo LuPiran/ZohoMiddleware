@@ -172,6 +172,27 @@ const faqData = [
     ],
   },
   {
+    categoria: "Formulários Salvos e Ocorrências",
+    itens: [
+      {
+        pergunta: "Como uso os filtros em Formulários Salvos?",
+        resposta: "No topo da tela, você pode filtrar por <strong>Todos, Compra, Recompra, Proposta</strong> e <strong>Ocorrência</strong>. Ao clicar em Ocorrência, a bandeja abre com os subtítulos específicos do atendimento, para facilitar a leitura e a busca dos casos.",
+      },
+      {
+        pergunta: "O que significam os subtítulos de Ocorrência?",
+        resposta: "Os subtítulos organizam as ocorrências por situação no CRM. <strong>Não atendidas</strong> indica que o caso ainda não recebeu um analista, <strong>Em tratamento</strong> mostra que já existe um responsável acompanhando o caso e <strong>Resolvidas</strong> exibe as ocorrências finalizadas.",
+      },
+      {
+        pergunta: "Por que as ocorrências resolvidas continuam aparecendo por alguns dias?",
+        resposta: "Quando uma ocorrência é marcada como resolvida no CRM, ela continua visível em Formulários Salvos por <strong>3 dias</strong>. Isso ajuda na conferência e na rastreabilidade antes da remoção automática do card.",
+      },
+      {
+        pergunta: "Como sei se a ocorrência foi realmente criada no CRM?",
+        resposta: "O sistema não considera a solicitação como enviada apenas por gerar protocolo. Ele valida a resposta do Zoho e só marca a ocorrência como confirmada quando o CRM retorna sucesso com identificador válido. Se algo falhar, a solicitação não é tratada como concluída.",
+      },
+    ],
+  },
+  {
     categoria: "Dicas de Eficiência",
     itens: [
       {

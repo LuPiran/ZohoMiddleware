@@ -59,7 +59,7 @@ export const STORAGE_KEYS = {
   PLATFORM_UPDATE_SEEN: "platformUpdateSeen",
 };
 
-export const PLATFORM_UPDATE_VERSION = "2026-04-28.2";
+export const PLATFORM_UPDATE_VERSION = "2026-05-13.2";
 
 export const FORMULARIOS_OPCIONAIS = {
   COMPRA: "compra",

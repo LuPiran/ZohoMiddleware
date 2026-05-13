@@ -12,6 +12,13 @@ const DRAFT_KEYS_BY_TIPO = {
   ocorrencia: "zoho_draft_ocorrencia",
 };
 
+const ROUTES_BY_TIPO = {
+  compra: "/compra",
+  recompra: "/recompra",
+  proposta: "/proposta",
+  ocorrencia: "/ocorrencia",
+};
+
 function getSavedFormIdKey(tipo) {
   return `saved_form_id_${tipo}`;
 }
@@ -103,6 +110,7 @@ export function salvarFormularioTemporariamente(formData) {
 export async function marcarFormularioComoEnviado({
   tipo,
   protocolo,
+  zohoRecordId,
   titulo,
   paciente,
   cpf,
@@ -114,46 +122,84 @@ export async function marcarFormularioComoEnviado({
     const savedFormIdKey = getSavedFormIdKey(tipo);
     const savedFormId = localStorage.getItem(savedFormIdKey);
 
-    if (!draftKey || !savedFormId || !localStorage.getItem(draftKey)) {
-      return false;
-    }
-
     const formsArray = getLocalForms();
-    const index = formsArray.findIndex((f) => f.id === savedFormId);
-
-    if (index === -1) {
-      return false;
-    }
+    let index = savedFormId ? formsArray.findIndex((f) => f.id === savedFormId) : -1;
 
     const dataEnvio = new Date().toISOString();
-    formsArray[index] = {
-      ...formsArray[index],
-      ...(titulo !== undefined ? { titulo } : {}),
-      ...(paciente !== undefined ? { paciente } : {}),
-      ...(cpf !== undefined ? { cpf } : {}),
-      ...(resumo !== undefined ? { resumo } : {}),
-      ...(dados !== undefined ? { dados } : {}),
-      enviado: true,
-      statusEnvio: "enviado",
-      dataEnvio,
-      protocolo: protocolo || formsArray[index].protocolo || null,
-      dataAtualizacao: dataEnvio,
-    };
+
+    if (index === -1) {
+      const novoFormularioEnviado = {
+        id: `form_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
+        tipo,
+        titulo: titulo || `Formulário ${tipo}`,
+        paciente: paciente || "",
+        cpf: cpf || "",
+        resumo: resumo || "",
+        dados: dados || {},
+        rota: ROUTES_BY_TIPO[tipo] || "/dashboard",
+        dataSalvamento: dataEnvio,
+        enviado: true,
+        statusEnvio: "enviado",
+        dataEnvio,
+        protocolo: protocolo || null,
+        zohoRecordId: zohoRecordId || null,
+        dataAtualizacao: dataEnvio,
+      };
+
+      formsArray.push(novoFormularioEnviado);
+      index = formsArray.length - 1;
+    } else {
+      formsArray[index] = {
+        ...formsArray[index],
+        ...(titulo !== undefined ? { titulo } : {}),
+        ...(paciente !== undefined ? { paciente } : {}),
+        ...(cpf !== undefined ? { cpf } : {}),
+        ...(resumo !== undefined ? { resumo } : {}),
+        ...(dados !== undefined ? { dados } : {}),
+        enviado: true,
+        statusEnvio: "enviado",
+        dataEnvio,
+        protocolo: protocolo || formsArray[index].protocolo || null,
+        zohoRecordId: zohoRecordId || formsArray[index].zohoRecordId || null,
+        dataAtualizacao: dataEnvio,
+      };
+    }
 
     setLocalForms(formsArray);
 
     try {
-      await api.put(`/v1/saved-forms/${savedFormId}`, formsArray[index]);
+      if (savedFormId && savedFormId === formsArray[index].id) {
+        await api.put(`/v1/saved-forms/${formsArray[index].id}`, formsArray[index]);
+      } else {
+        await api.post("/v1/saved-forms", formsArray[index]);
+      }
     } catch (error) {
       console.warn("[SAVED_FORMS] Falha ao sincronizar status de envio:", error?.message || error);
     }
 
-    localStorage.removeItem(draftKey);
-    localStorage.removeItem(savedFormIdKey);
+    if (draftKey) {
+      localStorage.removeItem(draftKey);
+    }
+    if (savedFormIdKey) {
+      localStorage.removeItem(savedFormIdKey);
+    }
     return true;
   } catch (error) {
     console.error("Erro ao marcar formulário como enviado:", error);
     return false;
+  }
+}
+
+export async function sincronizarOwnerOcorrenciasSalvas() {
+  try {
+    const response = await api.post("/v1/saved-forms/ocorrencias/sync-owner");
+    if (Array.isArray(response.data?.data)) {
+      setLocalForms(response.data.data);
+    }
+    return response.data;
+  } catch (error) {
+    console.warn("[SAVED_FORMS] Falha ao sincronizar owner de ocorrências:", error?.message || error);
+    return null;
   }
 }
 

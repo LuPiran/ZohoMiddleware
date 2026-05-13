@@ -4,13 +4,19 @@ import MainLayout from "../../components/layout/MainLayout";
 import Button from "../../components/ui/Button";
 import { ROUTES } from "../../utils/constants";
 import { MdArrowBack, MdDelete, MdOpenInNew, MdCalendarToday, MdAccessTime, MdCheckCircle, MdPending } from "react-icons/md";
-import { obterFormulariosSalvos, excluirFormulario as excluirFormularioService } from "../../services/savedForms";
+import {
+  obterFormulariosSalvos,
+  excluirFormulario as excluirFormularioService,
+  sincronizarOwnerOcorrenciasSalvas,
+} from "../../services/savedForms";
 
 export default function SavedForms() {
   const navigate = useNavigate();
   const [forms, setForms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(Date.now());
+  const [filtroAtivo, setFiltroAtivo] = useState("todos");
+  const [ocorrenciasBandejaAberta, setOcorrenciasBandejaAberta] = useState(false);
 
   useEffect(() => {
     carregarFormulariosSalvos();
@@ -27,6 +33,7 @@ export default function SavedForms() {
   const carregarFormulariosSalvos = async () => {
     setLoading(true);
     try {
+      await sincronizarOwnerOcorrenciasSalvas();
       const parsed = await obterFormulariosSalvos();
       const sorted = parsed.sort((a, b) => new Date(b.dataSalvamento) - new Date(a.dataSalvamento));
       setForms(sorted);
@@ -118,6 +125,33 @@ export default function SavedForms() {
     return { label: `Expira em ${Math.max(hours, 1)}h`, tone: "danger" };
   };
 
+  const formatarTempoRestanteResolucao = (crmResolvedUntil) => {
+    if (!crmResolvedUntil) {
+      return { label: "Resolvida no CRM", tone: "ok" };
+    }
+
+    const expirationDate = new Date(crmResolvedUntil);
+    const diffMs = expirationDate.getTime() - currentTime;
+
+    if (diffMs <= 0) {
+      return { label: "Visibilidade encerrada", tone: "danger" };
+    }
+
+    const totalHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const days = Math.floor(totalHours / 24);
+    const hours = totalHours % 24;
+
+    if (days >= 2) {
+      return { label: `Resolvida há ${days} dias`, tone: "ok" };
+    }
+
+    if (days === 1) {
+      return { label: `Resolvida há 1 dia e ${hours}h`, tone: "warn" };
+    }
+
+    return { label: `Resolvida - sai em ${Math.max(hours, 1)}h`, tone: "danger" };
+  };
+
   const getTituloFormulario = (tipo) => {
     const tipos = {
       compra: "Compra",
@@ -129,6 +163,36 @@ export default function SavedForms() {
   };
 
   const getStatusConfig = (form) => {
+    if (form.tipo === "ocorrencia" && form.enviado && form.crmStatus === "em_tratamento" && form.crmOwnerName) {
+      return {
+        label: "EM TRATAMENTO",
+        chipClass: "bg-blue-600 text-white border-blue-700",
+        cardClass: "border-l-4 border-l-blue-500",
+        primaryLabelDesktop: "Abrir",
+        primaryLabelMobile: "Abrir",
+      };
+    }
+
+    if (form.tipo === "ocorrencia" && form.enviado && form.crmStatus === "nao_atendida") {
+      return {
+        label: "NAO ATENDIDA",
+        chipClass: "bg-rose-600 text-white border-rose-700",
+        cardClass: "border-l-4 border-l-rose-500",
+        primaryLabelDesktop: "Abrir",
+        primaryLabelMobile: "Abrir",
+      };
+    }
+
+    if (form.tipo === "ocorrencia" && form.enviado && form.crmStatus === "resolvida") {
+      return {
+        label: "RESOLVIDA",
+        chipClass: "bg-slate-700 text-white border-slate-800",
+        cardClass: "border-l-4 border-l-slate-600",
+        primaryLabelDesktop: "Abrir",
+        primaryLabelMobile: "Abrir",
+      };
+    }
+
     if (form.enviado) {
       return {
         label: "ENVIADO",
@@ -147,6 +211,57 @@ export default function SavedForms() {
       primaryLabelMobile: "Continuar",
     };
   };
+
+  const getFilterLabel = (filtro) => {
+    const labels = {
+      todos: "Todos",
+      compra: "Compra",
+      recompra: "Recompra",
+      proposta: "Proposta",
+      ocorrencia: "Ocorrencia",
+      nao_atendida: "Não atendidas",
+      em_tratamento: "Em tratamento",
+      resolvidas: "Resolvidas",
+    };
+
+    return labels[filtro] || filtro;
+  };
+
+  const aplicarFiltro = (filtro) => {
+    setFiltroAtivo(filtro);
+
+    if (filtro !== "ocorrencia" && !["em_tratamento", "nao_atendida", "resolvidas"].includes(filtro)) {
+      setOcorrenciasBandejaAberta(false);
+      return;
+    }
+
+    setOcorrenciasBandejaAberta(true);
+  };
+
+  const filteredForms = forms.filter((form) => {
+    if (filtroAtivo === "todos") {
+      return true;
+    }
+
+    if (filtroAtivo === "ocorrencia") {
+      return form.tipo === "ocorrencia";
+    }
+
+    if (["nao_atendida", "em_tratamento", "resolvidas"].includes(filtroAtivo)) {
+      return form.tipo === "ocorrencia" && form.crmStatus === filtroAtivo;
+    }
+
+    return form.tipo === filtroAtivo;
+  });
+
+  const filtroOcorrenciaAtivo = filtroAtivo === "ocorrencia" || ["em_tratamento", "nao_atendida", "resolvidas"].includes(filtroAtivo);
+
+  const filtrosGeraisDisponiveis = [
+    "todos",
+    "compra",
+    "recompra",
+    "proposta",
+  ];
 
   return (
     <MainLayout>
@@ -200,8 +315,91 @@ export default function SavedForms() {
             </Button>
           </div>
         ) : (
-          <div className="grid gap-4 sm:gap-6">
-            {forms.map((form, index) => (
+          <div className="space-y-4 sm:space-y-6">
+            <div className="bg-white rounded-lg border border-tegra-gray-light shadow-sm p-3 sm:p-4">
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-semibold text-tegra-text-primary">Filtrar por</p>
+                  <p className="text-xs sm:text-sm text-tegra-text-secondary">
+                    {filteredForms.length} de {forms.length} exibido(s)
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {filtrosGeraisDisponiveis.map((filtro) => {
+                    const ativo = filtroAtivo === filtro;
+
+                    return (
+                      <button
+                        key={filtro}
+                        type="button"
+                        onClick={() => aplicarFiltro(filtro)}
+                        className={`px-3 py-2 rounded-full text-xs sm:text-sm font-semibold border transition-colors ${
+                          ativo
+                            ? "bg-tegra-blue-dark text-white border-tegra-blue-dark"
+                            : "bg-white text-tegra-text-secondary border-tegra-gray-light hover:border-tegra-blue-light hover:text-tegra-blue-dark"
+                        }`}
+                      >
+                        {getFilterLabel(filtro)}
+                      </button>
+                    );
+                  })}
+                  <button
+                    type="button"
+                    onClick={() => aplicarFiltro("ocorrencia")}
+                    className={`px-3 py-2 rounded-full text-xs sm:text-sm font-semibold border transition-colors ${
+                      filtroOcorrenciaAtivo || ocorrenciasBandejaAberta
+                        ? "bg-tegra-blue-dark text-white border-tegra-blue-dark"
+                        : "bg-white text-tegra-text-secondary border-tegra-gray-light hover:border-tegra-blue-light hover:text-tegra-blue-dark"
+                    }`}
+                    aria-expanded={ocorrenciasBandejaAberta}
+                  >
+                    Ocorrências
+                  </button>
+                </div>
+                {(ocorrenciasBandejaAberta || filtroOcorrenciaAtivo) && (
+                  <div className="mt-1 rounded-xl border border-tegra-gray-light bg-tegra-gray-light/30 p-3 sm:p-4">
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        "nao_atendida",
+                        "em_tratamento",
+                        "resolvidas",
+                      ].map((filtro) => {
+                        const ativo = filtroAtivo === filtro;
+
+                        return (
+                          <button
+                            key={filtro}
+                            type="button"
+                            onClick={() => aplicarFiltro(filtro)}
+                            className={`px-3 py-2 rounded-full text-xs sm:text-sm font-semibold border transition-colors ${
+                              ativo
+                                ? "bg-tegra-blue-dark text-white border-tegra-blue-dark"
+                                : "bg-white text-tegra-text-secondary border-tegra-gray-light hover:border-tegra-blue-light hover:text-tegra-blue-dark"
+                            }`}
+                          >
+                            {getFilterLabel(filtro)}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {filteredForms.length === 0 ? (
+              <div className="bg-white rounded-lg shadow-md p-8 sm:p-12 flex flex-col items-center justify-center text-center">
+                <div className="text-5xl mb-4 text-tegra-gray-medium">🔎</div>
+                <h2 className="text-xl font-semibold text-tegra-text-primary mb-2">
+                  Nenhum formulário nesse filtro
+                </h2>
+                <p className="text-tegra-text-secondary max-w-sm">
+                  Tente mudar o filtro para ver outros formulários salvos.
+                </p>
+              </div>
+            ) : (
+              <div className="grid gap-4 sm:gap-6">
+                {filteredForms.map((form, index) => (
               <div
                 key={index}
                 className={`bg-white rounded-lg shadow-md hover:shadow-lg transition-all border border-tegra-gray-light overflow-hidden ${getStatusConfig(form).cardClass}`}
@@ -209,7 +407,14 @@ export default function SavedForms() {
                 <div className="p-4 sm:p-6">
                   {(() => {
                     const status = getStatusConfig(form);
-                    const timer = formatarTempoRestante(form.dataSalvamento);
+                    const showTimer = !(form.tipo === "ocorrencia" && form.enviado);
+                    const showResolvedTimer = form.tipo === "ocorrencia" && form.enviado && form.crmStatus === "resolvida";
+                    const timer = showTimer
+                      ? formatarTempoRestante(form.dataSalvamento)
+                      : null;
+                    const resolvedTimer = showResolvedTimer
+                      ? formatarTempoRestanteResolucao(form.crmResolvedUntil)
+                      : null;
 
                     return (
                       <>
@@ -237,16 +442,40 @@ export default function SavedForms() {
                           Protocolo: <span className="font-semibold text-tegra-text-primary">{form.protocolo}</span>
                         </p>
                       )}
+                      {form.tipo === "ocorrencia" && form.enviado && (
+                        <p className="text-xs mt-1 text-tegra-text-secondary">
+                          {form.crmStatus === "resolvida"
+                            ? "Ocorrência finalizada no CRM"
+                            : form.crmStatus === "nao_atendida"
+                            ? "Nao atendida: aguardando atribuicao de analista"
+                            : form.crmOwnerName
+                            ? `Em tratamento por: ${form.crmOwnerName}`
+                            : "Aguardando definição de analista no CRM"}
+                        </p>
+                      )}
+                      {showResolvedTimer && resolvedTimer && (
+                        <p className="text-xs mt-1 text-tegra-text-secondary">
+                          {resolvedTimer.label}
+                        </p>
+                      )}
                     </div>
                     <div className="flex items-center gap-2 text-xs sm:text-sm">
                       <div className="inline-flex items-center gap-1 text-tegra-text-secondary">
                         <MdCalendarToday className="text-base" />
                         {formatarData(form.dataSalvamento)}
                       </div>
-                      <div className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-tegra-gray-light text-tegra-text-secondary font-medium">
-                        <MdAccessTime className="text-sm" />
-                        {timer.label}
-                      </div>
+                      {showTimer && timer && (
+                        <div className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-tegra-gray-light text-tegra-text-secondary font-medium">
+                          <MdAccessTime className="text-sm" />
+                          {timer.label}
+                        </div>
+                      )}
+                      {showResolvedTimer && resolvedTimer && (
+                        <div className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-slate-100 text-slate-700 font-medium">
+                          <MdAccessTime className="text-sm" />
+                          {resolvedTimer.label}
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -312,7 +541,9 @@ export default function SavedForms() {
                   })()}
                 </div>
               </div>
-            ))}
+                ))}
+              </div>
+            )}
           </div>
         )}
 

@@ -9,11 +9,11 @@ import {
 } from "react-icons/md";
 
 const UPDATE_CONTENT = {
-  badge: "Release V3.4",
-  date: "Atualizado em 28/04/2026",
+  badge: "Release V3.5",
+  date: "Atualizado em 13/05/2026",
   title: "Novidades do Portal",
   description:
-    "Atualizamos o portal com melhorias práticas para o dia a dia do consultor, deixando os acessos mais claros e o envio de ocorrência mais consistente.",
+    "Atualizamos o portal com foco em ocorrências, correção de CEP e novas camadas de validação para reduzir ao máximo a chance de alguma solicitação não subir.",
 };
 
 const TRACKING_HIGHLIGHT = {
@@ -25,16 +25,28 @@ const TRACKING_HIGHLIGHT = {
 
 const DEFAULT_HIGHLIGHTS = [
   {
-    label: "Ocorrência com envio mais completo:",
-    text: "Na aba de Ocorrência, os campos Motivo da Ocorrência e Observação passaram a ser obrigatórios para reduzir retrabalho e evitar solicitações incompletas.",
+    label: "Ocorrências acompanháveis no portal:",
+    text: "As ocorrências enviadas agora permanecem em Formulários Salvos até o BackOffice tratar a solicitação no CRM, permitindo acompanhar o andamento com mais transparência.",
     icon: MdChecklist,
     iconClass: "bg-indigo-100 text-indigo-700",
   },
   {
-    label: "Identificação do consultor na Ocorrência:",
-    text: "As ocorrências enviadas passam a registrar automaticamente o nome do consultor no CRM, facilitando acompanhamento e suporte.",
+    label: "Analista responsável visível:",
+    text: "Agora é possível verificar qual analista está tratando cada ocorrência, assim que o mesmo assumir sua ocorrência.",
     icon: MdPerson,
     iconClass: "bg-rose-100 text-rose-700",
+  },
+  {
+    label: "Consulta de CEP corrigida:",
+    text: "Corrigimos o problema na consulta de CEP para retornar os dados de endereço com mais precisão e estabilidade no preenchimento.",
+    icon: MdLocalShipping,
+    iconClass: "bg-amber-100 text-amber-700",
+  },
+  {
+    label: "Mais validações antes do envio:",
+    text: "Aplicamos medidas extras de validação nos fluxos críticos do portal para mitigar ainda mais a possibilidade de uma solicitação não ser enviada corretamente.",
+    icon: MdChecklist,
+    iconClass: "bg-emerald-100 text-emerald-700",
   },
 ];
 

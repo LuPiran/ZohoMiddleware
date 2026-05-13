@@ -7,6 +7,7 @@ export const ENV = {
   PORT: process.env.PORT,
   FRONTEND_URL: process.env.FRONTEND_URL,
   SERVE_FRONTEND: process.env.SERVE_FRONTEND,
+  CEP_PROVIDER: process.env.CEP_PROVIDER,
   CEP_API_URL: process.env.CEP_API_URL,
   CEP_API_PASSWORD: process.env.CEP_API_PASSWORD,
   CEP_API_TIMEOUT_MS: process.env.CEP_API_TIMEOUT_MS,

@@ -13,6 +13,7 @@ router.get("/:cep", async (req, res) => {
   try {
     const { cep } = req.params;
     const cepLimpo = cep.replace(/\D/g, "");
+    const cepProvider = (ENV.CEP_PROVIDER || "contracted").trim().toLowerCase();
 
     console.log(
       "[CEP API] Requisição recebida - CEP original:",
@@ -30,9 +31,50 @@ router.get("/:cep", async (req, res) => {
       });
     }
 
+    const timeoutMs = Number.parseInt(ENV.CEP_API_TIMEOUT_MS || "10000", 10);
+    const requestTimeout = Number.isFinite(timeoutMs) ? timeoutMs : 10000;
+
+    if (cepProvider === "viacep") {
+      console.log("[CEP API] Usando provedor ViaCEP");
+
+      const response = await axios.get(
+        `https://viacep.com.br/ws/${cepLimpo}/json/`,
+        {
+          timeout: requestTimeout,
+          headers: {
+            Accept: "application/json",
+          },
+        },
+      );
+
+      const data = response.data;
+
+      if (data?.erro) {
+        console.log("[CEP API] ✗ CEP não encontrado (ViaCEP):", cepLimpo);
+        return res.status(404).json({
+          erro: true,
+          message: "CEP não encontrado",
+        });
+      }
+
+      console.log("[CEP API] ✓ CEP encontrado (ViaCEP):", cepLimpo);
+
+      return res.json({
+        cep: data?.cep || cepLimpo,
+        logradouro: data?.logradouro || "",
+        complemento: data?.complemento || "",
+        bairro: data?.bairro || "",
+        localidade: data?.localidade || "",
+        uf: data?.uf || "",
+        ibge: data?.ibge || "",
+        gia: data?.gia || "",
+        ddd: data?.ddd || "",
+        siafi: data?.siafi || "",
+      });
+    }
+
     const cepApiUrl = (ENV.CEP_API_URL || "").trim();
     const cepApiPassword = (ENV.CEP_API_PASSWORD || "").trim();
-    const timeoutMs = Number.parseInt(ENV.CEP_API_TIMEOUT_MS || "10000", 10);
 
     if (!cepApiUrl || !cepApiPassword) {
       console.error("[CEP API] ✗ Configuração ausente: CEP_API_URL/CEP_API_PASSWORD");
@@ -42,11 +84,11 @@ router.get("/:cep", async (req, res) => {
       });
     }
 
-    console.log("[CEP API] Buscando CEP no provedor externo:", cepApiUrl);
+    console.log("[CEP API] Usando provedor contratado:", cepApiUrl);
 
     // Busca CEP na API contratada (CEP + password por query string)
     const response = await axios.get(cepApiUrl, {
-      timeout: Number.isFinite(timeoutMs) ? timeoutMs : 10000,
+      timeout: requestTimeout,
       headers: {
         Accept: "application/json",
       },

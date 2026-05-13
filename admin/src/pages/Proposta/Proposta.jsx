@@ -900,6 +900,7 @@ export default function Proposta() {
         await marcarFormularioComoEnviado({
           tipo: "proposta",
           protocolo: response.protocolo,
+          zohoRecordId: response.data?.id || null,
           titulo: `Proposta - ${nomeIdentificacao || "Sem identificação"}`,
           paciente: nomeIdentificacao || "",
           cpf: cpfIdentificacao || "",

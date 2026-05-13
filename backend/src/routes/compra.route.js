@@ -2,6 +2,8 @@ import express from "express";
 import { chamarZohoApi } from "../services/zohoApi.js";
 import { ENV } from "../config/env.js";
 import { anexarArquivosNoRegistro } from "../services/zohoAttachment.js";
+import { applyZohoFieldConstraints } from "../services/zohoFieldConstraints.js";
+import { parseZohoCreateResponse } from "../services/zohoSubmissionResult.js";
 import { gerarNumeroProtocolo } from "../utils/protocol.js";
 import { sanitizeBrazilPhoneForApi } from "../utils/phone.js";
 
@@ -893,30 +895,57 @@ router.post("/", async (req, res) => {
       JSON.stringify(dadosZoho, null, 2),
     );
 
+    const constraintCheck = applyZohoFieldConstraints(
+      "Portal_onix",
+      dadosZoho.data[0],
+    );
+
+    if (constraintCheck.hasBlockingErrors) {
+      return res.status(400).json({
+        success: false,
+        error:
+          "Um ou mais campos ultrapassaram o limite de caracteres permitido para envio ao CRM.",
+        details: constraintCheck.errors,
+      });
+    }
+
+    if (constraintCheck.warnings.length > 0) {
+      console.warn(
+        "[COMPRA API] Campos truncados por limite de caracteres:",
+        constraintCheck.warnings,
+      );
+    }
+
+    dadosZoho.data[0] = constraintCheck.data;
+
     // Chama a API do Zoho para criar o registro
     const moduleName = "Portal_onix";
     const endpoint = `/${moduleName}`;
     const response = await chamarZohoApi("POST", endpoint, dadosZoho);
 
-    const resultadoZoho = response.data?.[0];
-    const recordId = resultadoZoho?.details?.id;
+    const submission = parseZohoCreateResponse(response);
+    const recordId = submission.recordId;
 
-    if (!resultadoZoho || resultadoZoho.status === "error" || !recordId) {
+    if (!submission.confirmed) {
       const zohoMessage =
-        resultadoZoho?.message ||
-        response.message ||
-        "Zoho não retornou confirmação de criação do registro";
+        submission.message ||
+        "Zoho nao retornou confirmacao de criacao do registro";
 
       console.error("[COMPRA API] ✗ Zoho rejeitou a criação da compra:", {
         protocolo: numeroProtocolo,
-        response,
+        submission,
       });
 
       return res.status(502).json({
         success: false,
+        confirmedInZoho: false,
         error: zohoMessage,
         protocolo: numeroProtocolo,
-        details: resultadoZoho?.details || response,
+        zoho: {
+          status: submission.status,
+          code: submission.code,
+          recordId: submission.recordId,
+        },
       });
     }
 
@@ -956,6 +985,7 @@ router.post("/", async (req, res) => {
 
     res.json({
       success: true,
+      confirmedInZoho: true,
       message: "Compra criada com sucesso",
       protocolo: numeroProtocolo,
       data: {

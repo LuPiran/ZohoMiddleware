@@ -1097,6 +1097,7 @@ export default function Recompra() {
         await marcarFormularioComoEnviado({
           tipo: "recompra",
           protocolo: response.protocolo,
+          zohoRecordId: response.data?.id || null,
           titulo: `Recompra - ${nomePaciente || "Sem paciente"}`,
           paciente: nomePaciente || "",
           cpf: cpfPaciente || "",

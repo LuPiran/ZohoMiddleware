@@ -2,6 +2,8 @@ import express from "express";
 import { chamarZohoApi } from "../services/zohoApi.js";
 import { ENV } from "../config/env.js";
 import { anexarArquivosNoRegistro } from "../services/zohoAttachment.js";
+import { applyZohoFieldConstraints } from "../services/zohoFieldConstraints.js";
+import { parseZohoCreateResponse } from "../services/zohoSubmissionResult.js";
 import { gerarNumeroProtocolo } from "../utils/protocol.js";
 import { sanitizeBrazilPhoneForApi } from "../utils/phone.js";
 
@@ -519,13 +521,59 @@ router.post("/", async (req, res) => {
       JSON.stringify(dadosZoho, null, 2),
     );
 
+    const constraintCheck = applyZohoFieldConstraints(
+      "Portal_onix",
+      dadosZoho.data[0],
+    );
+
+    if (constraintCheck.hasBlockingErrors) {
+      return res.status(400).json({
+        success: false,
+        error:
+          "Um ou mais campos ultrapassaram o limite de caracteres permitido para envio ao CRM.",
+        details: constraintCheck.errors,
+      });
+    }
+
+    if (constraintCheck.warnings.length > 0) {
+      console.warn(
+        "[PROPOSTA API] Campos truncados por limite de caracteres:",
+        constraintCheck.warnings,
+      );
+    }
+
+    dadosZoho.data[0] = constraintCheck.data;
+
     // Chama a API do Zoho para criar o registro
     const moduleName = "Portal_onix";
     const endpoint = `/${moduleName}`;
     const response = await chamarZohoApi("POST", endpoint, dadosZoho);
 
+    const submission = parseZohoCreateResponse(response);
+    const recordId = submission.recordId;
+
+    if (!submission.confirmed) {
+      console.error("[PROPOSTA API] ✗ Zoho nao confirmou criacao da proposta", {
+        protocolo: numeroProtocolo,
+        submission,
+      });
+
+      return res.status(502).json({
+        success: false,
+        confirmedInZoho: false,
+        protocolo: numeroProtocolo,
+        error:
+          submission.message ||
+          "Zoho nao confirmou o recebimento da proposta.",
+        zoho: {
+          status: submission.status,
+          code: submission.code,
+          recordId: submission.recordId,
+        },
+      });
+    }
+
     console.log("[PROPOSTA API] ✓ Proposta criada com sucesso no Zoho");
-    const recordId = response.data?.[0]?.details?.id;
     console.log("[PROPOSTA API] ID do registro:", recordId);
 
     // Faz upload dos arquivos se houver
@@ -561,6 +609,7 @@ router.post("/", async (req, res) => {
 
     res.json({
       success: true,
+      confirmedInZoho: true,
       message: "Proposta criada com sucesso",
       protocolo: numeroProtocolo,
       data: {

@@ -668,6 +668,7 @@ export default function Ocorrencia() {
         await marcarFormularioComoEnviado({
           tipo: "ocorrencia",
           protocolo: response.protocolo,
+          zohoRecordId: response.data?.id || null,
           titulo: `Ocorrência - ${nomePaciente || "Sem paciente"}`,
           paciente: nomePaciente || "",
           cpf: cpfPaciente || "",

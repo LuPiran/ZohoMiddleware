@@ -2,6 +2,8 @@ import express from "express";
 import { chamarZohoApi } from "../services/zohoApi.js";
 import { ENV } from "../config/env.js";
 import { anexarArquivosNoRegistro } from "../services/zohoAttachment.js";
+import { applyZohoFieldConstraints } from "../services/zohoFieldConstraints.js";
+import { parseZohoCreateResponse } from "../services/zohoSubmissionResult.js";
 import { gerarNumeroProtocolo } from "../utils/protocol.js";
 import { sanitizeBrazilPhoneForApi } from "../utils/phone.js";
 
@@ -204,13 +206,59 @@ router.post("/", async (req, res) => {
       JSON.stringify(dadosZoho, null, 2),
     );
 
+    const constraintCheck = applyZohoFieldConstraints(
+      "Ocorrencias",
+      dadosZoho.data[0],
+    );
+
+    if (constraintCheck.hasBlockingErrors) {
+      return res.status(400).json({
+        success: false,
+        error:
+          "Um ou mais campos ultrapassaram o limite de caracteres permitido para envio ao CRM.",
+        details: constraintCheck.errors,
+      });
+    }
+
+    if (constraintCheck.warnings.length > 0) {
+      console.warn(
+        "[OCORRENCIA API] Campos truncados por limite de caracteres:",
+        constraintCheck.warnings,
+      );
+    }
+
+    dadosZoho.data[0] = constraintCheck.data;
+
     // Chama a API do Zoho para criar o registro
     const moduleName = "Ocorrencias";
     const endpoint = `/${moduleName}`;
     const response = await chamarZohoApi("POST", endpoint, dadosZoho);
 
+    const submission = parseZohoCreateResponse(response);
+    const recordId = submission.recordId;
+
+    if (!submission.confirmed) {
+      console.error("[OCORRENCIA API] ✗ Zoho nao confirmou criacao da ocorrencia", {
+        protocolo: numeroProtocolo,
+        submission,
+      });
+
+      return res.status(502).json({
+        success: false,
+        confirmedInZoho: false,
+        protocolo: numeroProtocolo,
+        error:
+          submission.message ||
+          "Zoho nao confirmou o recebimento da ocorrencia.",
+        zoho: {
+          status: submission.status,
+          code: submission.code,
+          recordId: submission.recordId,
+        },
+      });
+    }
+
     console.log("[OCORRENCIA API] ✓ Ocorrência criada com sucesso no Zoho");
-    const recordId = response.data?.[0]?.details?.id;
     console.log("[OCORRENCIA API] ID do registro:", recordId);
 
     // Faz upload dos arquivos se houver
@@ -247,6 +295,7 @@ router.post("/", async (req, res) => {
 
     res.json({
       success: true,
+      confirmedInZoho: true,
       message: "Ocorrência criada com sucesso",
       protocolo: numeroProtocolo,
       data: {
