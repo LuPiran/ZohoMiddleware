@@ -4,6 +4,34 @@ import { ENV } from "../config/env.js";
 
 const router = express.Router();
 
+async function fetchViaCep(cepLimpo, requestTimeout) {
+  const response = await axios.get(`https://viacep.com.br/ws/${cepLimpo}/json/`, {
+    timeout: requestTimeout,
+    headers: {
+      Accept: "application/json",
+    },
+  });
+
+  const data = response.data;
+
+  if (data?.erro) {
+    return null;
+  }
+
+  return {
+    cep: data?.cep || cepLimpo,
+    logradouro: data?.logradouro || "",
+    complemento: data?.complemento || "",
+    bairro: data?.bairro || "",
+    localidade: data?.localidade || "",
+    uf: data?.uf || "",
+    ibge: data?.ibge || "",
+    gia: data?.gia || "",
+    ddd: data?.ddd || "",
+    siafi: data?.siafi || "",
+  };
+}
+
 /**
  * Rota para buscar CEP na API de CEP configurada no ambiente
  * GET /api/cep/:cep
@@ -13,7 +41,7 @@ router.get("/:cep", async (req, res) => {
   try {
     const { cep } = req.params;
     const cepLimpo = cep.replace(/\D/g, "");
-    const cepProvider = (ENV.CEP_PROVIDER || "contracted").trim().toLowerCase();
+    const cepProvider = (ENV.CEP_PROVIDER || "viacep").trim().toLowerCase();
 
     console.log(
       "[CEP API] Requisição recebida - CEP original:",
@@ -37,19 +65,9 @@ router.get("/:cep", async (req, res) => {
     if (cepProvider === "viacep") {
       console.log("[CEP API] Usando provedor ViaCEP");
 
-      const response = await axios.get(
-        `https://viacep.com.br/ws/${cepLimpo}/json/`,
-        {
-          timeout: requestTimeout,
-          headers: {
-            Accept: "application/json",
-          },
-        },
-      );
+      const viaCepData = await fetchViaCep(cepLimpo, requestTimeout);
 
-      const data = response.data;
-
-      if (data?.erro) {
+      if (!viaCepData) {
         console.log("[CEP API] ✗ CEP não encontrado (ViaCEP):", cepLimpo);
         return res.status(404).json({
           erro: true,
@@ -59,29 +77,27 @@ router.get("/:cep", async (req, res) => {
 
       console.log("[CEP API] ✓ CEP encontrado (ViaCEP):", cepLimpo);
 
-      return res.json({
-        cep: data?.cep || cepLimpo,
-        logradouro: data?.logradouro || "",
-        complemento: data?.complemento || "",
-        bairro: data?.bairro || "",
-        localidade: data?.localidade || "",
-        uf: data?.uf || "",
-        ibge: data?.ibge || "",
-        gia: data?.gia || "",
-        ddd: data?.ddd || "",
-        siafi: data?.siafi || "",
-      });
+      return res.json(viaCepData);
     }
 
     const cepApiUrl = (ENV.CEP_API_URL || "").trim();
     const cepApiPassword = (ENV.CEP_API_PASSWORD || "").trim();
 
     if (!cepApiUrl || !cepApiPassword) {
-      console.error("[CEP API] ✗ Configuração ausente: CEP_API_URL/CEP_API_PASSWORD");
-      return res.status(500).json({
-        erro: true,
-        message: "Serviço de CEP não configurado no servidor",
-      });
+      console.warn(
+        "[CEP API] Configuração ausente para provedor contratado; usando fallback ViaCEP",
+      );
+
+      const viaCepData = await fetchViaCep(cepLimpo, requestTimeout);
+
+      if (!viaCepData) {
+        return res.status(404).json({
+          erro: true,
+          message: "CEP não encontrado",
+        });
+      }
+
+      return res.json(viaCepData);
     }
 
     console.log("[CEP API] Usando provedor contratado:", cepApiUrl);
