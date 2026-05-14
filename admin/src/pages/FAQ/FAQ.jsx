@@ -166,6 +166,14 @@ const faqData = [
         resposta: "Clique em <strong>'Home'</strong> no menu lateral ou superior. Na página inicial, você verá atalhos para as principais funcionalidades e um resumo da quantidade de formulários salvos.",
       },
       {
+        pergunta: "Como funciona o ícone de mensagens e notificações no topo?",
+        resposta: "No canto superior do portal existe um ícone de mensagens. Ao clicar, abre um painel com atualizações dos envios de <strong>Compra, Recompra, Proposta e Ocorrência</strong>. Você verá eventos de sucesso e também alertas de <strong>falha de envio</strong>, com o detalhe do que aconteceu.",
+      },
+      {
+        pergunta: "Quando as notificações são atualizadas e o que significa o contador vermelho?",
+        resposta: "As notificações são carregadas automaticamente e podem ser atualizadas manualmente pelo botão de recarregar dentro do painel. O contador vermelho no ícone indica quantas atualizações ainda não foram abertas por você. Ao abrir o painel, essas notificações passam a ser consideradas lidas.",
+      },
+      {
         pergunta: "Posso sair do sistema e fazer login novamente?",
         resposta: "Sim. No menu lateral (em dispositivos móveis), você verá um botão <strong>'Meu Perfil'</strong> no rodapé. Clique nele para acessar opções de perfil e logout.",
       },

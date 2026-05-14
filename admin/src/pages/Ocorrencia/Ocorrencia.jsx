@@ -19,7 +19,11 @@ import api from "../../services/api";
 import { productsService } from "../../services/products";
 import { ocorrenciaService } from "../../services/ocorrencia";
 import { salesOrderService } from "../../services/salesOrder";
-import { salvarFormularioTemporariamente, marcarFormularioComoEnviado } from "../../services/savedForms";
+import {
+  salvarFormularioTemporariamente,
+  marcarFormularioComoEnviado,
+  marcarFalhaEnvioFormulario,
+} from "../../services/savedForms";
 import { hasAdminPanelPermission } from "../../utils/permissions";
 import { isValidCPF, formatarCpf } from "../../utils/cpfValidator";
 import { formatBrazilPhone } from "../../utils/phone";
@@ -724,6 +728,16 @@ export default function Ocorrencia() {
         error.error ||
         error.message ||
         "Erro ao cadastrar ocorrência. Tente novamente.";
+
+      await marcarFalhaEnvioFormulario({
+        tipo: "ocorrencia",
+        titulo: `Ocorrência - ${nomePaciente || "Sem paciente"}`,
+        paciente: nomePaciente || "",
+        cpf: cpfPaciente || "",
+        resumo: `Falha ao enviar ocorrência (${motivoOcorrencia || "sem motivo"})`,
+        erro: errorMessage,
+      });
+
       showToast(`❌ ${errorMessage}`, "error");
       setShowSplash(false);
     } finally {

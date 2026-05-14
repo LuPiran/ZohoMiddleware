@@ -19,7 +19,11 @@ import {
 import api from "../../services/api";
 import { propostaService } from "../../services/proposta";
 import { productsService } from "../../services/products";
-import { salvarFormularioTemporariamente, marcarFormularioComoEnviado } from "../../services/savedForms";
+import {
+  salvarFormularioTemporariamente,
+  marcarFormularioComoEnviado,
+  marcarFalhaEnvioFormulario,
+} from "../../services/savedForms";
 import { isAdminPortal, hasAdminPanelPermission } from "../../utils/permissions";
 import { isValidCPF, formatarCpf } from "../../utils/cpfValidator";
 import { formatBrazilPhone, formatBrazilPhoneLocal } from "../../utils/phone";
@@ -937,6 +941,21 @@ export default function Proposta() {
         error.error ||
         error.message ||
         "Erro ao cadastrar proposta. Tente novamente.";
+
+      const nomeIdentificacao =
+        tipoCliente === "Pessoa Juridica" ? nomeEmpresa : nomePaciente;
+      const cpfIdentificacao =
+        tipoCliente === "Pessoa Juridica" ? cnpjEmpresa : cpfPaciente;
+
+      await marcarFalhaEnvioFormulario({
+        tipo: "proposta",
+        titulo: `Proposta - ${nomeIdentificacao || "Sem identificação"}`,
+        paciente: nomeIdentificacao || "",
+        cpf: cpfIdentificacao || "",
+        resumo: `Falha ao enviar proposta (${tipoCliente || "Pessoa Fisica"})`,
+        erro: errorMessage,
+      });
+
       showToast(`❌ ${errorMessage}`, "error");
       setShowSplash(false);
     } finally {

@@ -190,6 +190,81 @@ export async function marcarFormularioComoEnviado({
   }
 }
 
+/**
+ * Marca um formulário como falha de envio para permitir acompanhamento no painel de notificações.
+ */
+export async function marcarFalhaEnvioFormulario({
+  tipo,
+  titulo,
+  paciente,
+  cpf,
+  resumo,
+  dados,
+  erro,
+}) {
+  try {
+    const savedFormIdKey = getSavedFormIdKey(tipo);
+    const savedFormId = localStorage.getItem(savedFormIdKey);
+
+    const formsArray = getLocalForms();
+    let index = savedFormId ? formsArray.findIndex((f) => f.id === savedFormId) : -1;
+
+    const dataFalha = new Date().toISOString();
+
+    if (index === -1) {
+      const novoFormularioFalha = {
+        id: `form_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
+        tipo,
+        titulo: titulo || `Formulário ${tipo}`,
+        paciente: paciente || "",
+        cpf: cpf || "",
+        resumo: resumo || "",
+        dados: dados || {},
+        rota: ROUTES_BY_TIPO[tipo] || "/dashboard",
+        dataSalvamento: dataFalha,
+        enviado: false,
+        statusEnvio: "falha_envio",
+        dataEnvio: null,
+        erroEnvio: erro || "Falha ao enviar formulário",
+        dataAtualizacao: dataFalha,
+      };
+
+      formsArray.push(novoFormularioFalha);
+      index = formsArray.length - 1;
+    } else {
+      formsArray[index] = {
+        ...formsArray[index],
+        ...(titulo !== undefined ? { titulo } : {}),
+        ...(paciente !== undefined ? { paciente } : {}),
+        ...(cpf !== undefined ? { cpf } : {}),
+        ...(resumo !== undefined ? { resumo } : {}),
+        ...(dados !== undefined ? { dados } : {}),
+        enviado: false,
+        statusEnvio: "falha_envio",
+        erroEnvio: erro || formsArray[index]?.erroEnvio || "Falha ao enviar formulário",
+        dataAtualizacao: dataFalha,
+      };
+    }
+
+    setLocalForms(formsArray);
+
+    try {
+      if (savedFormId && savedFormId === formsArray[index].id) {
+        await api.put(`/v1/saved-forms/${formsArray[index].id}`, formsArray[index]);
+      } else {
+        await api.post("/v1/saved-forms", formsArray[index]);
+      }
+    } catch (error) {
+      console.warn("[SAVED_FORMS] Falha ao sincronizar status de falha:", error?.message || error);
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Erro ao marcar formulário com falha de envio:", error);
+    return false;
+  }
+}
+
 export async function sincronizarOwnerOcorrenciasSalvas() {
   try {
     const response = await api.post("/v1/saved-forms/ocorrencias/sync-owner");

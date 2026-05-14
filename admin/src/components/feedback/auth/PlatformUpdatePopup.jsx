@@ -1,11 +1,10 @@
 import { useEffect } from "react";
 import Button from "../../ui/Button";
-import { authService } from "../../../services/auth";
-import { podeVerTrackingPedido } from "../../../utils/constants";
 import {
   MdLocalShipping,
   MdChecklist,
   MdPerson,
+  MdMessage,
 } from "react-icons/md";
 
 const UPDATE_CONTENT = {
@@ -16,11 +15,11 @@ const UPDATE_CONTENT = {
     "Atualizamos o portal com foco em ocorrências, aumento do prazo dos rascunhos, correção de CEP e novas camadas de validação para reduzir ao máximo a chance de alguma solicitação não subir.",
 };
 
-const TRACKING_HIGHLIGHT = {
-  label: "Tracking de Pedido no menu e na Home:",
-  text: "Usuários autorizados agora contam com um acesso dedicado ao Tracking de Pedido, disponível tanto na barra superior quanto nos atalhos da tela inicial, abrindo em nova aba para consulta rápida.",
-  icon: MdLocalShipping,
-  iconClass: "bg-amber-100 text-amber-700",
+const NOTIFICATIONS_HIGHLIGHT = {
+  label: "Ícone de mensagens e notificações:",
+  text: "Agora você acompanha atualizações dos envios direto no ícone de mensagens no topo do portal, com alertas para compra, recompra, proposta e ocorrência, incluindo avisos quando houver falha de envio.",
+  icon: MdMessage,
+  iconClass: "bg-sky-100 text-sky-700",
 };
 
 const DEFAULT_HIGHLIGHTS = [
@@ -57,10 +56,7 @@ const DEFAULT_HIGHLIGHTS = [
 ];
 
 export default function PlatformUpdatePopup({ isOpen, onContinue }) {
-  const user = authService.getUser();
-  const highlights = podeVerTrackingPedido(user)
-    ? [TRACKING_HIGHLIGHT, ...DEFAULT_HIGHLIGHTS]
-    : DEFAULT_HIGHLIGHTS;
+  const highlights = [NOTIFICATIONS_HIGHLIGHT, ...DEFAULT_HIGHLIGHTS];
   useEffect(() => {
     if (!isOpen) {
       return undefined;

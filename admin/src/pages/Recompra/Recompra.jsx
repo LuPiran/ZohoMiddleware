@@ -19,7 +19,11 @@ import {
 import api from "../../services/api";
 import { compraService } from "../../services/compra";
 import { productsService } from "../../services/products";
-import { salvarFormularioTemporariamente, marcarFormularioComoEnviado } from "../../services/savedForms";
+import {
+  salvarFormularioTemporariamente,
+  marcarFormularioComoEnviado,
+  marcarFalhaEnvioFormulario,
+} from "../../services/savedForms";
 import { hasAdminPanelPermission } from "../../utils/permissions";
 import { isValidCPF, formatarCpf } from "../../utils/cpfValidator";
 import { formatBrazilPhone, formatBrazilPhoneLocal } from "../../utils/phone";
@@ -1134,6 +1138,16 @@ export default function Recompra() {
         error.error ||
         error.message ||
         "Erro ao cadastrar recompra. Tente novamente.";
+
+      await marcarFalhaEnvioFormulario({
+        tipo: "recompra",
+        titulo: `Recompra - ${nomePaciente || "Sem paciente"}`,
+        paciente: nomePaciente || "",
+        cpf: cpfPaciente || "",
+        resumo: `Falha ao enviar recompra para ${nomePaciente || "paciente não identificado"}`,
+        erro: errorMessage,
+      });
+
       showToast(`❌ ${errorMessage}`, "error");
       setShowSplash(false);
     } finally {
