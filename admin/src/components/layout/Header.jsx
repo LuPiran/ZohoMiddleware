@@ -99,7 +99,7 @@ export default function Header() {
     }
 
     if (form?.crmStatus === "resolvida") {
-      return `Ocorrência ${protocolo} foi resolvida no CRM.`;
+      return `Ocorrência ${protocolo} foi finalizada.`;
     }
 
     if (form?.crmStatus === "erro_sincronizacao_crm") {
