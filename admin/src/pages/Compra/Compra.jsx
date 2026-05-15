@@ -152,7 +152,7 @@ export default function Compra() {
   // Estado para observação
   const [observacao, setObservacao] = useState("");
 
-  // Estado para parceiro (visível apenas para Marcelli Silva e Diego Betti)
+  // Estado para parceiro (visível apenas para usuários com parcerias configuradas)
   const [realizarProcessoComParceiro, setRealizarProcessoComParceiro] =
     useState(false);
   const [parceiroSelecionado, setParceiroSelecionado] = useState("");
@@ -160,6 +160,11 @@ export default function Compra() {
   const opcoesParceiro = getOpcoesParceiro(usuarioLogado);
   const exibirSecaoParceiro = opcoesParceiro.length > 0;
   const ignorarCamposObrigatorios = podeIgnorarCamposObrigatorios(usuarioLogado);
+
+  // Modal de seleção de parceiro (exibido ao clicar em Enviar)
+  const [showParceiroModal, setShowParceiroModal] = useState(false);
+  const [modalParceiroOpcao, setModalParceiroOpcao] = useState("consultor"); // "consultor" | "parceiro"
+  const [modalParceiroSelecionado, setModalParceiroSelecionado] = useState("");
 
   // Estados para upload de arquivos
   const [arquivos, setArquivos] = useState([]);
@@ -628,6 +633,22 @@ export default function Compra() {
       return;
     }
 
+    // Se o usuário tem parcerias configuradas, abre o modal de seleção de parceiro
+    if (exibirSecaoParceiro) {
+      setModalParceiroOpcao("consultor");
+      setModalParceiroSelecionado(opcoesParceiro[0]?.value || "");
+      setShowParceiroModal(true);
+      return;
+    }
+
+    // Usuário sem parcerias: envia diretamente no nome do consultor
+    await handleEnviarFinal(false, "");
+  };
+
+  // Função chamada após confirmação no modal (ou diretamente quando não há parceiro)
+  const handleEnviarFinal = async (usarParceiro, parceiroEscolhido) => {
+    setShowParceiroModal(false);
+
     // Valida produtos (já validado acima, mas filtra novamente para usar)
     const produtosValidos = produtos.filter(
       (p) =>
@@ -645,8 +666,8 @@ export default function Compra() {
       // Obtém o nome do usuário logado
       const user = authService.getUser();
       const consultorTegra =
-        realizarProcessoComParceiro && parceiroSelecionado
-          ? parceiroSelecionado
+        usarParceiro && parceiroEscolhido
+          ? parceiroEscolhido
           : getNomeUsuario(user) || "";
 
       // Converte arquivos para base64
@@ -742,8 +763,8 @@ export default function Compra() {
 
         // Obtém o nome do usuário logado para o comprovante (ou parceiro se selecionado)
         const nomeConsultor =
-          realizarProcessoComParceiro && parceiroSelecionado
-            ? parceiroSelecionado
+          usarParceiro && parceiroEscolhido
+            ? parceiroEscolhido
             : getNomeUsuario(usuarioLogado);
 
         // Inclui todos os campos enviados no formulário (exceto uploads)
@@ -853,34 +874,6 @@ export default function Compra() {
             className="space-y-4 sm:space-y-6 md:space-y-8"
             onSubmit={handleSubmit}
           >
-            {/* Seção: Parceiro (dinâmica via campo Parcerias do usuário) */}
-            {exibirSecaoParceiro && (
-              <div className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6">
-                <h2 className="text-base sm:text-lg font-semibold text-tegra-text-primary mb-3 sm:mb-4">
-                  Parceiro
-                </h2>
-                <Checkbox
-                  id="realizar-processo-parceiro"
-                  label="Realizar processo com um parceiro"
-                  checked={realizarProcessoComParceiro}
-                  onChange={(e) => {
-                    setRealizarProcessoComParceiro(e.target.checked);
-                  }}
-                />
-                {realizarProcessoComParceiro && (
-                  <div className="mt-4">
-                    <Select
-                      label="Parceria"
-                      value={parceiroSelecionado}
-                      onChange={(e) => setParceiroSelecionado(e.target.value)}
-                      options={opcoesParceiro}
-                      placeholder="Selecione o parceiro"
-                    />
-                  </div>
-                )}
-              </div>
-            )}
-
             {/* Seção: Dados do Paciente */}
             <div className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6">
               <h2 className="text-base sm:text-lg font-semibold text-tegra-text-primary mb-3 sm:mb-4">
@@ -1826,6 +1819,103 @@ export default function Compra() {
                 className="w-full sm:w-auto"
               >
                 Fechar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Seleção de Parceiro (exibido ao clicar em Enviar) */}
+      {showParceiroModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center px-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-tegra-gray-medium">
+              <h2 className="text-lg font-bold text-tegra-blue-dark">Enviar Compra</h2>
+              <button
+                type="button"
+                onClick={() => setShowParceiroModal(false)}
+                className="p-1 rounded-full hover:bg-tegra-gray-light text-tegra-text-secondary hover:text-tegra-blue-dark transition-colors"
+              >
+                <MdClose className="text-2xl" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="px-6 py-5 space-y-4">
+              <p className="text-sm text-tegra-text-secondary">
+                Como deseja enviar esta compra?
+              </p>
+
+              {/* Opção: nome do consultor */}
+              <label className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors ${modalParceiroOpcao === "consultor" ? "border-tegra-blue bg-blue-50" : "border-tegra-gray-medium hover:border-tegra-blue-light"}`}>
+                <input
+                  type="radio"
+                  name="parceiro-opcao"
+                  value="consultor"
+                  checked={modalParceiroOpcao === "consultor"}
+                  onChange={() => setModalParceiroOpcao("consultor")}
+                  className="accent-tegra-blue"
+                />
+                <span className="text-sm font-medium text-tegra-text-primary">
+                  Enviar no meu nome (consultor)
+                </span>
+              </label>
+
+              {/* Opção: com parceiro */}
+              <label className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors ${modalParceiroOpcao === "parceiro" ? "border-tegra-blue bg-blue-50" : "border-tegra-gray-medium hover:border-tegra-blue-light"}`}>
+                <input
+                  type="radio"
+                  name="parceiro-opcao"
+                  value="parceiro"
+                  checked={modalParceiroOpcao === "parceiro"}
+                  onChange={() => {
+                    setModalParceiroOpcao("parceiro");
+                    if (!modalParceiroSelecionado) {
+                      setModalParceiroSelecionado(opcoesParceiro[0]?.value || "");
+                    }
+                  }}
+                  className="accent-tegra-blue"
+                />
+                <span className="text-sm font-medium text-tegra-text-primary">
+                  Enviar com parceiro
+                </span>
+              </label>
+
+              {/* Select de parceiro (aparece quando "com parceiro" está selecionado) */}
+              {modalParceiroOpcao === "parceiro" && (
+                <div className="pl-2">
+                  <Select
+                    label="Parceria"
+                    value={modalParceiroSelecionado}
+                    onChange={(e) => setModalParceiroSelecionado(e.target.value)}
+                    options={opcoesParceiro}
+                    placeholder="Selecione o parceiro"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end gap-3 px-6 py-4 border-t border-tegra-gray-medium">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setShowParceiroModal(false)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                variant="primary"
+                onClick={() => {
+                  const usarParceiro = modalParceiroOpcao === "parceiro";
+                  const parceiro = usarParceiro ? modalParceiroSelecionado : "";
+                  handleEnviarFinal(usarParceiro, parceiro);
+                }}
+                disabled={modalParceiroOpcao === "parceiro" && !modalParceiroSelecionado}
+              >
+                Confirmar e Enviar
               </Button>
             </div>
           </div>

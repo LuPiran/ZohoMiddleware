@@ -5,11 +5,13 @@ import {
   MdChecklist,
   MdPerson,
   MdMessage,
+  MdGroup,
 } from "react-icons/md";
+import { getOpcoesParceiro } from "../../../utils/constants";
 
 const UPDATE_CONTENT = {
   badge: "Release V3.6",
-  date: "Atualizado em 13/05/2026",
+  date: "Atualizado em 15/05/2026",
   title: "Novidades do Portal",
   description:
     "Atualizamos o portal com foco em ocorrências, aumento do prazo dos rascunhos, correção de CEP e novas camadas de validação para reduzir ao máximo a chance de alguma solicitação não subir.",
@@ -47,16 +49,23 @@ const DEFAULT_HIGHLIGHTS = [
     icon: MdLocalShipping,
     iconClass: "bg-amber-100 text-amber-700",
   },
-  {
-    label: "Mais validações antes do envio:",
-    text: "Aplicamos medidas extras de validação nos fluxos críticos do portal para mitigar ainda mais a possibilidade de uma solicitação não ser enviada corretamente.",
-    icon: MdChecklist,
-    iconClass: "bg-emerald-100 text-emerald-700",
-  },
 ];
 
-export default function PlatformUpdatePopup({ isOpen, onContinue }) {
-  const highlights = [NOTIFICATIONS_HIGHLIGHT, ...DEFAULT_HIGHLIGHTS];
+const PARTNERSHIP_HIGHLIGHT = {
+  label: "Novo fluxo de Parceria:",
+  text: "A seleção de parceiro agora aparece no modal ao clicar em Enviar. Você poderá escolher entre enviar no seu nome ou com um de seus parceiros.",
+  icon: MdGroup,
+  iconClass: "bg-purple-100 text-purple-700",
+};
+
+export default function PlatformUpdatePopup({ isOpen, onContinue, user = null }) {
+  // Filtra os highlights: mostra o card de Parceria somente para quem tem parcerias configuradas
+  const temParcerias = user && getOpcoesParceiro(user).length > 0;
+  const highlights = [
+    ...(temParcerias ? [PARTNERSHIP_HIGHLIGHT] : []),
+    NOTIFICATIONS_HIGHLIGHT,
+    ...DEFAULT_HIGHLIGHTS,
+  ];
   useEffect(() => {
     if (!isOpen) {
       return undefined;
@@ -112,7 +121,11 @@ export default function PlatformUpdatePopup({ isOpen, onContinue }) {
             {highlights.map((item) => (
               <div
                 key={item.label}
-                className="h-full rounded-2xl border border-tegra-gray-medium/70 bg-white/90 px-4 py-4 shadow-[0_10px_28px_rgba(26,47,91,0.06)] transition-transform duration-200 hover:-translate-y-0.5 sm:px-5 sm:py-5"
+                className={`h-full rounded-2xl border transition-transform duration-200 hover:-translate-y-0.5 sm:px-5 sm:py-5 px-4 py-4 ${
+                  item.label === "Novo fluxo de Parceria:"
+                    ? "border-purple-400/50 bg-gradient-to-br from-white/95 to-purple-50/80 shadow-[0_0_30px_rgba(168,85,247,0.3),0_10px_28px_rgba(26,47,91,0.08)] ring-1 ring-purple-200/50"
+                    : "border-tegra-gray-medium/70 bg-white/90 shadow-[0_10px_28px_rgba(26,47,91,0.06)]"
+                }`}
               >
                 <div className="flex items-start gap-3 sm:gap-4">
                   <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl sm:h-11 sm:w-11 sm:rounded-2xl ${item.iconClass}`}>

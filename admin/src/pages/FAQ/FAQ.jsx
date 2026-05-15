@@ -68,6 +68,10 @@ const faqData = [
         pergunta: "O que é a Campanha Diretoria?",
         resposta: "Na tela de Compra e Recompra, existe um checkbox para <strong>'Campanha Diretoria'</strong>. Marque-o se a compra está relacionada a uma campanha especial da diretoria. Isso deixará o registro sinalizado no sistema para análise posterior.",
       },
+      {
+        pergunta: "Como funciona o novo fluxo de Parceria?",
+        resposta: "Se você tem parceiros configurados no seu perfil, ao clicar em <strong>'Enviar'</strong> em qualquer formulário (Compra, Recompra ou Proposta), um modal aparecerá com duas opções: <strong>'Enviar no meu nome (consultor)'</strong> ou <strong>'Enviar com parceiro'</strong>. Escolha a opção desejada, selecione o parceiro (se aplicável) e confirme. Isso permite que você distribua as solicitações entre você e seus parceiros de forma prática e rápida.",
+      },
     ],
   },
   {

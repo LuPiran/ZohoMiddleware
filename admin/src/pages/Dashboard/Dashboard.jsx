@@ -58,17 +58,6 @@ export default function Dashboard() {
           },
         ]
       : []),
-    ...(mostrarTrackingPedido
-      ? [
-          {
-            id: "tracking-pedido",
-            label: "Tracking de Pedido",
-            icon: <span className="text-3xl md:text-4xl"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none"><path d="M20 8h-3V4H3v13h2a3 3 0 1 0 6 0h2a3 3 0 1 0 6 0h2v-5l-3-4zM8 18.5A1.5 1.5 0 1 1 8 15.5a1.5 1.5 0 0 1 0 3zm8 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zM17 9.5h2.2l1.3 1.8H17V9.5z" fill="currentColor"/></svg></span>,
-            route: EXTERNAL_LINKS.TRACKING_PEDIDO,
-            external: true,
-          },
-        ]
-      : []),
     ...(mostrarOcorrencia
       ? [
           {

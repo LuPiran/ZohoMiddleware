@@ -1,9 +1,24 @@
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { authService } from "../../services/auth";
 import { PlatformUpdatePopup } from "../../components/feedback/auth";
 import { ROUTES } from "../../utils/constants";
 
 export default function PlatformUpdates() {
   const navigate = useNavigate();
+  const user = authService.getUser();
+  
+  // Verifica se é o primeiro login (sessionStorage limpa ao fechar navegador)
+  const [isModalOpen, setIsModalOpen] = useState(() => {
+    const hasSeenModal = sessionStorage.getItem("platform_updates_seen");
+    return !hasSeenModal;
+  });
+
+  useEffect(() => {
+    if (isModalOpen) {
+      sessionStorage.setItem("platform_updates_seen", "true");
+    }
+  }, [isModalOpen]);
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(61,142,190,0.18),_transparent_28%),linear-gradient(180deg,_#f5fbff_0%,_#eaf4fb_42%,_#dfeef8_100%)]">
@@ -14,8 +29,9 @@ export default function PlatformUpdates() {
         </div>
       </div>
       <PlatformUpdatePopup
-        isOpen
-        onContinue={() => navigate(ROUTES.LOGIN)}
+        isOpen={isModalOpen}
+        onContinue={() => setIsModalOpen(false)}
+        user={user}
       />
     </div>
   );
