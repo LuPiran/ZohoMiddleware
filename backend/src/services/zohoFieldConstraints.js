@@ -1,6 +1,38 @@
 const POLICY_ERROR = "error";
 const POLICY_TRUNCATE = "truncate";
 
+const BRAZIL_STATE_NAME_TO_UF = {
+  ACRE: "AC",
+  ALAGOAS: "AL",
+  AMAPA: "AP",
+  AMAZONAS: "AM",
+  BAHIA: "BA",
+  CEARA: "CE",
+  "DISTRITO FEDERAL": "DF",
+  "ESPIRITO SANTO": "ES",
+  GOIAS: "GO",
+  MARANHAO: "MA",
+  "MATO GROSSO": "MT",
+  "MATO GROSSO DO SUL": "MS",
+  "MINAS GERAIS": "MG",
+  PARA: "PA",
+  PARAIBA: "PB",
+  PARANA: "PR",
+  PERNAMBUCO: "PE",
+  PIAUI: "PI",
+  "RIO DE JANEIRO": "RJ",
+  "RIO GRANDE DO NORTE": "RN",
+  "RIO GRANDE DO SUL": "RS",
+  RONDONIA: "RO",
+  RORAIMA: "RR",
+  "SANTA CATARINA": "SC",
+  "SAO PAULO": "SP",
+  SERGIPE: "SE",
+  TOCANTINS: "TO",
+};
+
+const BRAZIL_UF_SET = new Set(Object.values(BRAZIL_STATE_NAME_TO_UF));
+
 const MODULE_CONSTRAINTS = {
   Ocorrencias: {
     Protocolo_Portal: { maxLength: 20, policy: POLICY_ERROR },
@@ -75,6 +107,60 @@ const MODULE_CONSTRAINTS = {
 
 function cloneRecord(record) {
   return JSON.parse(JSON.stringify(record || {}));
+}
+
+function normalizeStateText(value) {
+  return String(value || "")
+    .trim()
+    .toUpperCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^A-Z\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function normalizeBrazilStateToUF(value) {
+  const normalizedText = normalizeStateText(value);
+  if (!normalizedText) {
+    return "";
+  }
+
+  const compact = normalizedText.replace(/\s+/g, "");
+  if (BRAZIL_UF_SET.has(compact)) {
+    return compact;
+  }
+
+  if (BRAZIL_STATE_NAME_TO_UF[normalizedText]) {
+    return BRAZIL_STATE_NAME_TO_UF[normalizedText];
+  }
+
+  if (BRAZIL_STATE_NAME_TO_UF[compact]) {
+    return BRAZIL_STATE_NAME_TO_UF[compact];
+  }
+
+  return compact.slice(0, 2);
+}
+
+function preprocessRecordByModule(moduleName, record) {
+  if (!record || typeof record !== "object") {
+    return;
+  }
+
+  if (moduleName === "Portal_onix") {
+    if (record.Estado !== undefined) {
+      record.Estado = normalizeBrazilStateToUF(record.Estado);
+    }
+    if (record.UF_do_CRM !== undefined) {
+      record.UF_do_CRM = normalizeBrazilStateToUF(record.UF_do_CRM);
+    }
+  }
+
+  if (moduleName === "Ocorrencias") {
+    if (record.UF_do_M_dico !== undefined) {
+      record.UF_do_M_dico = normalizeBrazilStateToUF(record.UF_do_M_dico);
+    }
+  }
 }
 
 function buildError(field, maxLength, receivedLength, index) {
@@ -169,6 +255,7 @@ export function applyZohoFieldConstraints(moduleName, record) {
   }
 
   const output = cloneRecord(record);
+  preprocessRecordByModule(moduleName, output);
   const errors = [];
   const warnings = [];
 

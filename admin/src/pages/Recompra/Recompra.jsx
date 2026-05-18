@@ -28,6 +28,11 @@ import { hasAdminPanelPermission } from "../../utils/permissions";
 import { isValidCPF, formatarCpf } from "../../utils/cpfValidator";
 import { formatBrazilPhone, formatBrazilPhoneLocal } from "../../utils/phone";
 import {
+  handleValidationError,
+  DEFAULT_FIELD_MAPPING,
+} from "../../utils/handleValidationError";
+import { normalizeStateToUF } from "../../utils/stateUf";
+import {
   MdPerson,
   MdEmail,
   MdPhone,
@@ -154,6 +159,21 @@ export default function Recompra() {
       setCep(formatarCep(valor));
       marcarAtualizacaoEnderecoSeNecessario();
     }
+  };
+
+  // Função para formatar Estado (apenas 2 caracteres, uppercase, para sigla)
+  const formatarEstado = (valor) => {
+    return normalizeStateToUF(valor);
+  };
+
+  const handleEstadoChange = (e) => {
+    setEstado(e.target.value);
+    marcarAtualizacaoEnderecoSeNecessario();
+  };
+
+  const handleEstadoBlur = () => {
+    setEstado((estadoAtual) => formatarEstado(estadoAtual));
+    marcarAtualizacaoEnderecoSeNecessario();
   };
 
   useEffect(() => {
@@ -537,7 +557,7 @@ export default function Recompra() {
       rua: cliente.Other_Street || "",
       bairro: cliente.Outro_Bairro || "",
       cidade: cliente.Other_City || "",
-      estado: cliente.Other_State || "",
+      estado: formatarEstado(cliente.Other_State || ""),
       pais: cliente.Other_Country || "Brasil",
       cep: "",
     };
@@ -570,6 +590,9 @@ export default function Recompra() {
   };
 
   const handleConfirmarEnderecoSugerido = () => {
+    setEstado((estadoAtual) =>
+      formatarEstado(enderecoSugeridoCliente?.estado || estadoAtual),
+    );
     setAtualizacaoEnderecoViaPortal(false);
     setShowAddressConfirmModal(false);
     showToast("✅ Endereço confirmado.", "success", 2000);
@@ -636,7 +659,7 @@ export default function Recompra() {
       setRua(data.logradouro || "");
       setBairro(data.bairro || "");
       setCidade(data.localidade || "");
-      setEstado(data.uf || "");
+      setEstado(normalizeStateToUF(data.uf || ""));
       setPais("Brasil");
       // Preenche o campo CEP do formulário com o CEP encontrado
       const cepFormatado = formatarCep(cepLimpo);
@@ -813,7 +836,7 @@ export default function Recompra() {
         setBairro(d.bairro || "");
         setCep(d.cep || "");
         setCidade(d.cidade || "");
-        setEstado(d.estado || "");
+        setEstado(normalizeStateToUF(d.estado || ""));
         setPais(d.pais || "Brasil");
         setNegociacaoFeitaPeloConsultor(d.negociacaoFeitaPeloConsultor || false);
         setSolicitarLinkPagamento(d.solicitarLinkPagamento || "");
@@ -1155,11 +1178,17 @@ export default function Recompra() {
         });
       }
     } catch (error) {
-      console.error("Erro ao criar recompra:", error);
-      const errorMessage =
-        error.error ||
-        error.message ||
-        "Erro ao cadastrar recompra. Tente novamente.";
+      // Usa o utilitário centralizado para tratar erros de validação
+      const errorInfo = handleValidationError(
+        error,
+        showToast,
+        {
+          fieldMapping: {
+            ...DEFAULT_FIELD_MAPPING,
+            // Adiciona mapeamentos específicos de Recompra se necessário
+          },
+        }
+      );
 
       await marcarFalhaEnvioFormulario({
         tipo: "recompra",
@@ -1167,10 +1196,9 @@ export default function Recompra() {
         paciente: nomePaciente || "",
         cpf: cpfPaciente || "",
         resumo: `Falha ao enviar recompra para ${nomePaciente || "paciente não identificado"}`,
-        erro: errorMessage,
+        erro: errorInfo.message,
       });
 
-      showToast(`❌ ${errorMessage}`, "error");
       setShowSplash(false);
     } finally {
       setLoading(false);
@@ -1725,9 +1753,10 @@ export default function Recompra() {
                   label="Estado"
                   type="text"
                   value={estado}
-                  onChange={handleEnderecoChange(setEstado)}
+                  onChange={handleEstadoChange}
+                  onBlur={handleEstadoBlur}
                   placeholder="Estado (UF)"
-                  maxLength={2}
+                  maxLength={40}
                   className={estiloCampoEndereco}
                 />
                 <Input

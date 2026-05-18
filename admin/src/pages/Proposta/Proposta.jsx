@@ -28,6 +28,11 @@ import { isAdminPortal, hasAdminPanelPermission } from "../../utils/permissions"
 import { isValidCPF, formatarCpf } from "../../utils/cpfValidator";
 import { formatBrazilPhone, formatBrazilPhoneLocal } from "../../utils/phone";
 import {
+  handleValidationError,
+  DEFAULT_FIELD_MAPPING,
+} from "../../utils/handleValidationError";
+import { normalizeStateToUF } from "../../utils/stateUf";
+import {
   MdPerson,
   MdEmail,
   MdPhone,
@@ -379,6 +384,19 @@ export default function Proposta() {
     return cep.replace(/(\d{5})(\d{3})/, "$1-$2");
   };
 
+  // Função para formatar Estado (apenas 2 caracteres, uppercase, para sigla)
+  const formatarEstado = (valor) => {
+    return normalizeStateToUF(valor);
+  };
+
+  const handleEstadoChange = (e) => {
+    setEstado(e.target.value);
+  };
+
+  const handleEstadoBlur = () => {
+    setEstado((estadoAtual) => formatarEstado(estadoAtual));
+  };
+
   // Função para buscar CEP na API contratada (via backend)
   const handleBuscarCep = async (e) => {
     e.preventDefault();
@@ -405,7 +423,7 @@ export default function Proposta() {
       setRua(data.logradouro || "");
       setBairro(data.bairro || "");
       setCidade(data.localidade || "");
-      setEstado(data.uf || "");
+      setEstado(normalizeStateToUF(data.uf || ""));
       setPais("Brasil");
       // Preenche o campo CEP do formulário com o CEP encontrado
       setCep(formatarCep(cepLimpo));
@@ -639,7 +657,7 @@ export default function Proposta() {
       if (d.rua !== undefined) setRua(d.rua);
       if (d.bairro !== undefined) setBairro(d.bairro);
       if (d.cidade !== undefined) setCidade(d.cidade);
-      if (d.estado !== undefined) setEstado(d.estado);
+      if (d.estado !== undefined) setEstado(normalizeStateToUF(d.estado));
       if (d.pais !== undefined) setPais(d.pais);
       if (d.numero !== undefined) setNumero(d.numero);
       if (d.complemento !== undefined) setComplemento(d.complemento);
@@ -957,11 +975,11 @@ export default function Proposta() {
         });
       }
     } catch (error) {
-      console.error("Erro ao criar proposta:", error);
-      const errorMessage =
-        error.error ||
-        error.message ||
-        "Erro ao cadastrar proposta. Tente novamente.";
+      const errorInfo = handleValidationError(error, showToast, {
+        fieldMapping: {
+          ...DEFAULT_FIELD_MAPPING,
+        },
+      });
 
       const nomeIdentificacao =
         tipoCliente === "Pessoa Juridica" ? nomeEmpresa : nomePaciente;
@@ -974,10 +992,9 @@ export default function Proposta() {
         paciente: nomeIdentificacao || "",
         cpf: cpfIdentificacao || "",
         resumo: `Falha ao enviar proposta (${tipoCliente || "Pessoa Fisica"})`,
-        erro: errorMessage,
+        erro: errorInfo.message,
       });
 
-      showToast(`❌ ${errorMessage}`, "error");
       setShowSplash(false);
     } finally {
       setLoading(false);
@@ -1502,9 +1519,10 @@ export default function Proposta() {
                   label="Estado"
                   type="text"
                   value={estado}
-                  onChange={(e) => setEstado(e.target.value)}
+                  onChange={handleEstadoChange}
+                  onBlur={handleEstadoBlur}
                   placeholder="Estado (UF)"
-                  maxLength={2}
+                  maxLength={40}
                 />
                 <Input
                   label="País"

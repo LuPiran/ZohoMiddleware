@@ -28,6 +28,11 @@ import { hasAdminPanelPermission } from "../../utils/permissions";
 import { isValidCPF, formatarCpf } from "../../utils/cpfValidator";
 import { formatBrazilPhone } from "../../utils/phone";
 import {
+  handleValidationError,
+  DEFAULT_FIELD_MAPPING,
+} from "../../utils/handleValidationError";
+import { normalizeStateToUF } from "../../utils/stateUf";
+import {
   MdPerson,
   MdEmail,
   MdPhone,
@@ -344,6 +349,15 @@ export default function Ocorrencia() {
     return cep.replace(/(\d{5})(\d{3})/, "$1-$2");
   };
 
+  // Função para normalizar Estado para UF (ex.: "Sao Paulo" -> "SP")
+  const formatarEstado = (valor) => {
+    return normalizeStateToUF(valor);
+  };
+
+  const handleEstadoChange = (e) => {
+    setEstado(formatarEstado(e.target.value));
+  };
+
   // Função para buscar CEP na API contratada (via backend)
   const handleBuscarCep = async (e) => {
     e.preventDefault();
@@ -370,7 +384,7 @@ export default function Ocorrencia() {
       setRua(data.logradouro || "");
       setBairro(data.bairro || "");
       setCidade(data.localidade || "");
-      setEstado(data.uf || "");
+      setEstado(normalizeStateToUF(data.uf || ""));
       setPais("Brasil");
       // Preenche o campo CEP do formulário com o CEP encontrado
       setCep(formatarCep(cepLimpo));
@@ -723,11 +737,11 @@ export default function Ocorrencia() {
         window.location.href = `${ROUTES.AGRADECIMENTO}?t=${Date.now()}`;
       }
     } catch (error) {
-      console.error("Erro ao criar ocorrência:", error);
-      const errorMessage =
-        error.error ||
-        error.message ||
-        "Erro ao cadastrar ocorrência. Tente novamente.";
+      const errorInfo = handleValidationError(error, showToast, {
+        fieldMapping: {
+          ...DEFAULT_FIELD_MAPPING,
+        },
+      });
 
       await marcarFalhaEnvioFormulario({
         tipo: "ocorrencia",
@@ -735,10 +749,9 @@ export default function Ocorrencia() {
         paciente: nomePaciente || "",
         cpf: cpfPaciente || "",
         resumo: `Falha ao enviar ocorrência (${motivoOcorrencia || "sem motivo"})`,
-        erro: errorMessage,
+        erro: errorInfo.message,
       });
 
-      showToast(`❌ ${errorMessage}`, "error");
       setShowSplash(false);
     } finally {
       setLoading(false);

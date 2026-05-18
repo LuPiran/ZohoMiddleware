@@ -29,6 +29,11 @@ import { isValidCPF, formatarCpf } from "../../utils/cpfValidator";
 import { validateAndSanitizeEmail } from "../../utils/emailValidator";
 import { formatBrazilPhone, formatBrazilPhoneLocal } from "../../utils/phone";
 import {
+  handleValidationError,
+  DEFAULT_FIELD_MAPPING,
+} from "../../utils/handleValidationError";
+import { normalizeStateToUF } from "../../utils/stateUf";
+import {
   MdPerson,
   MdEmail,
   MdPhone,
@@ -297,6 +302,19 @@ export default function Compra() {
     return cep.replace(/(\d{5})(\d{3})/, "$1-$2");
   };
 
+  // Função para formatar Estado (apenas 2 caracteres, uppercase, para sigla)
+  const formatarEstado = (valor) => {
+    return normalizeStateToUF(valor);
+  };
+
+  const handleEstadoChange = (e) => {
+    setEstado(e.target.value);
+  };
+
+  const handleEstadoBlur = () => {
+    setEstado((estadoAtual) => formatarEstado(estadoAtual));
+  };
+
   // Função para buscar CEP na API contratada (via backend)
   const handleBuscarCep = async (e) => {
     e.preventDefault();
@@ -323,7 +341,7 @@ export default function Compra() {
       setRua(data.logradouro || "");
       setBairro(data.bairro || "");
       setCidade(data.localidade || "");
-      setEstado(data.uf || "");
+      setEstado(normalizeStateToUF(data.uf || ""));
       setPais("Brasil");
       // Preenche o campo CEP do formulário com o CEP encontrado
       setCep(formatarCep(cepLimpo));
@@ -475,7 +493,7 @@ export default function Compra() {
         setBairro(d.bairro || "");
         setCep(d.cep || "");
         setCidade(d.cidade || "");
-        setEstado(d.estado || "");
+        setEstado(normalizeStateToUF(d.estado || ""));
         setPais(d.pais || "Brasil");
         setNegociacaoFeitaPeloConsultor(d.negociacaoFeitaPeloConsultor || false);
         setSolicitarLinkPagamento(d.solicitarLinkPagamento || "");
@@ -834,11 +852,11 @@ export default function Compra() {
         });
       }
     } catch (error) {
-      console.error("Erro ao criar compra:", error);
-      const errorMessage =
-        error.error ||
-        error.message ||
-        "Erro ao cadastrar compra. Tente novamente.";
+      const errorInfo = handleValidationError(error, showToast, {
+        fieldMapping: {
+          ...DEFAULT_FIELD_MAPPING,
+        },
+      });
 
       await marcarFalhaEnvioFormulario({
         tipo: "compra",
@@ -846,10 +864,9 @@ export default function Compra() {
         paciente: nomePaciente || "",
         cpf: cpfPaciente || "",
         resumo: `Falha ao enviar compra para ${nomePaciente || "paciente não identificado"}`,
-        erro: errorMessage,
+        erro: errorInfo.message,
       });
 
-      showToast(`❌ ${errorMessage}`, "error");
       setShowSplash(false);
     } finally {
       setLoading(false);
@@ -1269,9 +1286,10 @@ export default function Compra() {
                   label="Estado"
                   type="text"
                   value={estado}
-                  onChange={(e) => setEstado(e.target.value)}
+                  onChange={handleEstadoChange}
+                  onBlur={handleEstadoBlur}
                   placeholder="Estado (UF)"
-                  maxLength={2}
+                  maxLength={40}
                 />
                 <Input
                   label="País"
