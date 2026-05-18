@@ -84,57 +84,74 @@ router.get("/:cep", async (req, res) => {
     const cepApiPassword = (ENV.CEP_API_PASSWORD || "").trim();
 
     if (!cepApiUrl || !cepApiPassword) {
-      console.error(
-        "[CEP API] Configuração ausente para provedor contratado (CEP_API_URL/CEP_API_PASSWORD)",
+      console.warn(
+        "[CEP API] Configuração ausente para provedor contratado — usando ViaCEP como fallback",
       );
-      return res.status(500).json({
-        erro: true,
-        message: "Serviço de CEP contratado não está configurado no servidor",
-      });
+    } else {
+      console.log("[CEP API] Usando provedor contratado:", cepApiUrl);
+
+      try {
+        // Busca CEP na API contratada (CEP + password por query string)
+        const response = await axios.get(cepApiUrl, {
+          timeout: requestTimeout,
+          headers: {
+            Accept: "application/json",
+          },
+          params: {
+            cep: cepLimpo,
+            password: cepApiPassword,
+          },
+        });
+
+        const data = response.data;
+        const address = data?.data?.address;
+
+        if (!data?.success || !address) {
+          console.log("[CEP API] ✗ CEP não encontrado (contratado):", cepLimpo);
+          return res.status(404).json({
+            erro: true,
+            message: data?.error || "CEP não encontrado",
+          });
+        }
+
+        console.log("[CEP API] ✓ CEP encontrado (contratado):", cepLimpo);
+
+        return res.json({
+          cep: address.cep || cepLimpo,
+          logradouro: address.logradouro || "",
+          complemento: address.complemento || "",
+          bairro: address.bairro || "",
+          localidade: address.localidade || "",
+          uf: address.uf || address.estado || "",
+          ibge: address.ibge || "",
+          gia: address.gia || "",
+          ddd: address.ddd || "",
+          siafi: address.siafi || "",
+        });
+      } catch (contractedError) {
+        console.warn(
+          "[CEP API] ✗ Falha na API contratada, tentando ViaCEP como fallback:",
+          contractedError.message,
+        );
+      }
     }
 
-    console.log("[CEP API] Usando provedor contratado:", cepApiUrl);
+    // Fallback: ViaCEP
+    console.log("[CEP API] Usando ViaCEP (fallback)");
 
-    // Busca CEP na API contratada (CEP + password por query string)
-    const response = await axios.get(cepApiUrl, {
-      timeout: requestTimeout,
-      headers: {
-        Accept: "application/json",
-      },
-      params: {
-        cep: cepLimpo,
-        password: cepApiPassword,
-      },
-    });
+    const viaCepData = await fetchViaCep(cepLimpo, requestTimeout);
 
-    const data = response.data;
-    const address = data?.data?.address;
-
-    // Verifica se o CEP foi encontrado
-    if (!data?.success || !address) {
-      console.log("[CEP API] ✗ CEP não encontrado:", cepLimpo);
+    if (!viaCepData) {
+      console.log("[CEP API] ✗ CEP não encontrado (ViaCEP fallback):", cepLimpo);
       return res.status(404).json({
         erro: true,
-        message: data?.error || "CEP não encontrado",
+        message: "CEP não encontrado",
       });
     }
 
-    console.log("[CEP API] ✓ CEP encontrado:", cepLimpo);
+    console.log("[CEP API] ✓ CEP encontrado (ViaCEP fallback):", cepLimpo);
 
-    // Retorna os dados do endereço
-    res.json({
-      cep: address.cep || cepLimpo,
-      logradouro: address.logradouro || "",
-      complemento: address.complemento || "",
-      bairro: address.bairro || "",
-      localidade: address.localidade || "",
-      // Alguns provedores retornam estado em vez de uf.
-      uf: address.uf || address.estado || "",
-      ibge: address.ibge || "",
-      gia: address.gia || "",
-      ddd: address.ddd || "",
-      siafi: address.siafi || "",
-    });
+    return res.json(viaCepData);
   } catch (error) {
     console.error("[CEP API] ✗ Erro ao buscar CEP:", error.message);
     console.error("[CEP API] Detalhes do erro:", {

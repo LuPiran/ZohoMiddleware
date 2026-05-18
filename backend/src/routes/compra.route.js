@@ -6,6 +6,7 @@ import { applyZohoFieldConstraints } from "../services/zohoFieldConstraints.js";
 import { parseZohoCreateResponse } from "../services/zohoSubmissionResult.js";
 import { gerarNumeroProtocolo } from "../utils/protocol.js";
 import { sanitizeBrazilPhoneForApi } from "../utils/phone.js";
+import { validateAndSanitizeEmail } from "../utils/emailValidator.js";
 
 const router = express.Router();
 const MAX_ARQUIVOS_UPLOAD = 10;
@@ -752,6 +753,40 @@ router.post("/", async (req, res) => {
         success: false,
         error: `Máximo de ${MAX_ARQUIVOS_UPLOAD} arquivos permitidos`,
       });
+    }
+
+    // Valida emails se preenchidos
+    if (emailPaciente && emailPaciente.trim()) {
+      const validacaoEmailPaciente = validateAndSanitizeEmail(emailPaciente);
+      if (!validacaoEmailPaciente.isValid) {
+        console.log("[COMPRA API] ❌ Email do paciente inválido:", emailPaciente);
+        return res.status(400).json({
+          success: false,
+          error: `Email do paciente inválido: ${validacaoEmailPaciente.error}`,
+        });
+      }
+    }
+
+    if (temRepresentanteLegal && emailRepresentante && emailRepresentante.trim()) {
+      const validacaoEmailRepresentante = validateAndSanitizeEmail(emailRepresentante);
+      if (!validacaoEmailRepresentante.isValid) {
+        console.log("[COMPRA API] ❌ Email do representante inválido:", emailRepresentante);
+        return res.status(400).json({
+          success: false,
+          error: `Email do representante legal inválido: ${validacaoEmailRepresentante.error}`,
+        });
+      }
+    }
+
+    if (temNovoMedicoPrescritor && emailMedico && emailMedico.trim()) {
+      const validacaoEmailMedico = validateAndSanitizeEmail(emailMedico);
+      if (!validacaoEmailMedico.isValid) {
+        console.log("[COMPRA API] ❌ Email do médico inválido:", emailMedico);
+        return res.status(400).json({
+          success: false,
+          error: `Email do médico inválido: ${validacaoEmailMedico.error}`,
+        });
+      }
     }
 
     // Combina Rua + Número

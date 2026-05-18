@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { MdLocalShipping } from "react-icons/md";
 import { authService } from "../../services/auth";
 import { useLoading } from "../../contexts/LoadingContext";
 import MainLayout from "../../components/layout/MainLayout";
@@ -55,6 +56,17 @@ export default function Dashboard() {
             label: "Proposta",
             icon: <span className="text-3xl md:text-4xl"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none"><path d="M19 2H8c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V6l-5-4zm0 18H8V4h7v5h5v11c0 1.1-.9 2-2 2zm-7-7h2v2h-2v-2zm0-4h2v2h-2V9z" fill="currentColor"/></svg></span>,
             route: ROUTES.PROPOSTA,
+          },
+        ]
+      : []),
+    ...(mostrarTrackingPedido
+      ? [
+          {
+            id: "tracking-pedido",
+            label: "Tracking de Pedido",
+            icon: <MdLocalShipping className="text-3xl md:text-4xl" />,
+            route: EXTERNAL_LINKS.TRACKING_PEDIDO,
+            external: true,
           },
         ]
       : []),

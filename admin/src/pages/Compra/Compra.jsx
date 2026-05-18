@@ -26,6 +26,7 @@ import {
 } from "../../services/savedForms";
 import { isAdminPortal, hasAdminPanelPermission } from "../../utils/permissions";
 import { isValidCPF, formatarCpf } from "../../utils/cpfValidator";
+import { validateAndSanitizeEmail } from "../../utils/emailValidator";
 import { formatBrazilPhone, formatBrazilPhoneLocal } from "../../utils/phone";
 import {
   MdPerson,
@@ -566,10 +567,37 @@ export default function Compra() {
       return { valido: false, camposVazios: [] };
     }
 
+    // Valida email do paciente se preenchido
+    if (emailPaciente.trim()) {
+      const validacaoEmail = validateAndSanitizeEmail(emailPaciente);
+      if (!validacaoEmail.isValid) {
+        showToast(`❌ Email do paciente inválido: ${validacaoEmail.error}`, "error");
+        return { valido: false, camposVazios: [] };
+      }
+    }
+
     // Valida CPF do representante legal se preenchido
     if (temRepresentanteLegal && cpfRepresentante.trim() && !isValidCPF(cpfRepresentante)) {
       showToast("❌ CPF do representante legal inválido", "error");
       return { valido: false, camposVazios: [] };
+    }
+
+    // Valida email do representante legal se preenchido
+    if (temRepresentanteLegal && emailRepresentante.trim()) {
+      const validacaoEmail = validateAndSanitizeEmail(emailRepresentante);
+      if (!validacaoEmail.isValid) {
+        showToast(`❌ Email do representante legal inválido: ${validacaoEmail.error}`, "error");
+        return { valido: false, camposVazios: [] };
+      }
+    }
+
+    // Valida email do médico prescritor se preenchido
+    if (temNovoMedicoPrescritor && emailMedico.trim()) {
+      const validacaoEmail = validateAndSanitizeEmail(emailMedico);
+      if (!validacaoEmail.isValid) {
+        showToast(`❌ Email do médico inválido: ${validacaoEmail.error}`, "error");
+        return { valido: false, camposVazios: [] };
+      }
     }
 
     // Valida produtos
