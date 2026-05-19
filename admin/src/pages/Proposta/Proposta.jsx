@@ -975,7 +975,23 @@ export default function Proposta() {
         });
       }
     } catch (error) {
-      const errorInfo = handleValidationError(error, showToast, {
+      const draftFalha = {
+        tipoCliente, nomeEmpresa, cnpjEmpresa, emailEmpresa, telefoneEmpresa,
+        temRepresentanteEmpresa, nomeRepresentanteEmpresa, emailRepresentanteEmpresa, celularRepresentanteEmpresa,
+        nomePaciente, sobrenomePaciente, cpfPaciente, rgPaciente, celularPaciente,
+        emailPaciente, dataNascimento, telefonePaciente,
+        temRepresentanteLegal, nomeRepresentante, rgRepresentante, cpfRepresentante,
+        emailRepresentante, celularRepresentante, dataNascimentoRepresentante,
+        temNovoMedicoPrescritor, nomeMedico, crmMedico, ufCrm, celularMedico, emailMedico, especialidadeMedico,
+        rua, bairro, cidade, estado, pais, numero, complemento, cep,
+        negociacaoFeitaPeloConsultor, solicitarLinkPagamento, tipoLink,
+        produtos, formaPagamento, termosCondicoesPagamento,
+        observacao, realizarProcessoComParceiro, parceiroSelecionado,
+        documentosCompletos, tipoSolicitacao,
+      };
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(draftFalha));
+
+      const errorInfo = handleValidationError(error, null, {
         fieldMapping: {
           ...DEFAULT_FIELD_MAPPING,
         },
@@ -992,9 +1008,11 @@ export default function Proposta() {
         paciente: nomeIdentificacao || "",
         cpf: cpfIdentificacao || "",
         resumo: `Falha ao enviar proposta (${tipoCliente || "Pessoa Fisica"})`,
+        dados: draftFalha,
         erro: errorInfo.message,
       });
 
+      showToast("⚠️ Houve um problema no envio deste formulário. Os dados foram salvos. Entre em contato com o Suporte de TI.", "error", 8000);
       setShowSplash(false);
     } finally {
       setLoading(false);

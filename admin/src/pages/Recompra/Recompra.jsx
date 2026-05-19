@@ -1179,16 +1179,27 @@ export default function Recompra() {
       }
     } catch (error) {
       // Usa o utilitário centralizado para tratar erros de validação
-      const errorInfo = handleValidationError(
-        error,
-        showToast,
-        {
-          fieldMapping: {
-            ...DEFAULT_FIELD_MAPPING,
-            // Adiciona mapeamentos específicos de Recompra se necessário
-          },
-        }
-      );
+      const draftFalha = {
+        nomePaciente, sobrenomePaciente, cpfPaciente, rgPaciente, celularPaciente,
+        emailPaciente, dataNascimento, telefonePaciente,
+        temRepresentanteLegal, nomeRepresentante, rgRepresentante, cpfRepresentante,
+        emailRepresentante, celularRepresentante, dataNascimentoRepresentante,
+        temNovoMedicoPrescritor, nomeMedico, crmMedico, ufCrm,
+        celularMedico, emailMedico, especialidadeMedico,
+        atualizacaoEnderecoViaPortal,
+        rua, numero, complemento, bairro, cep, cidade, estado, pais,
+        negociacaoFeitaPeloConsultor, solicitarLinkPagamento, tipoLink,
+        campanhaDiretoria, produtos,
+        formaPagamento, termosCondicoesPagamento, observacao,
+        realizarProcessoComParceiro, parceiroSelecionado, documentosCompletos,
+      };
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(draftFalha));
+
+      const errorInfo = handleValidationError(error, null, {
+        fieldMapping: {
+          ...DEFAULT_FIELD_MAPPING,
+        },
+      });
 
       await marcarFalhaEnvioFormulario({
         tipo: "recompra",
@@ -1196,9 +1207,11 @@ export default function Recompra() {
         paciente: nomePaciente || "",
         cpf: cpfPaciente || "",
         resumo: `Falha ao enviar recompra para ${nomePaciente || "paciente não identificado"}`,
+        dados: draftFalha,
         erro: errorInfo.message,
       });
 
+      showToast("⚠️ Houve um problema no envio deste formulário. Os dados foram salvos. Entre em contato com o Suporte de TI.", "error", 8000);
       setShowSplash(false);
     } finally {
       setLoading(false);

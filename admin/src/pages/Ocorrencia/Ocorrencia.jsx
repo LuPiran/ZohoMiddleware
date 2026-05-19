@@ -737,7 +737,19 @@ export default function Ocorrencia() {
         window.location.href = `${ROUTES.AGRADECIMENTO}?t=${Date.now()}`;
       }
     } catch (error) {
-      const errorInfo = handleValidationError(error, showToast, {
+      const draftFalha = {
+        nomePaciente, sobrenomePaciente, cpfPaciente, rgPaciente, celularPaciente,
+        emailPaciente, dataNascimento, telefonePaciente,
+        temRepresentanteLegal, nomeRepresentante, rgRepresentante, cpfRepresentante,
+        emailRepresentante, celularRepresentante, dataNascimentoRepresentante,
+        temNovoMedicoPrescritor, nomeMedico, crmMedico, ufCrm, celularMedico, emailMedico, especialidadeMedico,
+        motivoOcorrencia, observacaoMotivo, observacao,
+        numeroPedido, awb, dataPedido, numeroLote, dataValidade,
+        produtos, documentosCompletos,
+      };
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(draftFalha));
+
+      const errorInfo = handleValidationError(error, null, {
         fieldMapping: {
           ...DEFAULT_FIELD_MAPPING,
         },
@@ -749,9 +761,11 @@ export default function Ocorrencia() {
         paciente: nomePaciente || "",
         cpf: cpfPaciente || "",
         resumo: `Falha ao enviar ocorrência (${motivoOcorrencia || "sem motivo"})`,
+        dados: draftFalha,
         erro: errorInfo.message,
       });
 
+      showToast("⚠️ Houve um problema no envio deste formulário. Os dados foram salvos. Entre em contato com o Suporte de TI.", "error", 8000);
       setShowSplash(false);
     } finally {
       setLoading(false);

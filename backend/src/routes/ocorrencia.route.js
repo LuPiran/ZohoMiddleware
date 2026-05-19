@@ -138,13 +138,12 @@ router.post("/", async (req, res) => {
           .join(", ")
       : "";
 
-    // Extrai quantidades dos produtos (concatenadas com vírgula)
+    // Soma as quantidades dos produtos (Zoho espera integer)
     const quantidadeProduto = Array.isArray(produtos) && produtos.length > 0
       ? produtos
           .filter(p => p && p.Quantidade)
-          .map(p => String(p.Quantidade).trim())
-          .join(", ")
-      : "";
+          .reduce((sum, p) => sum + (parseInt(p.Quantidade, 10) || 0), 0)
+      : 0;
 
     // Prepara os dados para o Zoho
     const dadosZoho = {
@@ -165,7 +164,7 @@ router.post("/", async (req, res) => {
           Telefone_do_M_dico: celularMedicoLimpo || "",
           CRM_do_M_dico: crmMedico || "",
           Nome_Produto: nomeProduto || "",
-          Quantidade_Produto: quantidadeProduto || "",
+          Quantidade_Produto: quantidadeProduto,
           Pre_o_Unit_rio:
             Array.isArray(produtos) && produtos.length > 0 && produtos[0]?.Pre_o_Unit_rio
               ? (() => {
