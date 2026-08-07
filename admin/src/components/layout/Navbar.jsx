@@ -13,6 +13,7 @@ import {
   MdPerson,
   MdBook,
   MdLocalShipping,
+  MdLanguage,
 } from "react-icons/md";
 import {
   EXTERNAL_LINKS,
@@ -99,11 +100,20 @@ export default function Navbar() {
       show: mostrarProposta,
     },
     {
+      path: EXTERNAL_LINKS.CENTRAL_CONSULTOR,
+      label: "Central Comercial",
+      icon: <MdLanguage className="text-xl" />,
+      show: true,
+      external: true,
+      variant: "amber",
+    },
+    {
       path: EXTERNAL_LINKS.TRACKING_PEDIDO,
-      label: "Tracking de Pedido",
+      label: "Rastreamento de Pedido",
       icon: <MdLocalShipping className="text-xl" />,
       show: mostrarTrackingPedido,
       external: true,
+      variant: "teal",
     },
     {
       path: ROUTES.OCORRENCIA,
@@ -115,22 +125,22 @@ export default function Navbar() {
       path: ROUTES.SAVED_FORMS,
       label: "Formulários Salvos",
       icon: <MdBookmarks className="text-xl" />,
-      show: true, // Sempre visível
+      show: true,
     },
-      {
-        path: ROUTES.MANUAL,
-        label: "Manual",
-        icon: <MdBook className="text-xl" />,
-        show: true, // Sempre visível
-      },
+    {
+      path: ROUTES.MANUAL,
+      label: "Manual",
+      icon: <MdBook className="text-xl" />,
+      show: true,
+    },
   ].filter((item) => item.show); // Filtra apenas itens visíveis
 
   return (
     <>
       {/* Menu desktop (sempre visível em lg+) */}
       <nav className="hidden lg:block bg-tegra-bg-primary border-b border-tegra-gray-medium relative z-20">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="flex justify-center space-x-1">
+        <div className="w-full px-4">
+          <div className="flex justify-center space-x-0">
             {navItems.map((item) => (
               item.external ? (
                 <a
@@ -138,10 +148,13 @@ export default function Navbar() {
                   href={item.path}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="group flex items-center gap-2 px-4 py-3 text-sm font-semibold text-amber-700 transition-all duration-200 border-b-2 border-amber-300/80 drop-shadow-[0_0_10px_rgba(245,158,11,0.18)] hover:text-amber-800 hover:border-amber-400 hover:drop-shadow-[0_0_14px_rgba(245,158,11,0.28)]"
-                  title="Abre o Tracking de Pedido em uma nova aba"
+                  className={`group flex items-center gap-1.5 px-3 py-3 text-sm font-semibold transition-all duration-200 border-b-2 whitespace-nowrap ${
+                    item.variant === "teal"
+                      ? "text-teal-600 border-teal-300/80 drop-shadow-[0_0_10px_rgba(20,184,166,0.18)] hover:text-teal-700 hover:border-teal-500 hover:drop-shadow-[0_0_14px_rgba(20,184,166,0.28)]"
+                      : "text-amber-700 border-amber-300/80 drop-shadow-[0_0_10px_rgba(245,158,11,0.18)] hover:text-amber-800 hover:border-amber-400 hover:drop-shadow-[0_0_14px_rgba(245,158,11,0.28)]"
+                  }`}
                 >
-                  <span className="text-[1.1rem] text-amber-600 transition-transform duration-200 group-hover:translate-x-0.5">
+                  <span className={`text-[1.1rem] transition-transform duration-200 group-hover:translate-x-0.5 ${item.variant === "teal" ? "text-teal-500" : "text-amber-600"}`}>
                     {item.icon}
                   </span>
                   {item.label}
@@ -151,7 +164,7 @@ export default function Navbar() {
                   key={item.path}
                   to={item.path}
                   className={({ isActive }) =>
-                    `flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 ${
+                    `flex items-center gap-1.5 px-3 py-3 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${
                       isActive
                         ? "text-tegra-blue-dark border-tegra-blue-dark"
                         : "text-tegra-text-secondary border-transparent hover:text-tegra-blue-dark hover:border-tegra-blue-dark"
@@ -218,10 +231,15 @@ export default function Navbar() {
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={closeMenu}
-                className="mobile-menu-item mx-2 my-1 flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-semibold text-amber-700 ring-1 ring-amber-200/80 shadow-[0_0_14px_rgba(245,158,11,0.12)] transition-colors hover:bg-amber-50 hover:text-amber-800"
-                title="Abre o Tracking de Pedido em uma nova aba"
+                className={`mobile-menu-item mx-2 my-1 flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-semibold ring-1 transition-colors ${
+                  item.variant === "teal"
+                    ? "text-teal-600 ring-teal-200/80 hover:bg-teal-50 hover:text-teal-700"
+                    : "text-amber-700 ring-amber-200/80 hover:bg-amber-50 hover:text-amber-800"
+                }`}
               >
-                <span className="text-amber-700">{item.icon}</span>
+                <span className={item.variant === "teal" ? "text-teal-500" : "text-amber-600"}>
+                  {item.icon}
+                </span>
                 <span className="flex-1">{item.label}</span>
               </a>
             ) : (

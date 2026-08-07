@@ -319,6 +319,7 @@ router.post("/", async (req, res) => {
       estado,
       cep,
       pais,
+      enderecoInternacional,
       complemento,
       produtos,
       consultorTegra,
@@ -454,6 +455,11 @@ router.post("/", async (req, res) => {
     console.log("[PROPOSTA API] Número de protocolo gerado:", numeroProtocolo);
 
     // Prepara os dados para o Zoho
+    const isEnderecoInternacional = Boolean(enderecoInternacional);
+    const cepNormalizado = isEnderecoInternacional
+      ? String(cep || "").trim()
+      : cep?.replace(/\D/g, "") || "";
+
     const dadosZoho = {
       data: [
         {
@@ -473,7 +479,7 @@ router.post("/", async (req, res) => {
           Bairro: bairro || "",
           Cidade: cidade || "",
           Estado: estado || "",
-          CEP: cep?.replace(/\D/g, "") || "",
+          CEP: cepNormalizado,
           Pa_s: pais || "Brasil",
           Complemento: complemento || "",
           Tipo_Cliente: tipoCliente || "Pessoa Fisica",
@@ -524,6 +530,7 @@ router.post("/", async (req, res) => {
     const constraintCheck = applyZohoFieldConstraints(
       "Portal_onix",
       dadosZoho.data[0],
+      { enderecoInternacional: isEnderecoInternacional },
     );
 
     if (constraintCheck.hasBlockingErrors) {

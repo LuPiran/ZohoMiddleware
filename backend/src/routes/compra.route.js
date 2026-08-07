@@ -683,6 +683,7 @@ router.post("/", async (req, res) => {
       estado,
       cep,
       pais,
+      enderecoInternacional,
       complemento,
       atualizacaoEnderecoViaPortal,
       produtos,
@@ -843,6 +844,10 @@ router.post("/", async (req, res) => {
     console.log("[COMPRA API] Número de protocolo gerado:", numeroProtocolo);
 
     const enderecoAtualizadoViaPortal = Boolean(atualizacaoEnderecoViaPortal);
+    const isEnderecoInternacional = Boolean(enderecoInternacional);
+    const cepNormalizado = isEnderecoInternacional
+      ? String(cep || "").trim()
+      : cep?.replace(/\D/g, "") || "";
 
     const formatarZohoDateTime = (data) => {
       const date = data instanceof Date ? data : new Date(data);
@@ -878,7 +883,7 @@ router.post("/", async (req, res) => {
           Bairro: bairro || "",
           Cidade: cidade || "",
           Estado: estado || "",
-          CEP: cep?.replace(/\D/g, "") || "",
+          CEP: cepNormalizado,
           Pa_s: pais || "Brasil",
           Complemento: complemento || "",
           Atualizacao_Endereco_Via_Portal: enderecoAtualizadoViaPortal,
@@ -933,6 +938,7 @@ router.post("/", async (req, res) => {
     const constraintCheck = applyZohoFieldConstraints(
       "Portal_onix",
       dadosZoho.data[0],
+      { enderecoInternacional: isEnderecoInternacional },
     );
 
     if (constraintCheck.hasBlockingErrors) {

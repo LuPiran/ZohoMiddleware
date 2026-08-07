@@ -13,8 +13,8 @@ services:
       - SERVE_FRONTEND=false
       - CEP_PROVIDER=contracted
     volumes:
-      - ./backend/uploads:/app/uploads
-      - ./backend/logs:/app/logs
+      - zoho_uploads:/app/uploads
+      - zoho_logs:/app/logs
     restart: unless-stopped
     networks:
       - zoho-network
@@ -45,5 +45,5 @@ networks:
     driver: bridge
 
 volumes:
-  uploads:
-  logs:
+  zoho_uploads:
+  zoho_logs:

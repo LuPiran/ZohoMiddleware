@@ -19,6 +19,7 @@ export const ROUTES = {
 
 export const EXTERNAL_LINKS = {
   TRACKING_PEDIDO: "https://rastreamentodepedido.tegrapharma.com/login",
+  CENTRAL_CONSULTOR: "https://central.tegrapharma.com/",
 };
 
 export const API_ENDPOINTS = {
@@ -59,7 +60,7 @@ export const STORAGE_KEYS = {
   PLATFORM_UPDATE_SEEN: "platformUpdateSeen",
 };
 
-export const PLATFORM_UPDATE_VERSION = "2026-05-13.3";
+export const PLATFORM_UPDATE_VERSION = "2026-08-07.1";
 
 export const FORMULARIOS_OPCIONAIS = {
   COMPRA: "compra",

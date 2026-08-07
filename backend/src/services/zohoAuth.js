@@ -28,6 +28,31 @@ async function buscarUsuarioPorEmail(email) {
     console.log("[ZOHO AUTH] Critério de busca:", criteria);
     console.log("[ZOHO AUTH] Endpoint:", endpoint);
 
+    const extrairEmailRegistro = (usuario) =>
+      (usuario[campoEmail] || usuario.Email || usuario.email || "")
+        .toString()
+        .trim()
+        .toLowerCase();
+
+    const encontrarCorrespondenciaExata = (usuarios) => {
+      for (const usuario of usuarios) {
+        const emailRegistro = extrairEmailRegistro(usuario);
+
+        console.log(
+          "[ZOHO AUTH] Comparando email do registro:",
+          emailRegistro,
+          "com:",
+          emailNormalizado,
+        );
+
+        if (emailRegistro === emailNormalizado) {
+          return usuario;
+        }
+      }
+
+      return null;
+    };
+
     const response = await chamarZohoApi("GET", endpoint);
 
     console.log(
@@ -42,42 +67,20 @@ async function buscarUsuarioPorEmail(email) {
       Array.isArray(response.data) &&
       response.data.length > 0
     ) {
-      // Se houver múltiplos resultados, busca o que corresponde exatamente ao email
-      let usuarioEncontrado = null;
+      let usuarioEncontrado = encontrarCorrespondenciaExata(response.data);
 
-      for (const usuario of response.data) {
-        // Normaliza o email do registro para comparação
-        const emailRegistro = (
-          usuario[campoEmail] ||
-          usuario.Email ||
-          usuario.email ||
-          ""
-        )
-          .toString()
-          .trim()
-          .toLowerCase();
-
+      if (usuarioEncontrado) {
+        console.log("[ZOHO AUTH] ✓ Usuário encontrado com email correspondente");
+        console.log("[ZOHO AUTH] ID do usuário:", usuarioEncontrado.id);
         console.log(
-          "[ZOHO AUTH] Comparando email do registro:",
-          emailRegistro,
-          "com:",
-          emailNormalizado,
+          "[ZOHO AUTH] Dados do usuário:",
+          Object.keys(usuarioEncontrado),
         );
-
-        // Compara o email normalizado
-        if (emailRegistro === emailNormalizado) {
-          usuarioEncontrado = usuario;
-          console.log(
-            "[ZOHO AUTH] ✓ Usuário encontrado com email correspondente",
-          );
-          console.log("[ZOHO AUTH] ID do usuário:", usuario.id);
-          console.log("[ZOHO AUTH] Dados do usuário:", Object.keys(usuario));
-          break;
-        }
+        return usuarioEncontrado;
       }
 
       // Se não encontrou correspondência exata, mas há resultados, loga aviso
-      if (!usuarioEncontrado && response.data.length > 0) {
+      if (response.data.length > 0) {
         console.warn(
           "[ZOHO AUTH] ⚠️ Múltiplos registros encontrados, mas nenhum corresponde exatamente ao email:",
           emailNormalizado,
@@ -86,12 +89,47 @@ async function buscarUsuarioPorEmail(email) {
           "[ZOHO AUTH] Total de registros retornados:",
           response.data.length,
         );
-        // Retorna null se não encontrou correspondência exata
-        return null;
-      }
 
-      if (usuarioEncontrado) {
-        return usuarioEncontrado;
+        const shouldTryPagination =
+          Boolean(response.info?.more_records) || response.data.length >= 200;
+
+        if (shouldTryPagination) {
+          const maxPages = Number.parseInt(
+            process.env.ZOHO_EMAIL_SCAN_MAX_PAGES || "25",
+            10,
+          );
+
+          console.log(
+            "[ZOHO AUTH] Iniciando fallback por paginação para localizar email...",
+          );
+
+          for (let page = 1; page <= maxPages; page += 1) {
+            const pageEndpoint = `/${moduleName}?page=${page}&per_page=200`;
+            const pageResponse = await chamarZohoApi("GET", pageEndpoint);
+            const pageData = Array.isArray(pageResponse?.data)
+              ? pageResponse.data
+              : [];
+
+            if (pageData.length === 0) {
+              break;
+            }
+
+            usuarioEncontrado = encontrarCorrespondenciaExata(pageData);
+
+            if (usuarioEncontrado) {
+              console.log(
+                "[ZOHO AUTH] ✓ Usuário encontrado via fallback de paginação",
+              );
+              console.log("[ZOHO AUTH] Página encontrada:", page);
+              console.log("[ZOHO AUTH] ID do usuário:", usuarioEncontrado.id);
+              return usuarioEncontrado;
+            }
+
+            if (!pageResponse?.info?.more_records) {
+              break;
+            }
+          }
+        }
       }
 
       // Se chegou aqui, não encontrou correspondência

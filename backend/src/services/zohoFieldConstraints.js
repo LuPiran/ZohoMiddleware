@@ -142,13 +142,13 @@ function normalizeBrazilStateToUF(value) {
   return compact.slice(0, 2);
 }
 
-function preprocessRecordByModule(moduleName, record) {
+function preprocessRecordByModule(moduleName, record, options = {}) {
   if (!record || typeof record !== "object") {
     return;
   }
 
   if (moduleName === "Portal_onix") {
-    if (record.Estado !== undefined) {
+    if (record.Estado !== undefined && !options.enderecoInternacional) {
       record.Estado = normalizeBrazilStateToUF(record.Estado);
     }
     if (record.UF_do_CRM !== undefined) {
@@ -243,7 +243,7 @@ function applyFieldConstraint(record, fieldPath, constraint, errors, warnings) {
   });
 }
 
-export function applyZohoFieldConstraints(moduleName, record) {
+export function applyZohoFieldConstraints(moduleName, record, options = {}) {
   const constraints = MODULE_CONSTRAINTS[moduleName];
   if (!constraints) {
     return {
@@ -255,11 +255,19 @@ export function applyZohoFieldConstraints(moduleName, record) {
   }
 
   const output = cloneRecord(record);
-  preprocessRecordByModule(moduleName, output);
+  preprocessRecordByModule(moduleName, output, options);
   const errors = [];
   const warnings = [];
 
   Object.entries(constraints).forEach(([fieldPath, constraint]) => {
+    if (
+      moduleName === "Portal_onix" &&
+      options.enderecoInternacional &&
+      (fieldPath === "CEP" || fieldPath === "Estado")
+    ) {
+      return;
+    }
+
     applyFieldConstraint(output, fieldPath, constraint, errors, warnings);
   });
 

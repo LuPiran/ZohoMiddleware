@@ -2,52 +2,38 @@ import { useEffect } from "react";
 import Button from "../../ui/Button";
 import {
   MdLocalShipping,
-  MdChecklist,
-  MdPerson,
-  MdMessage,
   MdGroup,
+  MdLanguage,
+  MdPublic,
 } from "react-icons/md";
 import { getOpcoesParceiro } from "../../../utils/constants";
 
 const UPDATE_CONTENT = {
-  badge: "Release V3.6",
-  date: "Atualizado em 15/05/2026",
+  badge: "Release V3.7",
+  date: "Atualizado em 07/08/2026",
   title: "Novidades do Portal",
   description:
-    "Atualizamos o portal com foco em ocorrências, aumento do prazo dos rascunhos, correção de CEP e novas camadas de validação para reduzir ao máximo a chance de alguma solicitação não subir.",
-};
-
-const NOTIFICATIONS_HIGHLIGHT = {
-  label: "Ícone de mensagens e notificações:",
-  text: "Agora você acompanha atualizações dos envios direto no ícone de mensagens no topo do portal, com alertas para compra, recompra, proposta e ocorrência, incluindo avisos quando houver falha de envio.",
-  icon: MdMessage,
-  iconClass: "bg-sky-100 text-sky-700",
+    "Trouxemos melhorias no menu de navegação e novas funcionalidades nos formulários para tornar o seu fluxo mais ágil e completo.",
 };
 
 const DEFAULT_HIGHLIGHTS = [
   {
-    label: "Ocorrências acompanháveis no portal:",
-    text: "As ocorrências enviadas agora permanecem em Formulários Salvos até o BackOffice tratar a solicitação no CRM, permitindo acompanhar o andamento com mais transparência.",
-    icon: MdChecklist,
-    iconClass: "bg-indigo-100 text-indigo-700",
-  },
-  {
-    label: "Rascunhos com mais tempo de vida:",
-    text: "Os formulários salvos como rascunho agora ficam disponíveis por 15 dias antes da expiração automática, dando mais flexibilidade para concluir o envio.",
-    icon: MdChecklist,
-    iconClass: "bg-blue-100 text-blue-700",
-  },
-  {
-    label: "Analista responsável visível:",
-    text: "Agora é possível verificar qual analista está tratando cada ocorrência, assim que o mesmo assumir sua ocorrência.",
-    icon: MdPerson,
-    iconClass: "bg-rose-100 text-rose-700",
-  },
-  {
-    label: "Consulta de CEP corrigida:",
-    text: "Corrigimos o problema na consulta de CEP para retornar os dados de endereço com mais precisão e estabilidade no preenchimento.",
-    icon: MdLocalShipping,
+    label: "Central Comercial no menu:",
+    text: "Um novo ambiente para você adquirir conhecimento, acessar materiais, treinamentos e recursos técnicos da TegraPharma. Disponível no menu com um clique, abre em nova aba sem sair do portal.",
+    icon: MdLanguage,
     iconClass: "bg-amber-100 text-amber-700",
+  },
+  {
+    label: "Rastreamento de Pedido em destaque:",
+    text: "O Rastreamento de Pedido ganhou um novo visual! Agora ele aparece em destaque no menu com uma identidade visual própria, facilitando ainda mais o seu acesso no dia a dia.",
+    icon: MdLocalShipping,
+    iconClass: "bg-teal-100 text-teal-700",
+  },
+  {
+    label: "Endereço Internacional:",
+    text: "Agora é possível registrar compras, recompras e propostas com endereço internacional. Ao ativar o tipo de endereço internacional, a busca por CEP é desligada e os campos de CEP e Estado ficam liberados para preenchimento manual.",
+    icon: MdPublic,
+    iconClass: "bg-sky-100 text-sky-700",
   },
 ];
 
@@ -63,7 +49,6 @@ export default function PlatformUpdatePopup({ isOpen, onContinue, user = null })
   const temParcerias = user && getOpcoesParceiro(user).length > 0;
   const highlights = [
     ...(temParcerias ? [PARTNERSHIP_HIGHLIGHT] : []),
-    NOTIFICATIONS_HIGHLIGHT,
     ...DEFAULT_HIGHLIGHTS,
   ];
   useEffect(() => {
@@ -113,7 +98,7 @@ export default function PlatformUpdatePopup({ isOpen, onContinue, user = null })
 
           <div className="mb-5 rounded-2xl border border-tegra-blue-light/40 bg-gradient-to-r from-tegra-bg-accent/80 via-white to-tegra-bg-accent/70 px-4 py-3 shadow-[0_10px_30px_rgba(26,47,91,0.06)] sm:mb-8 sm:px-5">
             <p className="text-xs leading-5 text-tegra-blue-dark sm:text-sm sm:leading-6">
-              Essas melhorias ajudam você a enxergar apenas o que faz sentido no seu perfil e a enviar solicitações com menos chance de erro.
+              Essas melhorias foram pensadas para deixar o seu dia a dia mais ágil — novos acessos no menu e suporte a endereços internacionais nos formulários.
             </p>
           </div>
 

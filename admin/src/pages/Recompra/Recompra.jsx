@@ -127,6 +127,7 @@ export default function Recompra() {
   const [numero, setNumero] = useState("");
   const [complemento, setComplemento] = useState("");
   const [cep, setCep] = useState("");
+  const [enderecoInternacional, setEnderecoInternacional] = useState(false);
   const [atualizacaoEnderecoViaPortal, setAtualizacaoEnderecoViaPortal] =
     useState(false);
   const [enderecoPreenchidoViaCep, setEnderecoPreenchidoViaCep] =
@@ -154,6 +155,12 @@ export default function Recompra() {
   };
 
   const handleCepEnderecoChange = (e) => {
+    if (enderecoInternacional) {
+      setCep(formatarCep(e.target.value));
+      marcarAtualizacaoEnderecoSeNecessario();
+      return;
+    }
+
     const valor = e.target.value.replace(/\D/g, "");
     if (valor.length <= 8) {
       setCep(formatarCep(valor));
@@ -163,6 +170,10 @@ export default function Recompra() {
 
   // Função para formatar Estado (apenas 2 caracteres, uppercase, para sigla)
   const formatarEstado = (valor) => {
+    if (enderecoInternacional) {
+      return String(valor || "").trim();
+    }
+
     return normalizeStateToUF(valor);
   };
 
@@ -172,12 +183,15 @@ export default function Recompra() {
   };
 
   const handleEstadoBlur = () => {
-    setEstado((estadoAtual) => formatarEstado(estadoAtual));
-    marcarAtualizacaoEnderecoSeNecessario();
+    if (!enderecoInternacional) {
+      setEstado((estadoAtual) => formatarEstado(estadoAtual));
+      marcarAtualizacaoEnderecoSeNecessario();
+    }
   };
 
   useEffect(() => {
     if (
+      enderecoInternacional ||
       !enderecoPreenchidoViaCep ||
       !enderecoBaseViaCep ||
       atualizacaoEnderecoViaPortal
@@ -206,7 +220,29 @@ export default function Recompra() {
     enderecoPreenchidoViaCep,
     enderecoBaseViaCep,
     atualizacaoEnderecoViaPortal,
+    enderecoInternacional,
   ]);
+
+  const handleToggleEnderecoInternacional = (checked) => {
+    setEnderecoInternacional(checked);
+
+    if (checked) {
+      setBuscarCep("");
+      setEnderecoPreenchidoViaCep(false);
+      setEnderecoBaseViaCep(null);
+      setAtualizacaoEnderecoViaPortal(true);
+      if ((pais || "").trim().toLowerCase() === "brasil") {
+        setPais("");
+      }
+      return;
+    }
+
+    setCep((cepAtual) => formatarCep(cepAtual));
+    setEstado((estadoAtual) => normalizeStateToUF(estadoAtual));
+    if (!(pais || "").trim()) {
+      setPais("Brasil");
+    }
+  };
 
   // Estado para negociação feita pelo consultor
   const [negociacaoFeitaPeloConsultor, setNegociacaoFeitaPeloConsultor] =
@@ -557,10 +593,17 @@ export default function Recompra() {
       rua: cliente.Other_Street || "",
       bairro: cliente.Outro_Bairro || "",
       cidade: cliente.Other_City || "",
-      estado: formatarEstado(cliente.Other_State || ""),
+      estado: cliente.Other_State || "",
       pais: cliente.Other_Country || "Brasil",
       cep: "",
     };
+
+    const paisCliente = String(enderecoCliente.pais || "").trim().toLowerCase();
+    const clienteInternacional = Boolean(paisCliente && paisCliente !== "brasil");
+    setEnderecoInternacional(clienteInternacional);
+    enderecoCliente.estado = clienteInternacional
+      ? enderecoCliente.estado
+      : normalizeStateToUF(enderecoCliente.estado);
 
     setRua(enderecoCliente.rua);
     setBairro(enderecoCliente.bairro);
@@ -569,13 +612,14 @@ export default function Recompra() {
     setPais(enderecoCliente.pais);
     setEnderecoPreenchidoViaCep(false);
     setEnderecoBaseViaCep(null);
-    setAtualizacaoEnderecoViaPortal(false);
+    setAtualizacaoEnderecoViaPortal(clienteInternacional);
 
     // Formata CEP (prioriza Other_Zip, fallback para Outra_Correspond_ncia)
     const cepDoCliente = cliente.Other_Zip || cliente.Outra_Correspond_ncia;
     if (cepDoCliente) {
-      const cepLimpo = cepDoCliente.replace(/\D/g, "");
-      const cepFormatado = formatarCep(cepLimpo);
+      const cepFormatado = clienteInternacional
+        ? formatarCep(cepDoCliente)
+        : formatarCep(cepDoCliente.replace(/\D/g, ""));
       setBuscarCep(cepFormatado);
       setCep(cepFormatado);
       enderecoCliente.cep = cepFormatado;
@@ -590,9 +634,10 @@ export default function Recompra() {
   };
 
   const handleConfirmarEnderecoSugerido = () => {
-    setEstado((estadoAtual) =>
-      formatarEstado(enderecoSugeridoCliente?.estado || estadoAtual),
-    );
+    setEstado((estadoAtual) => {
+      const valor = enderecoSugeridoCliente?.estado || estadoAtual;
+      return enderecoInternacional ? valor : formatarEstado(valor);
+    });
     setAtualizacaoEnderecoViaPortal(false);
     setShowAddressConfirmModal(false);
     showToast("✅ Endereço confirmado.", "success", 2000);
@@ -628,6 +673,10 @@ export default function Recompra() {
 
   // Função para formatar CEP
   const formatarCep = (valor) => {
+    if (enderecoInternacional) {
+      return String(valor || "").slice(0, 20);
+    }
+
     const cep = valor.replace(/\D/g, "");
     return cep.replace(/(\d{5})(\d{3})/, "$1-$2");
   };
@@ -635,6 +684,11 @@ export default function Recompra() {
   // Função para buscar CEP na API contratada (via backend)
   const handleBuscarCep = async (e) => {
     e.preventDefault();
+
+    if (enderecoInternacional) {
+      showToast("ℹ️ Para endereço internacional, preencha os campos manualmente.", "info");
+      return;
+    }
 
     const cepLimpo = buscarCep.replace(/\D/g, "");
 
@@ -782,6 +836,7 @@ export default function Recompra() {
         temNovoMedicoPrescritor, nomeMedico, crmMedico, ufCrm,
         celularMedico, emailMedico, especialidadeMedico,
         atualizacaoEnderecoViaPortal,
+        enderecoInternacional,
         rua, numero, complemento, bairro, cep, cidade, estado, pais,
         negociacaoFeitaPeloConsultor, solicitarLinkPagamento, tipoLink,
         campanhaDiretoria, produtos,
@@ -830,13 +885,18 @@ export default function Recompra() {
         setEmailMedico(d.emailMedico || "");
         setEspecialidadeMedico(d.especialidadeMedico || "");
         setAtualizacaoEnderecoViaPortal(d.atualizacaoEnderecoViaPortal || false);
+        setEnderecoInternacional(Boolean(d.enderecoInternacional));
         setRua(d.rua || "");
         setNumero(d.numero || "");
         setComplemento(d.complemento || "");
         setBairro(d.bairro || "");
         setCep(d.cep || "");
         setCidade(d.cidade || "");
-        setEstado(normalizeStateToUF(d.estado || ""));
+        setEstado(
+          d.enderecoInternacional
+            ? d.estado || ""
+            : normalizeStateToUF(d.estado || ""),
+        );
         setPais(d.pais || "Brasil");
         setNegociacaoFeitaPeloConsultor(d.negociacaoFeitaPeloConsultor || false);
         setSolicitarLinkPagamento(d.solicitarLinkPagamento || "");
@@ -879,6 +939,7 @@ export default function Recompra() {
     setNumero("");
     setComplemento("");
     setCep("");
+    setEnderecoInternacional(false);
     setAtualizacaoEnderecoViaPortal(false);
     setEnderecoPreenchidoViaCep(false);
     setEnderecoBaseViaCep(null);
@@ -1080,6 +1141,7 @@ export default function Recompra() {
         estado,
         cep: cep || "",
         pais,
+        enderecoInternacional,
         complemento,
         atualizacaoEnderecoViaPortal,
         produtos: produtosValidos,
@@ -1187,6 +1249,7 @@ export default function Recompra() {
         temNovoMedicoPrescritor, nomeMedico, crmMedico, ufCrm,
         celularMedico, emailMedico, especialidadeMedico,
         atualizacaoEnderecoViaPortal,
+        enderecoInternacional,
         rua, numero, complemento, bairro, cep, cidade, estado, pais,
         negociacaoFeitaPeloConsultor, solicitarLinkPagamento, tipoLink,
         campanhaDiretoria, produtos,
@@ -1619,6 +1682,7 @@ export default function Recompra() {
             </div>
 
             {/* Seção: Busca CEP */}
+            {!enderecoInternacional && (
             <div id="secao-busca-cep-recompra" className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6">
               <h2 className="text-base sm:text-lg font-semibold text-tegra-text-primary mb-3 sm:mb-4">
                 Buscar CEP
@@ -1660,6 +1724,68 @@ export default function Recompra() {
                     Buscar
                   </Button>
                 </div>
+              </div>
+            </div>
+            )}
+
+            <div
+              className={`rounded-xl border shadow-md transition-all duration-300 ease-out transform-gpu ${
+                enderecoInternacional
+                  ? "p-4 sm:p-5 md:p-6 border-tegra-blue bg-tegra-bg-accent/70 scale-[1.01]"
+                  : "p-3 sm:p-4 border-tegra-gray-medium bg-tegra-bg-primary scale-100"
+              }`}
+            >
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
+                <div>
+                  <h2 className="text-base sm:text-lg font-semibold text-tegra-text-primary">
+                    Tipo de Endereço
+                  </h2>
+                </div>
+                <span
+                  className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold w-fit transition-all duration-300 ${
+                    enderecoInternacional
+                      ? "bg-tegra-blue text-white shadow-sm"
+                      : "bg-tegra-gray-light text-tegra-text-secondary"
+                  }`}
+                >
+                  {enderecoInternacional && (
+                    <span className="relative mr-2 flex h-2 w-2">
+                      <span className="absolute inline-flex h-full w-full rounded-full bg-white/80 opacity-75 animate-ping" />
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-white" />
+                    </span>
+                  )}
+                  {enderecoInternacional ? "Internacional ativo" : "Nacional"}
+                </span>
+              </div>
+
+              <label
+                htmlFor="endereco-internacional-recompra"
+                className="mt-4 flex items-center gap-3 cursor-pointer select-none"
+              >
+                <input
+                  id="endereco-internacional-recompra"
+                  type="checkbox"
+                  checked={enderecoInternacional}
+                  onChange={(e) =>
+                    handleToggleEnderecoInternacional(e.target.checked)
+                  }
+                  className="h-5 w-5 accent-[#2f5e9e] cursor-pointer"
+                />
+                <span className="text-sm font-semibold text-tegra-blue-dark">
+                  Endereço fora do Brasil
+                </span>
+              </label>
+
+              <div
+                className={`grid overflow-hidden transition-all duration-300 ease-out ${
+                  enderecoInternacional
+                    ? "grid-rows-[1fr] opacity-100 mt-2"
+                    : "grid-rows-[0fr] opacity-0 mt-0"
+                }`}
+              >
+                <p className="overflow-hidden text-sm text-tegra-text-secondary">
+                  Quando ativo, o sistema desliga a busca por CEP e libera CEP/Estado para preenchimento manual.
+                </p>
               </div>
             </div>
 
@@ -1746,12 +1872,12 @@ export default function Recompra() {
                   className={estiloCampoEndereco}
                 />
                 <Input
-                  label="CEP"
+                  label={enderecoInternacional ? "Postal Code" : "CEP"}
                   type="text"
                   value={cep}
                   onChange={handleCepEnderecoChange}
-                  placeholder="00000-000"
-                  maxLength={9}
+                  placeholder={enderecoInternacional ? "Postal Code" : "00000-000"}
+                  maxLength={enderecoInternacional ? 20 : 9}
                   className={estiloCampoEndereco}
                 />
                 <Input
@@ -1763,13 +1889,13 @@ export default function Recompra() {
                   className={estiloCampoEndereco}
                 />
                 <Input
-                  label="Estado"
+                  label={enderecoInternacional ? "Estado/Província" : "Estado"}
                   type="text"
                   value={estado}
                   onChange={handleEstadoChange}
                   onBlur={handleEstadoBlur}
-                  placeholder="Estado (UF)"
-                  maxLength={40}
+                  placeholder={enderecoInternacional ? "Estado/Província/Região" : "Estado (UF)"}
+                  maxLength={enderecoInternacional ? 60 : 40}
                   className={estiloCampoEndereco}
                 />
                 <Input
