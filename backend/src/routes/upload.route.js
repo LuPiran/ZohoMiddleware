@@ -3,7 +3,7 @@ import anexarPdfNoCliente from "../services/zohoAttachment.js";
 
 const router = express.Router();
 
-router.post("/upload", async (req, res) => {
+router.post("/", async (req, res) => {
   console.log("[UPLOAD ROUTE] Nova requisição de upload recebida");
 
   try {

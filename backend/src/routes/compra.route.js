@@ -7,6 +7,10 @@ import { parseZohoCreateResponse } from "../services/zohoSubmissionResult.js";
 import { gerarNumeroProtocolo } from "../utils/protocol.js";
 import { sanitizeBrazilPhoneForApi } from "../utils/phone.js";
 import { validateAndSanitizeEmail } from "../utils/emailValidator.js";
+import {
+  piiLookupRateLimiter,
+  writeRateLimiter,
+} from "../middleware/rateLimiter.js";
 
 const router = express.Router();
 const MAX_ARQUIVOS_UPLOAD = 10;
@@ -15,7 +19,7 @@ const MAX_ARQUIVOS_UPLOAD = 10;
  * Rota para buscar cliente por NOME (campo Nome_Cliente / First_Name + Last_Name) no módulo Contacts do Zoho
  * GET /api/compra/cliente-nome/:nome
  */
-router.get("/cliente-nome/:nome", async (req, res) => {
+router.get("/cliente-nome/:nome", piiLookupRateLimiter, async (req, res) => {
   try {
     const { nome } = req.params;
     const nomeBusca = String(nome || "").trim();
@@ -269,7 +273,7 @@ router.get("/cliente-nome/:nome", async (req, res) => {
 * Rota para buscar cliente por CPF no módulo Contacts do Zoho
 * GET /api/compra/cliente/:cpf
 */
-router.get("/cliente/:cpf", async (req, res) => {
+router.get("/cliente/:cpf", piiLookupRateLimiter, async (req, res) => {
   try {
     const { cpf } = req.params;
     const cpfLimpo = cpf.replace(/\D/g, "");
@@ -665,7 +669,7 @@ router.get("/cliente/:cpf", async (req, res) => {
  * POST /api/compra
  * Body: dados da compra
  */
-router.post("/", async (req, res) => {
+router.post("/", writeRateLimiter, async (req, res) => {
   try {
     const {
       nomePaciente,

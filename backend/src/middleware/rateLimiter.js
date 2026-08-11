@@ -1,22 +1,15 @@
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 
 /**
- * Rate Limiter para a rota de login
- * - Máximo de 10 tentativas por IP a cada 15 minutos
- * - Apenas tentativas falhadas contam (skipSuccessfulRequests: true)
- * - Mensagem de erro clara quando o limite é excedido
+ * Rate Limiter para login (Zoho + Microsoft)
+ * - 5 falhas / 15 min / IP
  */
 export const loginRateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 10, // Máximo de 10 tentativas
-  skipSuccessfulRequests: true, // Apenas tentativas falhadas contam
-  message: {
-    error:
-      "Muitas tentativas de login. Aguarde 15 minutos antes de tentar novamente.",
-    retryAfter: "15 minutos",
-  },
-  standardHeaders: true, // Retorna informações de rate limit nos headers `RateLimit-*`
-  legacyHeaders: false, // Não usa headers `X-RateLimit-*`
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  skipSuccessfulRequests: true,
+  standardHeaders: true,
+  legacyHeaders: false,
   handler: (req, res) => {
     res.status(429).json({
       success: false,
@@ -28,24 +21,74 @@ export const loginRateLimiter = rateLimit({
 });
 
 /**
+ * Rate limit para verificação de existência de e-mail (anti-enumeração).
+ */
+export const checkEmailRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    res.status(429).json({
+      success: false,
+      error: "Muitas verificações de e-mail. Aguarde alguns minutos.",
+      retryAfter: "15 minutos",
+    });
+  },
+});
+
+/**
+ * Lookups de PII (CPF, nome, número de pedido).
+ */
+export const piiLookupRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    const userPart = req.user?.id || "anon";
+    return `${ipKeyGenerator(req.ip)}:${userPart}`;
+  },
+  handler: (req, res) => {
+    res.status(429).json({
+      success: false,
+      error:
+        "Muitas consultas. Aguarde alguns minutos antes de tentar novamente.",
+      retryAfter: "15 minutos",
+    });
+  },
+});
+
+/**
+ * Escritas no CRM (compra, proposta, ocorrência, upload).
+ */
+export const writeRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 40,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    const userPart = req.user?.id || "anon";
+    return `${ipKeyGenerator(req.ip)}:${userPart}`;
+  },
+  handler: (req, res) => {
+    res.status(429).json({
+      success: false,
+      error:
+        "Muitas submissões. Aguarde alguns minutos antes de tentar novamente.",
+      retryAfter: "15 minutos",
+    });
+  },
+});
+
+/**
  * Rate Limiter geral para todas as rotas da API
- * - Máximo de 200 requisições por IP a cada 15 minutos (aumentado para produção)
- * - Protege contra abuso geral da API
  */
 export const apiRateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 200, // Máximo de 200 requisições (aumentado para suportar mais carga)
-  message: {
-    error: "Muitas requisições. Aguarde um momento antes de tentar novamente.",
-    retryAfter: "15 minutos",
-  },
-  standardHeaders: true, // Retorna informações de rate limit nos headers `RateLimit-*`
-  legacyHeaders: false, // Não usa headers `X-RateLimit-*`
-  // Permite skip para rotas específicas se necessário
-  skip: (req) => {
-    // Pula rate limiting para health checks ou rotas específicas se necessário
-    return false;
-  },
+  windowMs: 15 * 60 * 1000,
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
   handler: (req, res) => {
     res.status(429).json({
       success: false,

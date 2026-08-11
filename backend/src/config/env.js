@@ -27,4 +27,11 @@ export const ENV = {
   ZOHO_ULTIMO_ACESSO_FIELD: process.env.ZOHO_ULTIMO_ACESSO_FIELD,
   JWT_SECRET: process.env.JWT_SECRET,
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN,
+  ENTRA_CLIENT_ID: process.env.ENTRA_CLIENT_ID,
+  ENTRA_TENANT_ID: process.env.ENTRA_TENANT_ID,
+  ENTRA_ISSUER:
+    process.env.ENTRA_ISSUER ||
+    (process.env.ENTRA_TENANT_ID
+      ? `https://login.microsoftonline.com/${process.env.ENTRA_TENANT_ID}/v2.0`
+      : undefined),
 };

@@ -187,14 +187,23 @@ router.get("/", async (req, res) => {
       }
 
       // Se encontrou uma URL do Zoho que requer autenticação, cria proxy URL
+      // com o token do admin autenticado (img src não envia Authorization)
       if (
-        fotoUsuario &&
-        fotoUsuario.includes("/crm/v2/") &&
-        fotoUsuario.includes("/photo")
+        (fotoUsuario &&
+          fotoUsuario.includes("/crm/v2/") &&
+          fotoUsuario.includes("/photo")) ||
+        (fotoUsuario && fotoUsuario.includes("/v1/auth/user-photo/"))
       ) {
         const protocol = req.protocol || "http";
         const host = req.get("host") || `localhost:${ENV.PORT || 3000}`;
-        fotoUsuario = `${protocol}://${host}/v1/auth/user-photo/${usuario.id}`;
+        const authHeader = req.headers["authorization"] || "";
+        const accessToken = authHeader.startsWith("Bearer ")
+          ? authHeader.slice(7)
+          : "";
+        const tokenQuery = accessToken
+          ? `?access=${encodeURIComponent(accessToken)}`
+          : "";
+        fotoUsuario = `${protocol}://${host}/v1/auth/user-photo/${usuario.id}${tokenQuery}`;
       }
 
       return {

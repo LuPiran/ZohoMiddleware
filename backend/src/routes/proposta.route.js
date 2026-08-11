@@ -6,6 +6,10 @@ import { applyZohoFieldConstraints } from "../services/zohoFieldConstraints.js";
 import { parseZohoCreateResponse } from "../services/zohoSubmissionResult.js";
 import { gerarNumeroProtocolo } from "../utils/protocol.js";
 import { sanitizeBrazilPhoneForApi } from "../utils/phone.js";
+import {
+  piiLookupRateLimiter,
+  writeRateLimiter,
+} from "../middleware/rateLimiter.js";
 
 const router = express.Router();
 const MAX_ARQUIVOS_UPLOAD = 10;
@@ -14,7 +18,7 @@ const MAX_ARQUIVOS_UPLOAD = 10;
  * Rota para buscar cliente por CPF no módulo Contacts do Zoho
  * GET /api/proposta/cliente/:cpf
  */
-router.get("/cliente/:cpf", async (req, res) => {
+router.get("/cliente/:cpf", piiLookupRateLimiter, async (req, res) => {
   try {
     const { cpf } = req.params;
     const cpfLimpo = cpf.replace(/\D/g, "");
@@ -290,7 +294,7 @@ router.get("/cliente/:cpf", async (req, res) => {
  * POST /api/proposta
  * Body: dados da proposta
  */
-router.post("/", async (req, res) => {
+router.post("/", writeRateLimiter, async (req, res) => {
   try {
     const {
       tipoCliente,

@@ -25,6 +25,7 @@ export const EXTERNAL_LINKS = {
 export const API_ENDPOINTS = {
   AUTH: {
     LOGIN: "/v1/auth/login",
+    MICROSOFT: "/v1/auth/microsoft",
     CHECK_EMAIL: "/v1/auth/check-email",
   },
   UPLOAD: {

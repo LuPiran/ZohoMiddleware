@@ -3,13 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { authService } from "../../services/auth";
 import Input from "../../components/ui/Input";
 import Button from "../../components/ui/Button";
-import Checkbox from "../../components/ui/Checkbox";
 import { ROUTES, STORAGE_KEYS } from "../../utils/constants";
 import { MdEmail, MdLock, MdVisibility, MdVisibilityOff } from "react-icons/md";
 import { useToast } from "../../components/feedback/auth/ToastContainer";
-// import LogoTegraPharmacorp from "../../assets/LogoTegraPharmacorp.png";
 
-// Logo mobile
 const logoMobile = "/logoCorp.png";
 
 export default function Login() {
@@ -18,48 +15,131 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loadingMicrosoft, setLoadingMicrosoft] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [isErrorTransitioning, setIsErrorTransitioning] = useState(false);
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const logoutToastShownRef = useRef(false); // Usa ref para evitar re-renderizações
+  const logoutToastShownRef = useRef(false);
   const errorTransitionTimerRef = useRef(null);
 
-  // Verifica se houve logout bem-sucedido ou conta inativa ao montar o componente
-  useEffect(() => {
-    // Mantém o estado visual do checkbox sincronizado com a preferência persistida.
-    const rememberMePreference =
-      localStorage.getItem(STORAGE_KEYS.REMEMBER_ME) === "true";
-    setRememberMe(rememberMePreference);
+  function completeLoginSuccess(response) {
+    authService.saveUser(response.usuario, response.token, true);
+    sessionStorage.setItem(STORAGE_KEYS.LOGIN_SUCCESS, "true");
+    sessionStorage.setItem("SKIP_ROUTE_LOADING", "true");
 
-    // Verifica no sessionStorage (onde a flag é salva durante o logout)
+    setTimeout(() => {
+      requestAnimationFrame(() => {
+        setIsTransitioning(true);
+      });
+      setTimeout(() => {
+        navigate(ROUTES.DASHBOARD);
+      }, LOGIN_TRANSITION_MS);
+    }, LOGIN_PRE_REDIRECT_DELAY_MS);
+  }
+
+  function handleLoginError(err, { isMicrosoft = false } = {}) {
+    setLoading(false);
+    setLoadingMicrosoft(false);
+
+    const errorMessage = err.error || err.message || err.toString();
+    const statusCode = err.status || err.response?.status;
+
+    if (statusCode === 429) {
+      const rateLimitMessage =
+        err.error ||
+        err.response?.data?.error ||
+        "Muitas tentativas de login. Aguarde 15 minutos antes de tentar novamente.";
+      showToast(`⏱️ ${rateLimitMessage}`, "warning");
+      return;
+    }
+
+    if (
+      statusCode === 403 ||
+      errorMessage.includes("inativo") ||
+      errorMessage.includes("inativa") ||
+      errorMessage.includes("Usuário inativo")
+    ) {
+      sessionStorage.setItem(STORAGE_KEYS.ACCOUNT_INACTIVE, "true");
+      showToast(
+        "⚠️ Sua conta está inativa, entre em contato com o suporte",
+        "warning",
+        4000,
+      );
+      return;
+    }
+
+    if (isMicrosoft) {
+      if (
+        statusCode === 401 ||
+        errorMessage.includes("Token Microsoft") ||
+        errorMessage.includes("inválid")
+      ) {
+        triggerErrorTransition();
+        setTimeout(() => {
+          showToast("❌ Não foi possível autenticar com a Microsoft", "error");
+        }, 500);
+        return;
+      }
+
+      if (
+        err?.errorCode === "user_cancelled" ||
+        err?.name === "BrowserAuthError"
+      ) {
+        showToast("Login Microsoft cancelado", "warning", 2500);
+        return;
+      }
+
+      triggerErrorTransition();
+      showToast(
+        `❌ ${errorMessage || "Erro ao fazer login. Tente novamente."}`,
+        "error",
+      );
+      return;
+    }
+
+    if (
+      statusCode === 401 ||
+      errorMessage.includes("incorret") ||
+      errorMessage.includes("inválid") ||
+      errorMessage.includes("Email ou senha") ||
+      errorMessage.includes("credenciais")
+    ) {
+      setEmail("");
+      setSenha("");
+      setShowPassword(false);
+      triggerErrorTransition();
+      setTimeout(() => {
+        showToast("❌ E-mail ou Senha incorretos", "error");
+      }, 500);
+      return;
+    }
+
+    triggerErrorTransition();
+    showToast("❌ Erro ao fazer login. Tente novamente.", "error");
+  }
+
+  useEffect(() => {
     const logoutSuccess = sessionStorage.getItem(STORAGE_KEYS.LOGOUT_SUCCESS);
     const accountInactive = sessionStorage.getItem(
       STORAGE_KEYS.ACCOUNT_INACTIVE,
     );
 
     if (logoutSuccess === "true" && !logoutToastShownRef.current) {
-      // Remove a flag imediatamente para evitar loops
       sessionStorage.removeItem(STORAGE_KEYS.LOGOUT_SUCCESS);
       logoutToastShownRef.current = true;
 
-      // Mostra toast de logout bem-sucedido após um pequeno delay
       const timer = setTimeout(() => {
         showToast("✅ Deslogado com sucesso", "success", 2500);
       }, 300);
 
-      // Limpa o timer se o componente desmontar
       return () => clearTimeout(timer);
     }
 
-    // Verifica se a conta está inativa
     if (accountInactive === "true") {
-      // Remove a flag imediatamente para evitar loops
       sessionStorage.removeItem(STORAGE_KEYS.ACCOUNT_INACTIVE);
 
-      // Mostra toast de conta inativa após um pequeno delay
       const timer = setTimeout(() => {
         showToast(
           "⚠️ Sua conta está inativa, entre em contato com o suporte",
@@ -68,15 +148,56 @@ export default function Login() {
         );
       }, 300);
 
-      // Limpa o timer se o componente desmontar
       return () => clearTimeout(timer);
     }
-  }, [showToast]); // Adiciona showToast nas dependências
+  }, [showToast]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function processRedirect() {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const hash = window.location.hash || "";
+        const hasAuthResponse =
+          params.has("code") ||
+          params.has("error") ||
+          params.has("client_info") ||
+          hash.includes("code=") ||
+          hash.includes("error=");
+
+        if (!hasAuthResponse) {
+          await authService.handleMicrosoftRedirect();
+          return;
+        }
+
+        setLoadingMicrosoft(true);
+        const response = await authService.handleMicrosoftRedirect();
+        if (cancelled) return;
+
+        if (response?.success) {
+          completeLoginSuccess(response);
+          return;
+        }
+
+        setLoadingMicrosoft(false);
+      } catch (err) {
+        if (cancelled) return;
+        handleLoginError(err, { isMicrosoft: true });
+      }
+    }
+
+    processRedirect();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleSubmit(e) {
     e.preventDefault();
 
-    // Validação: campos obrigatórios
     if (!email.trim() || !senha.trim()) {
       triggerErrorTransition();
       showToast("❌ Os campos são obrigatórios", "error");
@@ -86,109 +207,42 @@ export default function Login() {
     setLoading(true);
 
     try {
-      // Aguarda a resposta completa da API após verificar credenciais
       const response = await authService.login(email, senha);
 
-      // Verifica se a resposta foi bem-sucedida após a verificação
       if (response && response.success) {
-        // Credenciais corretas - salva usuário e token com preferência de "Manter conectado"
-        authService.saveUser(response.usuario, response.token, rememberMe);
-
-        // Exibe popup de novidades uma vez após o login
-        sessionStorage.setItem(STORAGE_KEYS.LOGIN_SUCCESS, "true");
-
-        // Flag para pular a tela de loading na transição de rota
-        sessionStorage.setItem("SKIP_ROUTE_LOADING", "true");
-
-        // Aguarda um pouco antes de redirecionar
-        setTimeout(() => {
-          requestAnimationFrame(() => {
-            setIsTransitioning(true);
-          });
-          setTimeout(() => {
-            navigate(ROUTES.DASHBOARD);
-          }, LOGIN_TRANSITION_MS);
-        }, LOGIN_PRE_REDIRECT_DELAY_MS);
+        completeLoginSuccess(response);
       } else {
-        // Credenciais incorretas - volta para tela de login
         setLoading(false);
-
-        // Limpa os campos
         setEmail("");
         setSenha("");
         setShowPassword(false);
-
         triggerErrorTransition();
-
-        // Aguarda um pouco antes de mostrar o toast
         setTimeout(() => {
           showToast("❌ E-mail ou Senha incorretos", "error");
         }, 500);
       }
     } catch (err) {
-      // Erro na requisição - volta para tela de login
-      setLoading(false);
+      handleLoginError(err);
+    }
+  }
 
-      const errorMessage = err.error || err.message || err.toString();
-      const statusCode = err.status || err.response?.status;
+  async function handleMicrosoftLogin() {
+    setLoadingMicrosoft(true);
 
-      // Verifica se é erro de rate limiting (429 - Too Many Requests)
-      if (statusCode === 429) {
-        const rateLimitMessage =
-          err.error ||
-          err.response?.data?.error ||
-          "Muitas tentativas de login. Aguarde 15 minutos antes de tentar novamente.";
-        showToast(`⏱️ ${rateLimitMessage}`, "warning");
-        return;
-      }
-
-      // Verifica se é erro de conta inativa (403 - Forbidden)
-      if (
-        statusCode === 403 ||
-        errorMessage.includes("inativo") ||
-        errorMessage.includes("inativa") ||
-        errorMessage.includes("Usuário inativo")
-      ) {
-        // Salva flag de conta inativa no sessionStorage para mostrar toast ao voltar para login
-        sessionStorage.setItem(STORAGE_KEYS.ACCOUNT_INACTIVE, "true");
-
-        // Limpa os campos
-        setEmail("");
-        setSenha("");
-        setShowPassword(false);
-
-        // Mostra toast de conta inativa imediatamente
-        showToast(
-          "⚠️ Sua conta está inativa, entre em contato com o suporte",
-          "warning",
-          4000,
-        );
-        return;
-      }
-
-      // Verifica se é erro de credenciais incorretas (401 ou mensagem específica)
-      if (
-        statusCode === 401 ||
-        errorMessage.includes("incorret") ||
-        errorMessage.includes("inválid") ||
-        errorMessage.includes("Email ou senha") ||
-        errorMessage.includes("credenciais")
-      ) {
-        // Limpa os campos
-        setEmail("");
-        setSenha("");
-        setShowPassword(false);
-
+    try {
+      await authService.loginWithMicrosoftRedirect();
+    } catch (err) {
+      try {
+        const response = await authService.loginWithMicrosoftPopup();
+        if (response?.success) {
+          completeLoginSuccess(response);
+          return;
+        }
+        setLoadingMicrosoft(false);
         triggerErrorTransition();
-
-        // Aguarda um pouco antes de mostrar o toast
-        setTimeout(() => {
-          showToast("❌ E-mail ou Senha incorretos", "error");
-        }, 500);
-      } else {
-        // Outro tipo de erro (rede, servidor, etc)
-        triggerErrorTransition();
-        showToast("❌ Erro ao fazer login. Tente novamente.", "error");
+        showToast("❌ Não foi possível concluir o login Microsoft", "error");
+      } catch (popupErr) {
+        handleLoginError(popupErr, { isMicrosoft: true });
       }
     }
   }
@@ -202,6 +256,8 @@ export default function Login() {
       setIsErrorTransitioning(false);
     }, 900);
   }
+
+  const anyLoading = loading || loadingMicrosoft;
 
   return (
     <>
@@ -270,7 +326,7 @@ export default function Login() {
                   Acesse sua conta
                 </h2>
                 <p className="mt-2 text-base text-tegra-text-secondary">
-                  Use suas credenciais para continuar
+                  Use suas credenciais Zoho ou a conta Microsoft da empresa
                 </p>
               </div>
 
@@ -283,7 +339,7 @@ export default function Login() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="seu@email.com"
-                    disabled={loading}
+                    disabled={anyLoading}
                     icon={<MdEmail className="text-xl" />}
                   />
                 </div>
@@ -296,7 +352,7 @@ export default function Login() {
                     value={senha}
                     onChange={(e) => setSenha(e.target.value)}
                     placeholder="••••••••"
-                    disabled={loading}
+                    disabled={anyLoading}
                     icon={<MdLock className="text-xl" />}
                     iconRight={
                       showPassword ? (
@@ -309,28 +365,51 @@ export default function Login() {
                   />
                 </div>
 
-                <div className="pt-2">
-                  <Checkbox
-                    id="rememberMe"
-                    label="Manter-me conectado"
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                    disabled={loading}
-                  />
-                </div>
-
                 <div className="w-full">
                   <Button
                     type="submit"
-                    disabled={loading}
+                    disabled={anyLoading}
                     loading={loading}
                     loadingVariant="bar"
-                    className="w-full mt-7 py-3 text-base font-semibold login-primary-btn"
+                    className="w-full mt-4 py-3 text-base font-semibold login-primary-btn"
                   >
                     Entrar
                   </Button>
                 </div>
               </form>
+
+              <div className="my-6 flex items-center gap-3">
+                <div className="h-px flex-1 bg-tegra-text-secondary/20" />
+                <span className="text-xs uppercase tracking-wide text-tegra-text-secondary">
+                  ou
+                </span>
+                <div className="h-px flex-1 bg-tegra-text-secondary/20" />
+              </div>
+
+              <div className="w-full">
+                <Button
+                  type="button"
+                  disabled={anyLoading}
+                  loading={loadingMicrosoft}
+                  loadingVariant="bar"
+                  onClick={handleMicrosoftLogin}
+                  className="w-full py-3 text-base font-semibold login-primary-btn inline-flex items-center justify-center gap-3"
+                >
+                  <svg
+                    aria-hidden="true"
+                    width="20"
+                    height="20"
+                    viewBox="0 0 23 23"
+                    className="shrink-0"
+                  >
+                    <path fill="#f25022" d="M1 1h10v10H1z" />
+                    <path fill="#00a4ef" d="M12 1h10v10H12z" />
+                    <path fill="#7fba00" d="M1 12h10v10H1z" />
+                    <path fill="#ffb900" d="M12 12h10v10H12z" />
+                  </svg>
+                  Entrar com Microsoft
+                </Button>
+              </div>
 
               <p className="mt-8 text-center text-sm text-tegra-text-secondary">
                 Estamos aqui para ajudar.{" "}

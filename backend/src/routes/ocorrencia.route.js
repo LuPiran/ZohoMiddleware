@@ -6,6 +6,7 @@ import { applyZohoFieldConstraints } from "../services/zohoFieldConstraints.js";
 import { parseZohoCreateResponse } from "../services/zohoSubmissionResult.js";
 import { gerarNumeroProtocolo } from "../utils/protocol.js";
 import { sanitizeBrazilPhoneForApi } from "../utils/phone.js";
+import { writeRateLimiter } from "../middleware/rateLimiter.js";
 
 const router = express.Router();
 const MAX_ARQUIVOS_UPLOAD = 10;
@@ -15,7 +16,7 @@ const MAX_ARQUIVOS_UPLOAD = 10;
  * POST /api/ocorrencia
  * Body: dados da ocorrência
  */
-router.post("/", async (req, res) => {
+router.post("/", writeRateLimiter, async (req, res) => {
   try {
     const {
       nomePaciente,

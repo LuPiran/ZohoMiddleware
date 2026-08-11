@@ -13,7 +13,13 @@ import salesOrderRoutes from "./routes/salesOrder.route.js";
 import propostaRoutes from "./routes/proposta.route.js";
 import savedFormsRoutes from "./routes/savedForms.route.js";
 import zohoRoutes from "./routes/zoho.route.js";
-import { apiRateLimiter } from "./middleware/rateLimiter.js";
+import { authenticateToken } from "./services/jwtService.js";
+import { requireAdmin } from "./middleware/authz.js";
+import {
+  apiRateLimiter,
+  writeRateLimiter,
+  piiLookupRateLimiter,
+} from "./middleware/rateLimiter.js";
 
 const app = express();
 
@@ -74,21 +80,28 @@ app.use(express.json({ limit: "50mb" }));
 // Trust proxy para obter IP real do cliente (importante para rate limiting)
 app.set("trust proxy", 1);
 
-// Aplica rate limiting geral na API (exceto rotas específicas que têm seu próprio limiter)
+// Aplica rate limiting geral na API
 app.use("/v1", apiRateLimiter);
 
-app.use("/v1", uploadRoutes);
+// Auth pública (login / microsoft / check-email / foto com token próprio)
 app.use("/v1/auth", authRoutes);
-// A rota de usuários já tem rate limiting aplicado no nível da rota se necessário
-app.use("/v1/users", usersRoutes);
-app.use("/v1/cep", cepRoutes);
-app.use("/v1/compra", compraRoutes);
-app.use("/v1/products", productsRoutes);
-app.use("/v1/ocorrencia", ocorrenciaRoutes);
-app.use("/v1/proposta", propostaRoutes);
-app.use("/v1/sales-orders", salesOrderRoutes);
+
+// Rotas autenticadas — JWT obrigatório (mitiga IDOR / abuso anônimo)
+app.use("/v1/users", authenticateToken, requireAdmin, usersRoutes);
+app.use("/v1/compra", authenticateToken, compraRoutes);
+app.use("/v1/proposta", authenticateToken, propostaRoutes);
+app.use("/v1/ocorrencia", authenticateToken, ocorrenciaRoutes);
+app.use(
+  "/v1/sales-orders",
+  authenticateToken,
+  piiLookupRateLimiter,
+  salesOrderRoutes,
+);
+app.use("/v1/products", authenticateToken, productsRoutes);
+app.use("/v1/cep", authenticateToken, cepRoutes);
+app.use("/v1/zoho", authenticateToken, requireAdmin, zohoRoutes);
 app.use("/v1/saved-forms", savedFormsRoutes);
-app.use("/v1/zoho", zohoRoutes);
+app.use("/v1/upload", authenticateToken, writeRateLimiter, uploadRoutes);
 
 //??Prepare a nossa aplicação para implementação
 if (shouldServeFrontend) {

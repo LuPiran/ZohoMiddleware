@@ -47,7 +47,9 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     // Não redireciona se o erro for da rota de login (permite tratamento no componente)
-    const isLoginRoute = error.config?.url?.includes("/v1/auth/login");
+    const isLoginRoute =
+      error.config?.url?.includes("/v1/auth/login") ||
+      error.config?.url?.includes("/v1/auth/microsoft");
     const isInactiveAccount =
       error.response?.status === 403 &&
       isLoginRoute &&

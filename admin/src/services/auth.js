@@ -1,5 +1,14 @@
 import api from "./api";
 import { STORAGE_KEYS, API_ENDPOINTS } from "../utils/constants";
+import {
+  ensureMsalInitialized,
+  loginRequest,
+} from "../auth/msalConfig";
+
+/** Evita trocar o mesmo idToken duas vezes (React Strict Mode / double mount). */
+const microsoftExchangeInFlight = new Map();
+/** Uma única execução de handleRedirectPromise por carga da página. */
+let microsoftRedirectPromise = null;
 
 /**
  * Serviço de autenticação
@@ -24,7 +33,7 @@ export const authService = {
   },
 
   /**
-   * Faz login com email e senha
+   * Faz login com email e senha (Zoho)
    * @param {string} email
    * @param {string} senha
    * @returns {Promise<Object>}
@@ -37,13 +46,12 @@ export const authService = {
       });
       return response.data;
     } catch (error) {
-      // Preserva o objeto de erro completo para tratamento no componente
       const errorData = {
         error: error.response?.data?.error || error.message,
         message: error.message,
         response: error.response,
         status: error.response?.status,
-        silent: error.silent, // Preserva flag de erro silencioso
+        silent: error.silent,
       };
       throw errorData;
     }
@@ -67,6 +75,111 @@ export const authService = {
   },
 
   /**
+   * Troca o ID token Microsoft pelo JWT + usuário Zoho do portal.
+   * Deduplica chamadas paralelas com o mesmo token.
+   * @param {string} idToken
+   * @returns {Promise<Object>}
+   */
+  async exchangeMicrosoftToken(idToken) {
+    const key = String(idToken || "").slice(0, 80);
+    if (key && microsoftExchangeInFlight.has(key)) {
+      return microsoftExchangeInFlight.get(key);
+    }
+
+    const tarefa = (async () => {
+      try {
+        const response = await api.post(API_ENDPOINTS.AUTH.MICROSOFT, {
+          idToken,
+        });
+        return response.data;
+      } catch (error) {
+        const errorData = {
+          error: error.response?.data?.error || error.message,
+          message: error.message,
+          response: error.response,
+          status: error.response?.status,
+          silent: error.silent,
+        };
+        throw errorData;
+      }
+    })();
+
+    if (key) {
+      microsoftExchangeInFlight.set(key, tarefa);
+    }
+
+    try {
+      return await tarefa;
+    } finally {
+      if (key) {
+        microsoftExchangeInFlight.delete(key);
+      }
+    }
+  },
+
+  /**
+   * Extrai o ID token de um resultado MSAL.
+   * @param {import("@azure/msal-browser").AuthenticationResult|null} result
+   * @returns {string|null}
+   */
+  extractIdToken(result) {
+    if (!result) return null;
+    return result.idToken || null;
+  },
+
+  /**
+   * Inicia login Microsoft via redirect (PKCE).
+   * @returns {Promise<void>}
+   */
+  async loginWithMicrosoftRedirect() {
+    const msal = await ensureMsalInitialized();
+    await msal.loginRedirect(loginRequest);
+  },
+
+  /**
+   * Processa retorno do redirect Microsoft, se houver.
+   * Single-flight: chamadas paralelas compartilham a mesma Promise.
+   * @returns {Promise<Object|null>} resposta do backend ou null se não houve callback
+   */
+  async handleMicrosoftRedirect() {
+    if (!microsoftRedirectPromise) {
+      microsoftRedirectPromise = (async () => {
+        const msal = await ensureMsalInitialized();
+        const result = await msal.handleRedirectPromise();
+        const idToken = this.extractIdToken(result);
+        if (!idToken) {
+          return null;
+        }
+        return this.exchangeMicrosoftToken(idToken);
+      })().finally(() => {
+        // Mantém o resultado em cache curto; libera para novos logins depois
+        setTimeout(() => {
+          microsoftRedirectPromise = null;
+        }, 5000);
+      });
+    }
+
+    return microsoftRedirectPromise;
+  },
+
+  /**
+   * Login Microsoft via popup (fallback).
+   * @returns {Promise<Object>}
+   */
+  async loginWithMicrosoftPopup() {
+    const msal = await ensureMsalInitialized();
+    const result = await msal.loginPopup(loginRequest);
+    const idToken = this.extractIdToken(result);
+    if (!idToken) {
+      throw {
+        error: "Microsoft não retornou ID token",
+        status: 401,
+      };
+    }
+    return this.exchangeMicrosoftToken(idToken);
+  },
+
+  /**
    * Obtém o storage correto baseado em "Manter conectado"
    * @returns {Storage} localStorage ou sessionStorage
    */
@@ -83,15 +196,12 @@ export const authService = {
   saveUser(usuario, token, rememberMe = false) {
     const storage = rememberMe ? localStorage : sessionStorage;
 
-    // Salva a preferência de "Manter conectado" no localStorage para persistir
     localStorage.setItem(STORAGE_KEYS.REMEMBER_ME, rememberMe.toString());
 
-    // Salva os dados de autenticação no storage apropriado
     storage.setItem(STORAGE_KEYS.USER, JSON.stringify(usuario));
     storage.setItem(STORAGE_KEYS.TOKEN, token);
     storage.setItem(STORAGE_KEYS.IS_AUTHENTICATED, "true");
 
-    // Se não for "Manter conectado", limpa o localStorage para evitar dados duplicados
     if (!rememberMe) {
       localStorage.removeItem(STORAGE_KEYS.USER);
       localStorage.removeItem(STORAGE_KEYS.TOKEN);
@@ -100,19 +210,24 @@ export const authService = {
   },
 
   /**
-   * Remove o usuário e token de ambos os storages
+   * Remove o usuário e token de ambos os storages e encerra sessão MSAL do app.
    */
-  logout() {
-    // Limpa localStorage
+  async logout() {
     localStorage.removeItem(STORAGE_KEYS.USER);
     localStorage.removeItem(STORAGE_KEYS.TOKEN);
     localStorage.removeItem(STORAGE_KEYS.IS_AUTHENTICATED);
     localStorage.removeItem(STORAGE_KEYS.REMEMBER_ME);
 
-    // Limpa sessionStorage
     sessionStorage.removeItem(STORAGE_KEYS.USER);
     sessionStorage.removeItem(STORAGE_KEYS.TOKEN);
     sessionStorage.removeItem(STORAGE_KEYS.IS_AUTHENTICATED);
+
+    try {
+      const msal = await ensureMsalInitialized();
+      await msal.clearCache();
+    } catch (error) {
+      console.warn("[AUTH] Logout Microsoft ignorado:", error?.message || error);
+    }
   },
 
   /**
@@ -130,13 +245,11 @@ export const authService = {
    * @returns {boolean}
    */
   isAuthenticated() {
-    // Verifica em ambos os storages para garantir que não há dados residuais
     const localStorageAuth =
       localStorage.getItem(STORAGE_KEYS.IS_AUTHENTICATED) === "true";
     const sessionStorageAuth =
       sessionStorage.getItem(STORAGE_KEYS.IS_AUTHENTICATED) === "true";
 
-    // Também verifica se existe token e usuário
     const hasToken =
       localStorage.getItem(STORAGE_KEYS.TOKEN) ||
       sessionStorage.getItem(STORAGE_KEYS.TOKEN);
@@ -144,7 +257,6 @@ export const authService = {
       localStorage.getItem(STORAGE_KEYS.USER) ||
       sessionStorage.getItem(STORAGE_KEYS.USER);
 
-    // Retorna true apenas se tiver autenticação E token E usuário
     return (localStorageAuth || sessionStorageAuth) && hasToken && hasUser;
   },
 };
