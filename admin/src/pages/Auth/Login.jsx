@@ -393,7 +393,9 @@ export default function Login() {
                   loading={loadingMicrosoft}
                   loadingVariant="bar"
                   onClick={handleMicrosoftLogin}
-                  className="w-full py-3 text-base font-semibold login-primary-btn inline-flex items-center justify-center gap-3"
+                  variant="microsoft"
+                  className="w-full py-3 text-sm inline-flex items-center justify-center gap-3"
+                  style={{ fontFamily: "'Segoe UI', system-ui, sans-serif" }}
                 >
                   <svg
                     aria-hidden="true"

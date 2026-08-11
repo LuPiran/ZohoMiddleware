@@ -23,6 +23,8 @@ export default function Button({
       "bg-white text-tegra-blue-dark border-2 border-tegra-blue-dark hover:bg-tegra-blue-light hover:text-white focus:ring-tegra-blue",
     danger: "bg-tegra-error text-white hover:bg-red-700 focus:ring-tegra-error",
     teal: "bg-tegra-teal text-white hover:bg-tegra-teal-dark focus:ring-tegra-teal",
+    microsoft:
+      "bg-white text-[#5E5E5E] border border-[#8C8C8C] hover:bg-[#F2F2F2] active:bg-[#E6E6E6] focus:ring-[#8C8C8C]",
   };
 
   const sizes = {

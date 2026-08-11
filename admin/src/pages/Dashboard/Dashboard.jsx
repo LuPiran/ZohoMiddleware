@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { MdLocalShipping } from "react-icons/md";
+import { MdLocalShipping, MdLanguage } from "react-icons/md";
 import { authService } from "../../services/auth";
 import { useLoading } from "../../contexts/LoadingContext";
 import MainLayout from "../../components/layout/MainLayout";
@@ -63,13 +63,21 @@ export default function Dashboard() {
       ? [
           {
             id: "tracking-pedido",
-            label: "Tracking de Pedido",
+            label: "Rastreamento de Pedido",
             icon: <MdLocalShipping className="text-3xl md:text-4xl" />,
             route: EXTERNAL_LINKS.TRACKING_PEDIDO,
             external: true,
+            variant: "teal",
           },
         ]
       : []),
+    {
+      id: "central-comercial",
+      label: "Central Comercial",
+      icon: <MdLanguage className="text-3xl md:text-4xl" />,
+      route: EXTERNAL_LINKS.CENTRAL_CONSULTOR,
+      external: true,
+    },
     ...(mostrarOcorrencia
       ? [
           {
@@ -144,7 +152,9 @@ export default function Dashboard() {
                   navigate(card.route);
                 }}
                 className={`flex flex-col items-center justify-center p-5 rounded-xl shadow transition-all border focus:outline-none focus:ring-2 relative ${
-                  card.external
+                  card.external && card.variant === "teal"
+                    ? "bg-teal-50/90 hover:bg-teal-100 border-teal-200 text-teal-800 shadow-[0_0_14px_rgba(20,184,166,0.12)] focus:ring-teal-400"
+                    : card.external
                     ? "bg-amber-50/90 hover:bg-amber-100 border-amber-200 text-amber-800 shadow-[0_0_14px_rgba(245,158,11,0.12)] focus:ring-amber-400"
                     : "bg-tegra-blue-light/10 hover:bg-tegra-blue-light/20 border-tegra-blue-light/30 focus:ring-tegra-blue-dark"
                 }`}
@@ -156,8 +166,8 @@ export default function Dashboard() {
                     {card.badge}
                   </span>
                 )}
-                <div className={`mb-2 ${card.external ? "text-amber-700" : "text-tegra-blue-dark"}`}>{card.icon}</div>
-                <span className={`font-semibold text-base text-center ${card.external ? "text-amber-900" : "text-tegra-text-primary"}`}>{card.label}</span>
+                <div className={`mb-2 ${card.external && card.variant === "teal" ? "text-teal-600" : card.external ? "text-amber-700" : "text-tegra-blue-dark"}`}>{card.icon}</div>
+                <span className={`font-semibold text-base text-center ${card.external && card.variant === "teal" ? "text-teal-900" : card.external ? "text-amber-900" : "text-tegra-text-primary"}`}>{card.label}</span>
               </button>
             ))}
           </div>
