@@ -2,45 +2,110 @@
 node_modules/
 **/node_modules/
 
-# Environment / secrets
+# Environment / secrets (nunca versionar valores reais)
 .env
 .env.*
 !.env.example
 !**/.env.example
-admin/.env
-admin/.env.*
-!admin/.env.example
-backend/.env
-backend/.env.*
-!backend/.env.example
+*.env
+!*.env.example
 
-# Logs / runtime data
+# Chaves, certificados e material criptográfico
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+*.der
+*.jks
+*.keystore
+id_rsa
+id_rsa.*
+id_ed25519
+id_ed25519.*
+id_dsa
+id_dsa.*
+*.ppk
+
+# Credenciais e tokens locais
+**/secrets/
+**/credentials/
+*credentials*.json
+*serviceAccount*.json
+*-firebase-adminsdk-*.json
+auth.json
+.npmrc
+.yarnrc
+.yarnrc.yml
+.netrc
+*.token
+*.tokens
+tokens.json
+tokenStore.json
+**/token-cache*
+**/oauth-cache*
+
+# Cloud / provedores
+.aws/
+.azure/
+.gcloud/
+*.tfvars
+*.tfstate
+*.tfstate.*
+
+# Logs / runtime
 logs/
 **/logs/
 *.log
-backend/logs/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
-# Build
+# Build / cache
 dist/
 build/
-admin/dist/
-backend/dist/
+**/dist/
+**/build/
 *.local
+.cache/
+**/.cache/
+coverage/
+**/coverage/
+.turbo/
+.vite/
+**/.vite/
+
+# Uploads / temp
+uploads/
+tmp/
+temp/
+*.tmp
+*.temp
+*.bak
+*.backup
+*.swp
+*.swo
+*~
+
+# Pacotes de deploy (podem embutir .env)
+*.tar.gz
+*.tgz
+zoho-deploy*
+deploy*.zip
+deploy*.tar
+deploy*.7z
 
 # OS / IDE
 .DS_Store
 Thumbs.db
 .idea/
 .vscode/
-*.swp
-*.swo
+!.vscode/extensions.json
 
-# Uploads / temp
-uploads/
-tmp/
-temp/
-coverage/
-.cache/
+# Cursor local (skills/hooks do projeto podem ser versionados se desejado;
+# ignore artefatos locais de sessão / cache)
+.cursor/**/cache/
+.cursor/**/*.local.*

@@ -1,11 +1,13 @@
 /**
- * Proteção de brute force por conta (e-mail).
+ * Proteção de brute force por conta (e-mail) e por IP.
  * Em memória no processo — adequado para instância única; use Redis em multi-node.
  */
 
 const tentativasPorEmail = new Map();
+const tentativasPorIp = new Map();
 
 const MAX_FALHAS = Number.parseInt(process.env.LOGIN_MAX_FAILURES || "5", 10);
+const MAX_FALHAS_IP = Number.parseInt(process.env.LOGIN_MAX_FAILURES_IP || "20", 10);
 const JANELA_MS = Number.parseInt(
   process.env.LOGIN_LOCK_WINDOW_MS || String(15 * 60 * 1000),
   10,
@@ -17,33 +19,35 @@ function chaveEmail(email) {
     .toLowerCase();
 }
 
-function obterRegistro(email) {
-  const key = chaveEmail(email);
-  if (!key) return null;
+function chaveIp(ip) {
+  return String(ip || "unknown").trim();
+}
 
-  const reg = tentativasPorEmail.get(key);
+function limparExpirado(map, key, now) {
+  const reg = map.get(key);
   if (!reg) return null;
 
-  if (reg.lockedUntil && Date.now() > reg.lockedUntil) {
-    tentativasPorEmail.delete(key);
+  if (reg.lockedUntil && now > reg.lockedUntil) {
+    map.delete(key);
     return null;
   }
 
-  if (Date.now() - reg.firstFailureAt > JANELA_MS && !reg.lockedUntil) {
-    tentativasPorEmail.delete(key);
+  if (now - reg.firstFailureAt > JANELA_MS && !reg.lockedUntil) {
+    map.delete(key);
     return null;
   }
 
   return reg;
 }
 
-/**
- * @returns {{ locked: boolean, retryAfterSec?: number, remainingAttempts?: number }}
- */
-export function getLoginLockStatus(email) {
-  const reg = obterRegistro(email);
+function obterRegistro(map, key) {
+  if (!key) return null;
+  return limparExpirado(map, key, Date.now());
+}
+
+function statusFromReg(reg, max) {
   if (!reg) {
-    return { locked: false, remainingAttempts: MAX_FALHAS };
+    return { locked: false, remainingAttempts: max };
   }
 
   if (reg.lockedUntil && Date.now() < reg.lockedUntil) {
@@ -56,15 +60,41 @@ export function getLoginLockStatus(email) {
 
   return {
     locked: false,
-    remainingAttempts: Math.max(0, MAX_FALHAS - reg.count),
+    remainingAttempts: Math.max(0, max - reg.count),
   };
 }
 
-export function assertAccountNotLocked(email) {
-  const status = getLoginLockStatus(email);
+/**
+ * @returns {{ locked: boolean, retryAfterSec?: number, remainingAttempts?: number }}
+ */
+export function getLoginLockStatus(email, ip) {
+  const byEmail = statusFromReg(
+    obterRegistro(tentativasPorEmail, chaveEmail(email)),
+    MAX_FALHAS,
+  );
+  const byIp = statusFromReg(
+    obterRegistro(tentativasPorIp, chaveIp(ip)),
+    MAX_FALHAS_IP,
+  );
+
+  if (byEmail.locked) return { ...byEmail, scope: "account" };
+  if (byIp.locked) return { ...byIp, scope: "ip" };
+  return {
+    locked: false,
+    remainingAttempts: Math.min(
+      byEmail.remainingAttempts ?? MAX_FALHAS,
+      byIp.remainingAttempts ?? MAX_FALHAS_IP,
+    ),
+  };
+}
+
+export function assertAccountNotLocked(email, ip) {
+  const status = getLoginLockStatus(email, ip);
   if (status.locked) {
     const error = new Error(
-      `Conta temporariamente bloqueada por tentativas inválidas. Aguarde ${Math.ceil(status.retryAfterSec / 60)} minuto(s).`,
+      status.scope === "ip"
+        ? `Muitas tentativas deste IP. Aguarde ${Math.ceil(status.retryAfterSec / 60)} minuto(s).`
+        : `Conta temporariamente bloqueada por tentativas inválidas. Aguarde ${Math.ceil(status.retryAfterSec / 60)} minuto(s).`,
     );
     error.code = "ACCOUNT_LOCKED";
     error.retryAfterSec = status.retryAfterSec;
@@ -73,12 +103,10 @@ export function assertAccountNotLocked(email) {
   return status;
 }
 
-export function recordLoginFailure(email) {
-  const key = chaveEmail(email);
-  if (!key) return getLoginLockStatus(email);
-
+function registrarFalha(map, key, max, label) {
+  if (!key) return;
   const now = Date.now();
-  let reg = obterRegistro(email);
+  let reg = obterRegistro(map, key);
 
   if (!reg) {
     reg = { count: 0, firstFailureAt: now, lockedUntil: null };
@@ -86,20 +114,25 @@ export function recordLoginFailure(email) {
 
   reg.count += 1;
 
-  if (reg.count >= MAX_FALHAS) {
+  if (reg.count >= max) {
     reg.lockedUntil = now + JANELA_MS;
     console.warn(
-      `[BRUTE FORCE] Conta bloqueada temporariamente: ${key} (${reg.count} falhas)`,
+      `[BRUTE FORCE] Bloqueio ${label}: ${key} (${reg.count} falhas)`,
     );
   }
 
-  tentativasPorEmail.set(key, reg);
-  return getLoginLockStatus(email);
+  map.set(key, reg);
 }
 
-export function clearLoginFailures(email) {
+export function recordLoginFailure(email, ip) {
+  registrarFalha(tentativasPorEmail, chaveEmail(email), MAX_FALHAS, "conta");
+  registrarFalha(tentativasPorIp, chaveIp(ip), MAX_FALHAS_IP, "ip");
+  return getLoginLockStatus(email, ip);
+}
+
+export function clearLoginFailures(email, ip) {
   const key = chaveEmail(email);
-  if (key) {
-    tentativasPorEmail.delete(key);
-  }
+  if (key) tentativasPorEmail.delete(key);
+  // Não limpa IP no sucesso — evita reset fácil de varredura
+  void ip;
 }

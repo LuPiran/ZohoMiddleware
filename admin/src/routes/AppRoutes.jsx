@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import Login from "../pages/Auth/Login";
 import Dashboard from "../pages/Dashboard/Dashboard";
+import LeadsMedicos from "../pages/LeadsMedicos/LeadsMedicos";
 import PlatformUpdates from "../pages/PlatformUpdates/PlatformUpdates";
 import Users from "../pages/Users/Users";
 import Recompra from "../pages/Recompra/Recompra";
@@ -63,6 +64,14 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute>
             <Dashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path={ROUTES.LEADS_MEDICOS}
+        element={
+          <ProtectedRoute>
+            <LeadsMedicos />
           </ProtectedRoute>
         }
       />

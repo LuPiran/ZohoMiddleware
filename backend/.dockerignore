@@ -1,0 +1,15 @@
+node_modules
+npm-debug.log*
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+*.md
+Dockerfile
+.dockerignore
+logs
+uploads
+coverage
+.cache
+*.log

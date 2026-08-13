@@ -48,7 +48,7 @@ router.post(
       console.log("[AUTH ROUTE] Tentando login Zoho para:", email);
 
       try {
-        assertAccountNotLocked(email);
+        assertAccountNotLocked(email, clientIp);
       } catch (lockError) {
         if (lockError.code === "ACCOUNT_LOCKED") {
           logSecurityEvent(email, clientIp, false);
@@ -64,7 +64,7 @@ router.post(
       const usuario = await zohoAuth.validarCredenciais(email, senha);
 
       if (!usuario) {
-        const lockStatus = recordLoginFailure(email);
+        const lockStatus = recordLoginFailure(email, clientIp);
         logSecurityEvent(email, clientIp, false);
         if (lockStatus.locked) {
           return res.status(429).json({
@@ -80,7 +80,7 @@ router.post(
         });
       }
 
-      clearLoginFailures(email);
+      clearLoginFailures(email, clientIp);
 
       if (!usuario.Email && !usuario.email) {
         usuario.Email = email;
@@ -125,7 +125,7 @@ router.post("/microsoft", loginRateLimiter, async (req, res) => {
     console.log("[AUTH ROUTE] Token Microsoft válido para:", identidade.email);
 
     try {
-      assertAccountNotLocked(identidade.email);
+      assertAccountNotLocked(identidade.email, clientIp);
     } catch (lockError) {
       if (lockError.code === "ACCOUNT_LOCKED") {
         logSecurityEvent(identidade.email, clientIp, false);
@@ -158,7 +158,7 @@ router.post("/microsoft", loginRateLimiter, async (req, res) => {
       });
     }
 
-    clearLoginFailures(identidade.email);
+    clearLoginFailures(identidade.email, clientIp);
 
     if (!usuario.Email && !usuario.email) {
       usuario.Email = identidade.email;

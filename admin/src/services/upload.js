@@ -15,6 +15,7 @@ export const uploadService = {
     try {
       const response = await api.post(API_ENDPOINTS.UPLOAD.INVOICE, {
         clientId,
+        confirmClientId: clientId,
         base64,
       });
       return response.data;

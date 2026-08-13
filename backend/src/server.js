@@ -13,8 +13,13 @@ import salesOrderRoutes from "./routes/salesOrder.route.js";
 import propostaRoutes from "./routes/proposta.route.js";
 import savedFormsRoutes from "./routes/savedForms.route.js";
 import zohoRoutes from "./routes/zoho.route.js";
+import leadsMedicosRoutes from "./routes/leadsMedicos.route.js";
 import { authenticateToken } from "./services/jwtService.js";
 import { requireAdmin } from "./middleware/authz.js";
+import {
+  applySecurityMiddleware,
+  createCorsOriginChecker,
+} from "./middleware/securityHeaders.js";
 import {
   apiRateLimiter,
   writeRateLimiter,
@@ -27,10 +32,9 @@ const __dirname = path.resolve();
 const shouldServeFrontend =
   ENV.NODE_ENV === "production" && ENV.SERVE_FRONTEND === "true";
 
-// Configuração do CORS
 const allowedOrigins = [
   "https://portaldoconsultor.tegrapharma.com",
-  "http://localhost:5173", // Vite dev
+  "http://localhost:5173",
   "http://localhost:5174",
   "http://localhost:3000",
   "http://localhost:8081",
@@ -44,6 +48,10 @@ function isLocalNetworkOrigin(origin) {
   );
 }
 
+app.set("trust proxy", Number(process.env.TRUST_PROXY || 1));
+
+applySecurityMiddleware(app);
+
 app.get("/health", (req, res) => {
   res.status(200).json({
     success: true,
@@ -53,14 +61,7 @@ app.get("/health", (req, res) => {
 
 app.use(
   cors({
-    origin: function (origin, callback) {
-      // Permite requisições sem origin (mobile apps, Postman, etc) ou das origens permitidas
-      if (!origin || allowedOrigins.includes(origin) || isLocalNetworkOrigin(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("Não permitido pelo CORS"));
-      }
-    },
+    origin: createCorsOriginChecker(allowedOrigins, isLocalNetworkOrigin),
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allowedHeaders: [
@@ -69,24 +70,24 @@ app.use(
       "X-Requested-With",
       "Accept",
       "Origin",
+      "X-Webhook-Secret",
+      "X-Api-Key",
+      "X-Request-Id",
     ],
   }),
 );
 console.log("[CORS] Configuração CORS aplicada");
 console.log("[CORS] Origens permitidas:", allowedOrigins);
 
-app.use(express.json({ limit: "50mb" }));
+const jsonBodyLimit = process.env.JSON_BODY_LIMIT || "2mb";
+const uploadBodyLimit = process.env.UPLOAD_BODY_LIMIT || "6mb";
 
-// Trust proxy para obter IP real do cliente (importante para rate limiting)
-app.set("trust proxy", 1);
+app.use("/v1/upload", express.json({ limit: uploadBodyLimit }));
+app.use(express.json({ limit: jsonBodyLimit }));
 
-// Aplica rate limiting geral na API
 app.use("/v1", apiRateLimiter);
 
-// Auth pública (login / microsoft / check-email / foto com token próprio)
 app.use("/v1/auth", authRoutes);
-
-// Rotas autenticadas — JWT obrigatório (mitiga IDOR / abuso anônimo)
 app.use("/v1/users", authenticateToken, requireAdmin, usersRoutes);
 app.use("/v1/compra", authenticateToken, compraRoutes);
 app.use("/v1/proposta", authenticateToken, propostaRoutes);
@@ -100,6 +101,7 @@ app.use(
 app.use("/v1/products", authenticateToken, productsRoutes);
 app.use("/v1/cep", authenticateToken, cepRoutes);
 app.use("/v1/zoho", authenticateToken, requireAdmin, zohoRoutes);
+app.use("/v1/leads-medicos", leadsMedicosRoutes);
 app.use("/v1/saved-forms", savedFormsRoutes);
 app.use("/v1/upload", authenticateToken, writeRateLimiter, uploadRoutes);
 
@@ -226,6 +228,17 @@ app.listen(ENV.PORT, () => {
   console.log(
     "[CONFIG] ZOHO_ACCOUNTS_URL:",
     ENV.ZOHO_ACCOUNTS_URL || "✗ Não configurado",
+  );
+  console.log("[CONFIG] DynamoDB / Leads:");
+  console.log("[CONFIG] AWS_REGION:", ENV.AWS_REGION);
+  console.log("[CONFIG] DYNAMODB_LEADS_TABLE:", ENV.DYNAMODB_LEADS_TABLE);
+  console.log(
+    "[CONFIG] AWS_ACCESS_KEY_ID:",
+    ENV.AWS_ACCESS_KEY_ID ? "✓ Configurado" : "○ IAM role / profile (sem key no .env)",
+  );
+  console.log(
+    "[CONFIG] ZOHO_LEADS_WEBHOOK_SECRET:",
+    ENV.ZOHO_LEADS_WEBHOOK_SECRET ? "✓ Configurado" : "✗ Não configurado",
   );
   console.log("========================================");
 });

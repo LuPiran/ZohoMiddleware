@@ -14,6 +14,7 @@ import {
   MdBook,
   MdLocalShipping,
   MdLanguage,
+  MdMedicalServices,
 } from "react-icons/md";
 import {
   EXTERNAL_LINKS,
@@ -74,6 +75,12 @@ export default function Navbar() {
       label: "Home",
       icon: <MdDashboard className="text-xl" />,
       show: true, // Sempre visível
+    },
+    {
+      path: ROUTES.LEADS_MEDICOS,
+      label: "Leads Médicos",
+      icon: <MdMedicalServices className="text-xl" />,
+      show: true,
     },
     {
       path: ROUTES.USUARIOS,

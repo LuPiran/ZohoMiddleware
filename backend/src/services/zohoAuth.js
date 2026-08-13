@@ -373,4 +373,7 @@ export default {
   validarCredenciais,
   criarUsuarioPortal,
   obterOuCriarUsuarioPorEmail,
+  removerCamposSenha,
 };
+
+export { removerCamposSenha };

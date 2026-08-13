@@ -5,6 +5,7 @@
 export const ROUTES = {
   LOGIN: "/",
   DASHBOARD: "/dashboard",
+  LEADS_MEDICOS: "/leads-medicos",
   PLATFORM_UPDATES: "/atualizacoes-plataforma",
   USUARIOS: "/usuarios",
   RECOMPRA: "/recompra",

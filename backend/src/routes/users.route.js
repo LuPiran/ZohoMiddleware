@@ -1,6 +1,7 @@
 import express from "express";
 import { chamarZohoApi } from "../services/zohoApi.js";
 import { ENV } from "../config/env.js";
+import { removerCamposSenha } from "../services/zohoAuth.js";
 
 const router = express.Router();
 
@@ -223,11 +224,11 @@ router.get("/", async (req, res) => {
         foto: fotoUsuario, // Foto processada do usuário
         criado: usuario.Created_Time || usuario.created_time || null,
         modificado: usuario.Modified_Time || usuario.modified_time || null,
-        // Mantém todos os dados originais para uso futuro, incluindo foto
-        raw: {
+        // Mantém dados originais sem campos de senha (anti-vazamento)
+        raw: removerCamposSenha({
           ...usuario,
-          foto: fotoUsuario, // Adiciona foto processada ao raw também
-        },
+          foto: fotoUsuario,
+        }),
       };
     });
 
