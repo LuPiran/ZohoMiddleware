@@ -176,6 +176,74 @@ export function mapZohoPayloadToLead(payload) {
   const gerencia = asString(
     pick(source, ["gerencia", "Gerencia", "gerência", "manager", "Manager"]),
   );
+
+  const rua = asString(
+    pick(source, [
+      "rua",
+      "Rua",
+      "logradouro",
+      "Logradouro",
+      "street",
+      "Street",
+      "endereco",
+      "Endereco",
+      "Endereço",
+      "Mailing_Street",
+    ]),
+  );
+  const numero = asString(
+    pick(source, ["numero", "Número", "Numero", "number", "Number", "nro", "Nro"]),
+  );
+  const complemento = asString(
+    pick(source, [
+      "complemento",
+      "Complemento",
+      "complement",
+      "Complement",
+      "Mailing_Street_2",
+    ]),
+  );
+  const bairro = asString(
+    pick(source, ["bairro", "Bairro", "neighborhood", "Neighborhood", "district"]),
+  );
+  const cidade = asString(
+    pick(source, [
+      "cidade",
+      "Cidade",
+      "city",
+      "City",
+      "Mailing_City",
+      "municipio",
+      "Municipio",
+    ]),
+  );
+  const estado = asString(
+    pick(source, [
+      "estado",
+      "Estado",
+      "state",
+      "State",
+      "ufEndereco",
+      "UF_Endereco",
+      "Mailing_State",
+      "uf",
+      "UF",
+    ]),
+  );
+  const cep = asString(
+    pick(source, [
+      "cep",
+      "CEP",
+      "Cep",
+      "zip",
+      "Zip",
+      "zipCode",
+      "Zip_Code",
+      "Mailing_Zip",
+      "codigoPostal",
+    ]),
+  );
+
   const status =
     asString(pick(source, ["status", "Status", "Stage"])) || "Qualificado";
   const dataNovoLead = asIsoDate(
@@ -218,6 +286,13 @@ export function mapZohoPayloadToLead(payload) {
     emailConsultor,
     tipoLead,
     gerencia,
+    rua,
+    numero,
+    complemento,
+    bairro,
+    cidade,
+    estado: estado || ufCrm,
+    cep,
     status,
     entradaEm,
     dataNovoLead: dataNovoLead || now,
@@ -545,8 +620,7 @@ export function toLeadListItem(lead) {
     entradaEm: lead.entradaEm || lead.dataQualificado || lead.createdAt || null,
     status: lead.status || "—",
     especialidade: lead.tipoLead || "",
-    uf: lead.ufCrm || "",
-    cidade: "",
+    uf: lead.estado || lead.ufCrm || "",
     origem: lead.evento || lead.source || "",
     prioridade: "",
     importado: Boolean(lead.importado),
@@ -554,6 +628,13 @@ export function toLeadListItem(lead) {
     consultorId: lead.consultorId || "",
     gerencia: lead.gerencia || "",
     numeroRegistro: lead.numeroRegistro || "",
+    rua: lead.rua || "",
+    numero: lead.numero || "",
+    complemento: lead.complemento || "",
+    bairro: lead.bairro || "",
+    cidade: lead.cidade || "",
+    estado: lead.estado || lead.ufCrm || "",
+    cep: lead.cep || "",
   };
 }
 

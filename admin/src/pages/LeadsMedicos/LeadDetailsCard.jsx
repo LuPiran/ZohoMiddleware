@@ -8,6 +8,10 @@ import {
   MdPerson,
   MdBusiness,
   MdCategory,
+  MdHome,
+  MdPinDrop,
+  MdLocationCity,
+  MdMarkunreadMailbox,
 } from "react-icons/md";
 
 function DetailItem({ icon: Icon, label, value }) {
@@ -41,8 +45,25 @@ function formatDate(dateString) {
   }
 }
 
+function formatCep(cep) {
+  if (!cep) return "";
+  const digits = String(cep).replace(/\D/g, "");
+  if (digits.length === 8) {
+    return `${digits.slice(0, 5)}-${digits.slice(5)}`;
+  }
+  return String(cep);
+}
+
 export default function LeadDetailsCard({ lead }) {
   if (!lead) return null;
+
+  const enderecoLinha = [
+    [lead.rua, lead.numero].filter(Boolean).join(", "),
+    lead.complemento,
+    lead.bairro,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <section
@@ -76,15 +97,56 @@ export default function LeadDetailsCard({ lead }) {
           label="Registro (CRM/CRO)"
           value={lead.numeroRegistro}
         />
-        <DetailItem icon={MdPlace} label="UF" value={lead.uf || lead.ufCrm} />
         <DetailItem
           icon={MdCategory}
           label="Tipo de lead"
           value={lead.tipoLead || lead.especialidade}
         />
-        <DetailItem icon={MdEvent} label="Evento / origem" value={lead.evento || lead.origem} />
+        <DetailItem
+          icon={MdEvent}
+          label="Evento / origem"
+          value={lead.evento || lead.origem}
+        />
         <DetailItem icon={MdPerson} label="Consultor" value={lead.consultor} />
         <DetailItem icon={MdBusiness} label="Gerência" value={lead.gerencia} />
+        <DetailItem
+          icon={MdPlace}
+          label="UF CRM"
+          value={lead.ufCrm || lead.uf}
+        />
+      </dl>
+
+      <div className="px-4 sm:px-5 pb-2">
+        <h3 className="text-xs font-bold uppercase tracking-wide text-tegra-text-secondary border-t border-tegra-gray-medium pt-4">
+          Endereço
+        </h3>
+        {enderecoLinha && (
+          <p className="mt-2 text-sm text-tegra-text-primary font-medium">
+            {enderecoLinha}
+          </p>
+        )}
+      </div>
+
+      <dl className="px-4 sm:px-5 pb-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+        <DetailItem icon={MdHome} label="Rua" value={lead.rua} />
+        <DetailItem icon={MdPinDrop} label="Número" value={lead.numero} />
+        <DetailItem
+          icon={MdHome}
+          label="Complemento"
+          value={lead.complemento}
+        />
+        <DetailItem icon={MdLocationCity} label="Bairro" value={lead.bairro} />
+        <DetailItem icon={MdLocationCity} label="Cidade" value={lead.cidade} />
+        <DetailItem
+          icon={MdPlace}
+          label="Estado"
+          value={lead.estado || lead.uf}
+        />
+        <DetailItem
+          icon={MdMarkunreadMailbox}
+          label="CEP"
+          value={formatCep(lead.cep)}
+        />
       </dl>
     </section>
   );
