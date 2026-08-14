@@ -6,6 +6,7 @@ export const ROUTES = {
   LOGIN: "/",
   DASHBOARD: "/dashboard",
   LEADS_MEDICOS: "/leads-medicos",
+  LEADS_MEDICOS_DETAIL: "/leads-medicos/:id",
   PLATFORM_UPDATES: "/atualizacoes-plataforma",
   USUARIOS: "/usuarios",
   RECOMPRA: "/recompra",
@@ -47,6 +48,9 @@ export const API_ENDPOINTS = {
   },
   LEADS_MEDICOS: {
     LIST: "/v1/leads-medicos",
+    DETAIL: (id) => `/v1/leads-medicos/${id}`,
+    PRIMEIRA_TENTATIVA: (id) => `/v1/leads-medicos/${id}/primeira-tentativa`,
+    SEM_INTERESSE: (id) => `/v1/leads-medicos/${id}/sem-interesse`,
   },
   PRODUCTS: {
     LIST: "/v1/products",

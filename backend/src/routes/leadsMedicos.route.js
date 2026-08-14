@@ -1,10 +1,14 @@
 import express from "express";
 import {
   createLeadFromZoho,
+  getLeadForUser,
   listLeadsForUser,
+  markLeadSemInteresse,
+  registerFirstAttempt,
 } from "../services/leadsMedicos.js";
 import { authenticateLeadsWebhook } from "../middleware/leadsWebhookAuth.js";
 import { authenticateToken } from "../services/jwtService.js";
+import { requireSafeResourceId } from "../middleware/authz.js";
 import { writeRateLimiter } from "../middleware/rateLimiter.js";
 
 const router = express.Router();
@@ -14,6 +18,20 @@ function dynamoErrorResponse(res, error) {
     return res.status(400).json({
       success: false,
       error: error.message || "Dados inválidos",
+    });
+  }
+
+  if (error.status === 403 || error.code === "FORBIDDEN") {
+    return res.status(403).json({
+      success: false,
+      error: error.message || "Acesso negado",
+    });
+  }
+
+  if (error.status === 404 || error.code === "NOT_FOUND") {
+    return res.status(404).json({
+      success: false,
+      error: error.message || "Não encontrado",
     });
   }
 
@@ -59,11 +77,6 @@ function dynamoErrorResponse(res, error) {
 /**
  * Lista leads médicos conforme perfil do usuário logado.
  * GET /v1/leads-medicos
- *
- * Regras:
- * - admin: todos
- * - gerente: gerência + próprios
- * - consultor: apenas os seus
  */
 router.get("/", authenticateToken, async (req, res) => {
   try {
@@ -89,15 +102,94 @@ router.get("/", authenticateToken, async (req, res) => {
 });
 
 /**
+ * Detalhe de um lead.
+ * GET /v1/leads-medicos/:id
+ */
+router.get(
+  "/:id",
+  authenticateToken,
+  requireSafeResourceId("id"),
+  async (req, res) => {
+    try {
+      const result = await getLeadForUser(req.params.id, req.user);
+      return res.json({
+        success: true,
+        role: result.role,
+        viewer: result.viewer,
+        data: result.lead,
+      });
+    } catch (error) {
+      console.error("[LEADS] Erro ao buscar lead:", error);
+      const handled = dynamoErrorResponse(res, error);
+      if (handled) return handled;
+
+      return res.status(500).json({
+        success: false,
+        error: error.message || "Erro ao buscar lead médico",
+      });
+    }
+  },
+);
+
+/**
+ * Registra primeira tentativa de contato.
+ * POST /v1/leads-medicos/:id/primeira-tentativa
+ */
+router.post(
+  "/:id/primeira-tentativa",
+  authenticateToken,
+  requireSafeResourceId("id"),
+  writeRateLimiter,
+  async (req, res) => {
+    try {
+      const lead = await registerFirstAttempt(req.params.id, req.user, {
+        observacao: req.body?.observacao || req.body?.descricao,
+      });
+      return res.json({ success: true, data: lead });
+    } catch (error) {
+      console.error("[LEADS] Erro na 1ª tentativa:", error);
+      const handled = dynamoErrorResponse(res, error);
+      if (handled) return handled;
+
+      return res.status(500).json({
+        success: false,
+        error: error.message || "Erro ao registrar primeira tentativa",
+      });
+    }
+  },
+);
+
+/**
+ * Marca lead como sem interesse.
+ * POST /v1/leads-medicos/:id/sem-interesse
+ */
+router.post(
+  "/:id/sem-interesse",
+  authenticateToken,
+  requireSafeResourceId("id"),
+  writeRateLimiter,
+  async (req, res) => {
+    try {
+      const lead = await markLeadSemInteresse(req.params.id, req.user, {
+        observacao: req.body?.observacao || req.body?.descricao,
+      });
+      return res.json({ success: true, data: lead });
+    } catch (error) {
+      console.error("[LEADS] Erro sem interesse:", error);
+      const handled = dynamoErrorResponse(res, error);
+      if (handled) return handled;
+
+      return res.status(500).json({
+        success: false,
+        error: error.message || "Erro ao marcar lead sem interesse",
+      });
+    }
+  },
+);
+
+/**
  * Cria lead médico no DynamoDB a partir do Zoho CRM.
  * POST /v1/leads-medicos/from-zoho
- *
- * Auth: X-Webhook-Secret / X-Api-Key / Bearer (ZOHO_LEADS_WEBHOOK_SECRET)
- *
- * Body (campos aceitos; aliases PT/EN):
- * Id / idZoho, Nome, E-mail, Telefone, Celular, Numero de Registro (CRM/CRO),
- * uf do crm, evento, consultor / emailConsultor / consultorId, tipo lead, gerencia,
- * status, data novo lead / entradaEm, data qualificado
  */
 router.post("/from-zoho", authenticateLeadsWebhook, writeRateLimiter, async (req, res) => {
   try {

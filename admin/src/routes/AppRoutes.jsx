@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import Login from "../pages/Auth/Login";
 import Dashboard from "../pages/Dashboard/Dashboard";
 import LeadsMedicos from "../pages/LeadsMedicos/LeadsMedicos";
+import LeadDetail from "../pages/LeadsMedicos/LeadDetail";
 import PlatformUpdates from "../pages/PlatformUpdates/PlatformUpdates";
 import Users from "../pages/Users/Users";
 import Recompra from "../pages/Recompra/Recompra";
@@ -72,6 +73,14 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute>
             <LeadsMedicos />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path={ROUTES.LEADS_MEDICOS_DETAIL}
+        element={
+          <ProtectedRoute>
+            <LeadDetail />
           </ProtectedRoute>
         }
       />

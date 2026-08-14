@@ -4,6 +4,7 @@ import {
   PutCommand,
   QueryCommand,
   ScanCommand,
+  UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
 import { dynamoDocClient } from "../config/dynamodb.js";
 import { ENV } from "../config/env.js";
@@ -240,6 +241,16 @@ export function mapZohoPayloadToLead(payload) {
     createdAt: now,
     updatedAt: now,
     source: "zoho",
+    historico: [
+      {
+        id: randomUUID(),
+        at: now,
+        action: "lead_criado",
+        label: "Lead recebido do Zoho",
+        detail: "Lead qualificado e enviado ao portal",
+        by: "zoho",
+      },
+    ],
   };
 }
 
@@ -629,4 +640,356 @@ export async function listLeadsForUser(user = {}) {
     },
     leads: leads.map(toLeadListItem),
   };
+}
+
+async function resolveViewerContext(user = {}) {
+  const role = resolveViewerRole(user.perfil);
+  const email = user.email || user.Email;
+  let consultorRecord = null;
+
+  if (email) {
+    try {
+      consultorRecord = await findConsultorByEmail(email);
+    } catch (error) {
+      console.warn("[LEADS] Lookup consultor:", error.message);
+    }
+  }
+
+  return {
+    role,
+    viewer: {
+      id: consultorRecord?.id || user.id,
+      email,
+      nome:
+        getConsultorDisplayName(consultorRecord) ||
+        user.nome ||
+        user.Nome ||
+        user.name,
+      gerencia: getConsultorGerencia(consultorRecord),
+      perfil: user.perfil,
+    },
+  };
+}
+
+function userCanAccessLead(lead, role, viewer) {
+  if (role === "admin") return true;
+  if (role === "gerente") {
+    return (
+      leadMatchesConsultor(lead, viewer) ||
+      leadMatchesGerencia(lead, viewer.gerencia)
+    );
+  }
+  return leadMatchesConsultor(lead, viewer);
+}
+
+function daysBetween(fromIso, toDate = new Date()) {
+  if (!fromIso) return null;
+  const from = new Date(fromIso);
+  if (Number.isNaN(from.getTime())) return null;
+  const ms = toDate.getTime() - from.getTime();
+  return Math.floor(ms / (24 * 60 * 60 * 1000));
+}
+
+function appendHistorico(lead, entry) {
+  const historico = Array.isArray(lead.historico) ? [...lead.historico] : [];
+  historico.unshift({
+    id: randomUUID(),
+    at: new Date().toISOString(),
+    ...entry,
+  });
+  return historico.slice(0, 200);
+}
+
+export function buildLeadTimeline(lead) {
+  const stages = [
+    {
+      id: "criado",
+      label: "Criado",
+      date: lead.dataNovoLead || lead.createdAt || null,
+    },
+    {
+      id: "qualificado",
+      label: "Qualificado",
+      date: lead.dataQualificado || lead.entradaEm || null,
+    },
+    {
+      id: "tentativa1",
+      label: "Primeira Tentativa",
+      date: lead.dataPrimeiraTentativa || null,
+    },
+    {
+      id: "tentativa2",
+      label: "Segunda Tentativa",
+      date: lead.dataSegundaTentativa || null,
+    },
+    {
+      id: "tentativa3",
+      label: "Terceira Tentativa",
+      date: lead.dataTerceiraTentativa || null,
+    },
+    {
+      id: "interesse",
+      label: "Lead Com Interesse",
+      date: (() => {
+        if (lead.dataEmAquecimento) return lead.dataEmAquecimento;
+        const status = normalizeText(lead.status);
+        if (status.includes("interesse") && !status.includes("sem")) {
+          return lead.updatedAt || null;
+        }
+        return null;
+      })(),
+    },
+    {
+      id: "convertido",
+      label: "Convertido",
+      date: (() => {
+        if (lead.dataConversao) return lead.dataConversao;
+        if (normalizeText(lead.status).includes("convert")) {
+          return lead.updatedAt || null;
+        }
+        return null;
+      })(),
+    },
+  ];
+
+  const lost =
+    Boolean(lead.dataSemInteresse) ||
+    normalizeText(lead.status).includes("sem interesse");
+
+  let currentIndex = 0;
+  for (let i = 0; i < stages.length; i += 1) {
+    if (stages[i].date) currentIndex = i;
+  }
+  if (!stages[0].date && lead.createdAt) {
+    stages[0].date = lead.createdAt;
+  }
+
+  return {
+    lost,
+    lostAt: lead.dataSemInteresse || null,
+    stages: stages.map((stage, index) => {
+      let state = "pending";
+      if (stage.date) state = "done";
+      else if (!lost && index === currentIndex + 1) state = "current";
+      else if (!lost && index === 0 && !stages.some((s) => s.date)) {
+        state = "current";
+      }
+      return { ...stage, state };
+    }),
+  };
+}
+
+export function toLeadDetail(lead) {
+  const qualificadoEm = lead.dataQualificado || lead.entradaEm || lead.createdAt;
+  const daysSinceQualification = daysBetween(qualificadoEm);
+  const hasFirstAttempt = Boolean(lead.dataPrimeiraTentativa);
+  const hasSemInteresse = Boolean(lead.dataSemInteresse);
+  const converted = Boolean(
+    lead.dataConversao || normalizeText(lead.status).includes("convert"),
+  );
+
+  return {
+    ...toLeadListItem(lead),
+    evento: lead.evento || "",
+    tipoLead: lead.tipoLead || "",
+    ufCrm: lead.ufCrm || "",
+    dataQualificado: lead.dataQualificado || null,
+    dataConversao: lead.dataConversao || null,
+    dataSemInteresse: lead.dataSemInteresse || null,
+    dataSemContato: lead.dataSemContato || null,
+    dataEmContato: lead.dataEmContato || null,
+    dataEmAquecimento: lead.dataEmAquecimento || null,
+    descricaoPrimeiraTentativa: lead.descricaoPrimeiraTentativa || "",
+    dataPrimeiraTentativa: lead.dataPrimeiraTentativa || null,
+    statusPrimeiraTentativa: lead.statusPrimeiraTentativa || null,
+    descricaoSegundaTentativa: lead.descricaoSegundaTentativa || "",
+    dataSegundaTentativa: lead.dataSegundaTentativa || null,
+    statusSegundaTentativa: lead.statusSegundaTentativa || null,
+    descricaoTerceiraTentativa: lead.descricaoTerceiraTentativa || "",
+    dataTerceiraTentativa: lead.dataTerceiraTentativa || null,
+    statusTerceiraTentativa: lead.statusTerceiraTentativa || null,
+    createdAt: lead.createdAt || null,
+    updatedAt: lead.updatedAt || null,
+    historico: Array.isArray(lead.historico) ? lead.historico : [],
+    timeline: buildLeadTimeline(lead),
+    attempt: {
+      daysSinceQualification,
+      canRegisterFirstAttempt:
+        !hasFirstAttempt && !hasSemInteresse && !converted,
+      hasFirstAttempt,
+      hasSemInteresse,
+      converted,
+      windowLabel: "1ª tentativa — a partir da data de qualificação",
+    },
+  };
+}
+
+export async function getLeadForUser(leadId, user = {}) {
+  const id = String(leadId || "").trim();
+  if (!id) {
+    const err = new Error("ID do lead é obrigatório");
+    err.status = 400;
+    err.code = "VALIDATION_ERROR";
+    throw err;
+  }
+
+  const { role, viewer } = await resolveViewerContext(user);
+  const result = await dynamoDocClient.send(
+    new GetCommand({
+      TableName: TABLE(),
+      Key: { id },
+    }),
+  );
+
+  if (!result.Item) {
+    const err = new Error("Lead não encontrado");
+    err.status = 404;
+    err.code = "NOT_FOUND";
+    throw err;
+  }
+
+  if (!userCanAccessLead(result.Item, role, viewer)) {
+    const err = new Error("Você não tem permissão para ver este lead");
+    err.status = 403;
+    err.code = "FORBIDDEN";
+    throw err;
+  }
+
+  return {
+    role,
+    viewer: {
+      id: viewer.id || null,
+      email: viewer.email || null,
+      nome: viewer.nome || null,
+      gerencia: viewer.gerencia || null,
+    },
+    lead: toLeadDetail(result.Item),
+  };
+}
+
+async function updateLeadItem(leadId, updates) {
+  const names = {};
+  const values = {};
+  const parts = [];
+  let i = 0;
+
+  for (const [key, value] of Object.entries(updates)) {
+    const nk = `#k${i}`;
+    const vk = `:v${i}`;
+    names[nk] = key;
+    values[vk] = value;
+    parts.push(`${nk} = ${vk}`);
+    i += 1;
+  }
+
+  const result = await dynamoDocClient.send(
+    new UpdateCommand({
+      TableName: TABLE(),
+      Key: { id: leadId },
+      UpdateExpression: `SET ${parts.join(", ")}`,
+      ExpressionAttributeNames: names,
+      ExpressionAttributeValues: values,
+      ConditionExpression: "attribute_exists(id)",
+      ReturnValues: "ALL_NEW",
+    }),
+  );
+
+  return result.Attributes;
+}
+
+/**
+ * Registra a 1ª tentativa de contato (regra: após qualificação).
+ */
+export async function registerFirstAttempt(leadId, user, { observacao } = {}) {
+  const detail = await getLeadForUser(leadId, user);
+  const lead = detail.lead;
+
+  if (!lead.attempt.canRegisterFirstAttempt) {
+    const err = new Error(
+      "Primeira tentativa já registrada ou lead encerrado (sem interesse / convertido).",
+    );
+    err.status = 400;
+    err.code = "VALIDATION_ERROR";
+    throw err;
+  }
+
+  const note = asString(observacao);
+  if (!note || note.length < 3) {
+    const err = new Error("Informe a observação da primeira tentativa (mín. 3 caracteres).");
+    err.status = 400;
+    err.code = "VALIDATION_ERROR";
+    throw err;
+  }
+
+  const now = new Date().toISOString();
+  const raw = (
+    await dynamoDocClient.send(
+      new GetCommand({ TableName: TABLE(), Key: { id: leadId } }),
+    )
+  ).Item;
+
+  const historico = appendHistorico(raw, {
+    action: "primeira_tentativa",
+    label: "Primeira tentativa registrada",
+    detail: note,
+    by: user.email || user.id || "usuario",
+  });
+
+  const updated = await updateLeadItem(leadId, {
+    descricaoPrimeiraTentativa: note,
+    dataPrimeiraTentativa: now,
+    statusPrimeiraTentativa: "Realizada",
+    status: "Em contato",
+    dataEmContato: raw.dataEmContato || now,
+    updatedAt: now,
+    historico,
+  });
+
+  return toLeadDetail(updated);
+}
+
+/**
+ * Marca lead como sem interesse.
+ */
+export async function markLeadSemInteresse(leadId, user, { observacao } = {}) {
+  const detail = await getLeadForUser(leadId, user);
+  const lead = detail.lead;
+
+  if (lead.attempt.hasSemInteresse || lead.attempt.converted) {
+    const err = new Error("Lead já encerrado.");
+    err.status = 400;
+    err.code = "VALIDATION_ERROR";
+    throw err;
+  }
+
+  const now = new Date().toISOString();
+  const note = asString(observacao) || "Lead marcado como sem interesse";
+  const raw = (
+    await dynamoDocClient.send(
+      new GetCommand({ TableName: TABLE(), Key: { id: leadId } }),
+    )
+  ).Item;
+
+  const historico = appendHistorico(raw, {
+    action: "sem_interesse",
+    label: "Lead sem interesse",
+    detail: note,
+    by: user.email || user.id || "usuario",
+  });
+
+  const updates = {
+    status: "Sem interesse",
+    dataSemInteresse: now,
+    updatedAt: now,
+    historico,
+  };
+
+  if (!raw.dataPrimeiraTentativa && note) {
+    updates.descricaoPrimeiraTentativa = note;
+    updates.dataPrimeiraTentativa = now;
+    updates.statusPrimeiraTentativa = "Sem interesse";
+  }
+
+  const updated = await updateLeadItem(leadId, updates);
+  return toLeadDetail(updated);
 }

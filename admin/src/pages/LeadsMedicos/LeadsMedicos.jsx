@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   MdSearch,
   MdFilterList,
@@ -13,6 +14,7 @@ import MainLayout from "../../components/layout/MainLayout";
 import Input from "../../components/ui/Input";
 import Button from "../../components/ui/Button";
 import { useToast } from "../../components/feedback/auth/ToastContainer";
+import { ROUTES } from "../../utils/constants";
 import LeadsDashboard from "./LeadsDashboard";
 import LeadsFilterSidebar from "./LeadsFilterSidebar";
 import { leadsMedicosService } from "../../services/leadsMedicos";
@@ -149,6 +151,7 @@ function shortId(id) {
  * FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md
  */
 export default function LeadsMedicos() {
+  const navigate = useNavigate();
   const { showToast } = useToast();
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -319,7 +322,7 @@ export default function LeadsMedicos() {
   };
 
   const handleView = (lead) => {
-    showToast(`Visualizar ${lead.nome} (${shortId(lead.id)})`, "info", 2200);
+    navigate(`${ROUTES.LEADS_MEDICOS}/${lead.id}`);
   };
 
   const handleImport = (lead) => {
