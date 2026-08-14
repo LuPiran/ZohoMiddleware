@@ -3,9 +3,15 @@ import {
   GetCommand,
   PutCommand,
   QueryCommand,
+  ScanCommand,
 } from "@aws-sdk/lib-dynamodb";
 import { dynamoDocClient } from "../config/dynamodb.js";
 import { ENV } from "../config/env.js";
+import {
+  findConsultorByEmail,
+  getConsultorDisplayName,
+  getConsultorGerencia,
+} from "./consultores.js";
 
 const TABLE = () => ENV.DYNAMODB_LEADS_TABLE;
 
@@ -145,12 +151,19 @@ export function mapZohoPayloadToLead(payload) {
   );
   const evento = asString(pick(source, ["evento", "Evento", "event"]));
 
+  const emailConsultor = asString(
+    pick(source, [
+      "emailConsultor",
+      "consultorEmail",
+      "email_consultor",
+      "Email_Consultor",
+    ]),
+  );
+
+  // Não usar Owner.id do Zoho como consultorId do portal.
+  // Preferir id explícito do portal; senão resolve por e-mail depois.
   const consultorId = asString(
-    pick(
-      source,
-      ["consultorId", "idConsultor", "ownerId", "Owner_Id", "Owner"],
-      "id",
-    ),
+    pick(source, ["consultorId", "idConsultor", "id_consultor"], "id"),
   );
   const consultor = asString(
     pick(source, ["consultor", "Consultor", "consultorNome", "owner", "Owner"]),
@@ -199,8 +212,9 @@ export function mapZohoPayloadToLead(payload) {
     ufCrm,
     evento,
     idZoho,
-    consultorId: consultorId || consultor,
+    consultorId: consultorId || undefined,
     consultor,
+    emailConsultor,
     tipoLead,
     gerencia,
     status,
@@ -234,10 +248,85 @@ export function validateCreateLeadInput(lead) {
 
   if (!lead.idZoho) errors.push("idZoho é obrigatório");
   if (!lead.nome) errors.push("Nome é obrigatório");
-  if (!lead.consultorId) errors.push("consultorId é obrigatório");
+  if (!lead.consultorId && !lead.consultor && !lead.emailConsultor) {
+    errors.push("consultor / emailConsultor é obrigatório");
+  }
   if (!lead.entradaEm) errors.push("entradaEm é obrigatório");
 
   return errors;
+}
+
+function normalizeEmail(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[\s\u200B-\u200D\uFEFF]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function normalizeText(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function resolveViewerRole(perfil) {
+  const p = normalizeText(perfil);
+  if (
+    p === "admin painel" ||
+    p === "admin portal" ||
+    p === "admin" ||
+    p.includes("admin")
+  ) {
+    return "admin";
+  }
+  if (p.includes("gerente")) return "gerente";
+  return "consultor";
+}
+
+/**
+ * Resolve consultorId a partir de portal_consultores (e-mail).
+ * Fallback: usa nome do consultor para não quebrar o GSI enquanto o cadastro não existir.
+ */
+async function enrichLeadWithPortalConsultor(lead, payload) {
+  const source =
+    payload?.data && typeof payload.data === "object" ? payload.data : payload;
+  const email =
+    lead.emailConsultor ||
+    asString(
+      pick(source, [
+        "emailConsultor",
+        "consultorEmail",
+        "email_consultor",
+        "Email_Consultor",
+      ]),
+    );
+
+  if (email) {
+    lead.emailConsultor = normalizeEmail(email) || email;
+    try {
+      const record = await findConsultorByEmail(email);
+      if (record?.id) {
+        lead.consultorId = String(record.id);
+        lead.consultor =
+          getConsultorDisplayName(record) || lead.consultor;
+        lead.gerencia = lead.gerencia || getConsultorGerencia(record);
+        return lead;
+      }
+    } catch (error) {
+      // Se o GSI de consultores falhar, ainda tenta gravar com fallback.
+      console.warn("[LEADS] Lookup portal_consultores falhou:", error.message);
+    }
+  }
+
+  if (!lead.consultorId) {
+    lead.consultorId = lead.consultor;
+  }
+
+  return lead;
 }
 
 async function findLeadByZohoId(idZoho) {
@@ -278,11 +367,21 @@ async function findLeadByZohoId(idZoho) {
  * Idempotente por idZoho (GSI gsi_zoho). id da tabela = UUID próprio.
  */
 export async function createLeadFromZoho(payload) {
-  const lead = mapZohoPayloadToLead(payload);
-  const errors = validateCreateLeadInput(lead);
+  let lead = mapZohoPayloadToLead(payload);
+  lead = await enrichLeadWithPortalConsultor(lead, payload);
 
+  const errors = validateCreateLeadInput(lead);
   if (errors.length) {
     const err = new Error(errors.join("; "));
+    err.status = 400;
+    err.code = "VALIDATION_ERROR";
+    throw err;
+  }
+
+  if (!lead.consultorId) {
+    const err = new Error(
+      "consultorId não resolvido. Cadastre o consultor em portal_consultores ou envie consultor/emailConsultor.",
+    );
     err.status = 400;
     err.code = "VALIDATION_ERROR";
     throw err;
@@ -326,5 +425,208 @@ export async function createLeadFromZoho(payload) {
     created: true,
     alreadyExists: false,
     lead,
+  };
+}
+
+async function scanAllLeads() {
+  const items = [];
+  let ExclusiveStartKey;
+
+  do {
+    const page = await dynamoDocClient.send(
+      new ScanCommand({
+        TableName: TABLE(),
+        ExclusiveStartKey,
+      }),
+    );
+    items.push(...(page.Items || []));
+    ExclusiveStartKey = page.LastEvaluatedKey;
+  } while (ExclusiveStartKey);
+
+  return items;
+}
+
+async function queryLeadsByConsultorId(consultorId) {
+  if (!consultorId) return [];
+
+  const indexName = ENV.DYNAMODB_LEADS_CONSULTOR_INDEX || "gsi_consultor";
+  const pkAttr = ENV.DYNAMODB_LEADS_CONSULTOR_ATTR || "consultorId";
+  const items = [];
+  let ExclusiveStartKey;
+
+  try {
+    do {
+      const page = await dynamoDocClient.send(
+        new QueryCommand({
+          TableName: TABLE(),
+          IndexName: indexName,
+          KeyConditionExpression: "#pk = :pk",
+          ExpressionAttributeNames: { "#pk": pkAttr },
+          ExpressionAttributeValues: { ":pk": String(consultorId) },
+          ScanIndexForward: false,
+          ExclusiveStartKey,
+        }),
+      );
+      items.push(...(page.Items || []));
+      ExclusiveStartKey = page.LastEvaluatedKey;
+    } while (ExclusiveStartKey);
+  } catch (error) {
+    if (
+      error.name === "ValidationException" ||
+      error.name === "ResourceNotFoundException"
+    ) {
+      const err = new Error(
+        `Índice "${indexName}" indisponível ou partition key diferente de "${pkAttr}".`,
+      );
+      err.status = 503;
+      err.code = "DYNAMO_GSI_MISSING";
+      throw err;
+    }
+    throw error;
+  }
+
+  return items;
+}
+
+function leadMatchesConsultor(lead, viewer) {
+  const ids = new Set(
+    [viewer.id, viewer.consultorId]
+      .filter(Boolean)
+      .map((v) => String(v)),
+  );
+  const names = new Set(
+    [viewer.nome, viewer.name, viewer.consultor]
+      .filter(Boolean)
+      .map(normalizeText),
+  );
+  const emails = new Set(
+    [viewer.email, viewer.emailConsultor]
+      .filter(Boolean)
+      .map(normalizeEmail),
+  );
+
+  if (lead.consultorId && ids.has(String(lead.consultorId))) return true;
+  if (lead.consultor && names.has(normalizeText(lead.consultor))) return true;
+  if (lead.consultorId && names.has(normalizeText(lead.consultorId))) return true;
+  if (lead.emailConsultor && emails.has(normalizeEmail(lead.emailConsultor))) {
+    return true;
+  }
+  return false;
+}
+
+function leadMatchesGerencia(lead, gerencia) {
+  if (!gerencia) return false;
+  return normalizeText(lead.gerencia) === normalizeText(gerencia);
+}
+
+/**
+ * DTO para a lista do portal (tabela + dashboard).
+ */
+export function toLeadListItem(lead) {
+  return {
+    id: lead.id,
+    idZoho: lead.idZoho || null,
+    nome: lead.nome || "",
+    email: lead.email || "",
+    telefone: lead.telefone || "",
+    celular: lead.celular || "",
+    criadoEm: lead.dataNovoLead || lead.createdAt || lead.entradaEm || null,
+    entradaEm: lead.entradaEm || lead.dataQualificado || lead.createdAt || null,
+    status: lead.status || "—",
+    especialidade: lead.tipoLead || "",
+    uf: lead.ufCrm || "",
+    cidade: "",
+    origem: lead.evento || lead.source || "",
+    prioridade: "",
+    importado: Boolean(lead.importado),
+    consultor: lead.consultor || "",
+    consultorId: lead.consultorId || "",
+    gerencia: lead.gerencia || "",
+    numeroRegistro: lead.numeroRegistro || "",
+  };
+}
+
+/**
+ * Lista leads conforme regra de negócio:
+ * - admin: todos
+ * - gerente: leads da mesma gerência (+ os próprios)
+ * - consultor: apenas os seus
+ */
+export async function listLeadsForUser(user = {}) {
+  const role = resolveViewerRole(user.perfil);
+  const email = user.email || user.Email;
+  let consultorRecord = null;
+
+  if (email) {
+    try {
+      consultorRecord = await findConsultorByEmail(email);
+    } catch (error) {
+      console.warn("[LEADS] Lookup consultor na listagem:", error.message);
+    }
+  }
+
+  const viewer = {
+    id: consultorRecord?.id || user.id,
+    email,
+    nome:
+      getConsultorDisplayName(consultorRecord) ||
+      user.nome ||
+      user.Nome ||
+      user.name,
+    gerencia: getConsultorGerencia(consultorRecord),
+    perfil: user.perfil,
+  };
+
+  let leads = [];
+
+  if (role === "admin") {
+    leads = await scanAllLeads();
+  } else if (role === "gerente") {
+    const all = await scanAllLeads();
+    leads = all.filter(
+      (lead) =>
+        leadMatchesConsultor(lead, viewer) ||
+        leadMatchesGerencia(lead, viewer.gerencia),
+    );
+  } else {
+    const keys = new Set(
+      [viewer.id, viewer.nome].filter(Boolean).map((v) => String(v)),
+    );
+    const collected = new Map();
+
+    for (const key of keys) {
+      const rows = await queryLeadsByConsultorId(key);
+      for (const row of rows) {
+        if (row?.id) collected.set(row.id, row);
+      }
+    }
+
+    if (collected.size === 0) {
+      const all = await scanAllLeads();
+      for (const row of all) {
+        if (leadMatchesConsultor(row, viewer) && row?.id) {
+          collected.set(row.id, row);
+        }
+      }
+    }
+
+    leads = [...collected.values()];
+  }
+
+  leads.sort((a, b) => {
+    const da = new Date(a.entradaEm || a.dataNovoLead || a.createdAt || 0).getTime();
+    const db = new Date(b.entradaEm || b.dataNovoLead || b.createdAt || 0).getTime();
+    return db - da;
+  });
+
+  return {
+    role,
+    viewer: {
+      id: viewer.id || null,
+      email: viewer.email || null,
+      nome: viewer.nome || null,
+      gerencia: viewer.gerencia || null,
+    },
+    leads: leads.map(toLeadListItem),
   };
 }

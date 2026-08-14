@@ -45,6 +45,9 @@ export const API_ENDPOINTS = {
   PROPOSTA: {
     CRIAR: "/v1/proposta",
   },
+  LEADS_MEDICOS: {
+    LIST: "/v1/leads-medicos",
+  },
   PRODUCTS: {
     LIST: "/v1/products",
     LIST_ALL: "/v1/products/all",

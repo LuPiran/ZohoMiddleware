@@ -185,19 +185,32 @@ export function aggregateLeadsByMonth(leads) {
 }
 
 export function aggregateLeadsByStatus(leads) {
-  const counts = Object.fromEntries(LEAD_STATUSES.map((s) => [s, 0]));
+  const counts = {};
   leads.forEach((lead) => {
-    if (counts[lead.status] !== undefined) counts[lead.status] += 1;
+    const status = lead.status || "—";
+    counts[status] = (counts[status] || 0) + 1;
   });
-  return LEAD_STATUSES.map((status) => ({
-    name: status,
-    value: counts[status],
-  })).filter((item) => item.value > 0);
+
+  const known = LEAD_STATUSES.filter((status) => counts[status]).map(
+    (status) => ({
+      name: status,
+      value: counts[status],
+    }),
+  );
+
+  const extras = Object.entries(counts)
+    .filter(([status]) => !LEAD_STATUSES.includes(status))
+    .map(([name, value]) => ({ name, value }));
+
+  return [...known, ...extras];
 }
 
 export function computeConversionRate(leads) {
   if (!leads.length) return 0;
-  const converted = leads.filter((l) => l.status === "Convertido").length;
+  const converted = leads.filter((l) => {
+    const status = String(l.status || "").toLowerCase();
+    return status === "convertido" || status.includes("conver");
+  }).length;
   return Math.round((converted / leads.length) * 1000) / 10;
 }
 

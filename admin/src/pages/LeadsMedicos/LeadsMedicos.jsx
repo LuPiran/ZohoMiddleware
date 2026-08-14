@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   MdSearch,
   MdFilterList,
@@ -15,8 +15,8 @@ import Button from "../../components/ui/Button";
 import { useToast } from "../../components/feedback/auth/ToastContainer";
 import LeadsDashboard from "./LeadsDashboard";
 import LeadsFilterSidebar from "./LeadsFilterSidebar";
+import { leadsMedicosService } from "../../services/leadsMedicos";
 import {
-  MOCK_LEADS,
   aggregateLeadsByMonth,
   aggregateLeadsByStatus,
   computeConversionRate,
@@ -34,6 +34,10 @@ const STATUS_STYLES = {
     soft: "rgba(61, 162, 184, 0.14)",
   },
   Qualificado: {
+    color: "#E5989B",
+    soft: "rgba(229, 152, 155, 0.16)",
+  },
+  "Lead Em Qualificação": {
     color: "#E5989B",
     soft: "rgba(229, 152, 155, 0.16)",
   },
@@ -107,7 +111,9 @@ function toDateOnly(value) {
 
 function matchesDateRange(isoDate, from, to) {
   if (!from && !to) return true;
+  if (!isoDate) return false;
   const current = toDateOnly(isoDate);
+  if (Number.isNaN(current.getTime())) return false;
   if (from && current < toDateOnly(from)) return false;
   if (to && current > toDateOnly(to)) return false;
   return true;
@@ -128,6 +134,12 @@ function countActiveFilters(filters) {
   );
 }
 
+function shortId(id) {
+  if (!id) return "—";
+  const value = String(id);
+  return value.length > 12 ? `${value.slice(0, 8)}…` : value;
+}
+
 /**
  * THESIS: Leads médicos como superfície operacional Tegra — leitura rápida de volume, status e conversão, depois ação na lista.
  * OWN-WORLD: tokens tegra-*, painéis com borda cinza suave, gráficos Recharts em azul-escuro/teal/rosa da marca, sidebar de filtro à direita.
@@ -138,6 +150,9 @@ function countActiveFilters(filters) {
  */
 export default function LeadsMedicos() {
   const { showToast } = useToast();
+  const [leads, setLeads] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [draftSearch, setDraftSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -145,19 +160,60 @@ export default function LeadsMedicos() {
   const [draftFilters, setDraftFilters] = useState(EMPTY_FILTERS);
   const [appliedFilters, setAppliedFilters] = useState(EMPTY_FILTERS);
 
+  const loadLeads = async () => {
+    setLoading(true);
+    setLoadError("");
+    try {
+      const result = await leadsMedicosService.list();
+      setLeads(result.data);
+    } catch (error) {
+      const message =
+        error?.response?.data?.error ||
+        error?.message ||
+        "Não foi possível carregar os leads médicos.";
+      setLoadError(message);
+      setLeads([]);
+      showToast(message, "error", 3500);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadLeads();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const filteredLeads = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
 
-    return MOCK_LEADS.filter((lead) => {
+    return leads.filter((lead) => {
       const matchesSearch =
         !query ||
-        lead.id.toLowerCase().includes(query) ||
-        lead.nome.toLowerCase().includes(query) ||
-        lead.email.toLowerCase().includes(query) ||
-        lead.especialidade.toLowerCase().includes(query) ||
-        lead.cidade.toLowerCase().includes(query) ||
-        lead.uf.toLowerCase().includes(query) ||
-        lead.origem.toLowerCase().includes(query);
+        String(lead.id || "")
+          .toLowerCase()
+          .includes(query) ||
+        String(lead.nome || "")
+          .toLowerCase()
+          .includes(query) ||
+        String(lead.email || "")
+          .toLowerCase()
+          .includes(query) ||
+        String(lead.especialidade || "")
+          .toLowerCase()
+          .includes(query) ||
+        String(lead.cidade || "")
+          .toLowerCase()
+          .includes(query) ||
+        String(lead.uf || "")
+          .toLowerCase()
+          .includes(query) ||
+        String(lead.origem || "")
+          .toLowerCase()
+          .includes(query) ||
+        String(lead.consultor || "")
+          .toLowerCase()
+          .includes(query);
 
       const matchesStatus =
         appliedFilters.statuses.length === 0 ||
@@ -208,7 +264,7 @@ export default function LeadsMedicos() {
         matchesEntrada
       );
     });
-  }, [searchTerm, appliedFilters]);
+  }, [leads, searchTerm, appliedFilters]);
 
   const monthlyData = useMemo(
     () => aggregateLeadsByMonth(filteredLeads),
@@ -223,7 +279,11 @@ export default function LeadsMedicos() {
     [filteredLeads],
   );
   const convertedCount = useMemo(
-    () => filteredLeads.filter((lead) => lead.status === "Convertido").length,
+    () =>
+      filteredLeads.filter((lead) => {
+        const status = String(lead.status || "").toLowerCase();
+        return status === "convertido" || status.includes("conver");
+      }).length,
     [filteredLeads],
   );
 
@@ -259,7 +319,7 @@ export default function LeadsMedicos() {
   };
 
   const handleView = (lead) => {
-    showToast(`Visualizar ${lead.nome} (${lead.id})`, "info", 2200);
+    showToast(`Visualizar ${lead.nome} (${shortId(lead.id)})`, "info", 2200);
   };
 
   const handleImport = (lead) => {
@@ -269,14 +329,24 @@ export default function LeadsMedicos() {
   return (
     <MainLayout>
       <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
-        <header className="mb-5 sm:mb-6">
-          <h1 className="text-xl sm:text-2xl font-bold text-tegra-text-primary">
-            Leads Médicos
-          </h1>
-          <p className="mt-1 text-sm text-tegra-text-secondary max-w-2xl">
-            Acompanhe volume, status e conversão — depois localize e aja sobre
-            cada lead. Dados de demonstração até a integração com a API.
-          </p>
+        <header className="mb-5 sm:mb-6 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-tegra-text-primary">
+              Leads Médicos
+            </h1>
+            <p className="mt-1 text-sm text-tegra-text-secondary max-w-2xl">
+              Acompanhe volume, status e conversão — cada consultor vê os próprios
+              leads; gerente a equipe; admin todos.
+            </p>
+          </div>
+          <Button
+            variant="secondary"
+            onClick={loadLeads}
+            disabled={loading}
+            className="shrink-0"
+          >
+            {loading ? "Atualizando…" : "Atualizar"}
+          </Button>
         </header>
 
         <LeadsDashboard
@@ -331,13 +401,36 @@ export default function LeadsMedicos() {
             </button>
           </div>
 
-          {pageLeads.length === 0 ? (
+          {loading ? (
+            <div className="px-4 py-14 text-center">
+              <p className="text-tegra-text-primary font-medium">
+                Carregando leads…
+              </p>
+              <p className="mt-1 text-sm text-tegra-text-secondary">
+                Buscando no Dynamo conforme seu perfil.
+              </p>
+            </div>
+          ) : loadError ? (
+            <div className="px-4 py-14 text-center">
+              <p className="text-tegra-text-primary font-medium">
+                Não foi possível carregar
+              </p>
+              <p className="mt-1 text-sm text-tegra-text-secondary max-w-md mx-auto">
+                {loadError}
+              </p>
+              <Button className="mt-4" onClick={loadLeads}>
+                Tentar novamente
+              </Button>
+            </div>
+          ) : pageLeads.length === 0 ? (
             <div className="px-4 py-14 text-center">
               <p className="text-tegra-text-primary font-medium">
                 Nenhum lead encontrado
               </p>
               <p className="mt-1 text-sm text-tegra-text-secondary">
-                Ajuste a busca ou limpe os filtros para ver resultados.
+                {leads.length === 0
+                  ? "Ainda não há leads associados ao seu perfil."
+                  : "Ajuste a busca ou limpe os filtros para ver resultados."}
               </p>
               {(searchTerm || activeFilterCount > 0) && (
                 <Button
@@ -360,14 +453,17 @@ export default function LeadsMedicos() {
                   <article key={lead.id} className="p-4 space-y-3">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="text-xs font-medium text-tegra-text-secondary tabular-nums">
-                          {lead.id}
+                        <p
+                          className="text-xs font-medium text-tegra-text-secondary tabular-nums"
+                          title={lead.id}
+                        >
+                          {shortId(lead.id)}
                         </p>
                         <h3 className="text-sm font-semibold text-tegra-text-primary truncate">
-                          {lead.nome}
+                          {lead.nome || "—"}
                         </h3>
                         <p className="text-xs text-tegra-text-secondary truncate">
-                          {lead.email}
+                          {lead.email || "—"}
                         </p>
                       </div>
                       <span className="shrink-0">
@@ -424,10 +520,16 @@ export default function LeadsMedicos() {
                       <th scope="col" className="px-4 py-3 font-semibold">
                         E-mail
                       </th>
-                      <th scope="col" className="px-4 py-3 font-semibold whitespace-nowrap">
+                      <th
+                        scope="col"
+                        className="px-4 py-3 font-semibold whitespace-nowrap"
+                      >
                         Data de criação
                       </th>
-                      <th scope="col" className="px-4 py-3 font-semibold whitespace-nowrap">
+                      <th
+                        scope="col"
+                        className="px-4 py-3 font-semibold whitespace-nowrap"
+                      >
                         Data de entrada
                       </th>
                       <th scope="col" className="px-4 py-3 font-semibold">
@@ -447,14 +549,17 @@ export default function LeadsMedicos() {
                         key={lead.id}
                         className="hover:bg-tegra-gray-light/60 transition-colors"
                       >
-                        <td className="px-4 py-3 tabular-nums text-tegra-text-secondary whitespace-nowrap">
-                          {lead.id}
+                        <td
+                          className="px-4 py-3 tabular-nums text-tegra-text-secondary whitespace-nowrap"
+                          title={lead.id}
+                        >
+                          {shortId(lead.id)}
                         </td>
                         <td className="px-4 py-3 font-medium text-tegra-text-primary whitespace-nowrap">
-                          {lead.nome}
+                          {lead.nome || "—"}
                         </td>
                         <td className="px-4 py-3 text-tegra-text-secondary">
-                          {lead.email}
+                          {lead.email || "—"}
                         </td>
                         <td className="px-4 py-3 text-tegra-text-secondary whitespace-nowrap">
                           {formatDate(lead.criadoEm)}
