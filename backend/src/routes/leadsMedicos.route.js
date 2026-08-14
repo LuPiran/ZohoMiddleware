@@ -12,9 +12,9 @@ const router = express.Router();
  * Auth: X-Webhook-Secret / X-Api-Key / Bearer (ZOHO_LEADS_WEBHOOK_SECRET)
  *
  * Body (campos aceitos; aliases PT/EN):
- * Id, Nome, E-mail, Telefone, Celular, Numero de Registro (CRM/CRO),
- * uf do crm, evento, id do zoho, consultor, tipo lead, gerencia,
- * status, data novo lead, data qualificado
+ * Id / idZoho, Nome, E-mail, Telefone, Celular, Numero de Registro (CRM/CRO),
+ * uf do crm, evento, consultor / consultorId, tipo lead, gerencia,
+ * status, data novo lead / entradaEm, data qualificado
  */
 router.post("/from-zoho", authenticateLeadsWebhook, writeRateLimiter, async (req, res) => {
   try {

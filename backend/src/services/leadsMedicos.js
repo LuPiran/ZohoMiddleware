@@ -20,7 +20,36 @@ function normalizeKey(key) {
     .replace(/[^a-z0-9]/g, "");
 }
 
-function pick(payload, aliases = []) {
+function unwrapLookup(value, prefer = "name") {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value === "string" && value.trim() === "") return undefined;
+  if (typeof value !== "object") return value;
+
+  if (prefer === "id") {
+    return (
+      value.id ??
+      value.ID ??
+      value.name ??
+      value.Nome ??
+      value.Name ??
+      undefined
+    );
+  }
+
+  // Zoho lookup: { id, name }
+  return (
+    value.name ??
+    value.Nome ??
+    value.Name ??
+    value.email ??
+    value.Email ??
+    value.id ??
+    value.ID ??
+    undefined
+  );
+}
+
+function pick(payload, aliases = [], prefer = "name") {
   if (!payload || typeof payload !== "object") return undefined;
 
   const normalizedAliases = aliases.map(normalizeKey);
@@ -29,22 +58,7 @@ function pick(payload, aliases = []) {
   for (const alias of normalizedAliases) {
     for (const [key, value] of entries) {
       if (normalizeKey(key) === alias) {
-        if (value === undefined || value === null) return undefined;
-        if (typeof value === "string" && value.trim() === "") return undefined;
-        if (typeof value === "object" && value !== null) {
-          // Zoho às vezes manda lookup: { id, name }
-          return (
-            value.name ??
-            value.Nome ??
-            value.Name ??
-            value.email ??
-            value.Email ??
-            value.id ??
-            value.ID ??
-            undefined
-          );
-        }
-        return value;
+        return unwrapLookup(value, prefer);
       }
     }
   }
@@ -81,24 +95,31 @@ function asIsoDate(value) {
 
 /**
  * Mapeia o payload do Zoho para o item DynamoDB (portal_leads_medicos).
- * Campos de tentativa / datas de funil posteriores ficam nulos no create.
+ *
+ * Chaves alinhadas aos GSIs:
+ * - gsi_zoho → idZoho
+ * - gsi_consultor → consultorId (PK) + entradaEm (SK)
  */
 export function mapZohoPayloadToLead(payload) {
   const source = payload?.data && typeof payload.data === "object" ? payload.data : payload;
 
-  const zohoId = asString(
-    pick(source, [
-      "zohoId",
-      "idDoZoho",
-      "idZoho",
-      "zoho_id",
-      "Zoho_ID",
-      "ZohoId",
-      "id_do_zoho",
-    ]),
+  const idZoho = asString(
+    pick(
+      source,
+      [
+        "idZoho",
+        "zohoId",
+        "idDoZoho",
+        "zoho_id",
+        "Zoho_ID",
+        "ZohoId",
+        "id_do_zoho",
+      ],
+      "id",
+    ),
   );
 
-  // id da tabela é sempre nosso (UUID). zohoId fica separado.
+  // id da tabela é sempre nosso (UUID). idZoho fica separado (GSI).
   const id = randomUUID();
 
   const nome = asString(pick(source, ["nome", "name", "Nome", "Name"]));
@@ -123,16 +144,18 @@ export function mapZohoPayloadToLead(payload) {
     pick(source, ["ufCrm", "ufDoCrm", "uf_crm", "UF_CRM", "UF", "uf"]),
   );
   const evento = asString(pick(source, ["evento", "Evento", "event"]));
-  const consultor = asString(
-    pick(source, [
-      "consultor",
-      "Consultor",
-      "owner",
-      "Owner",
-      "consultorNome",
-      "consultorId",
-    ]),
+
+  const consultorId = asString(
+    pick(
+      source,
+      ["consultorId", "idConsultor", "ownerId", "Owner_Id", "Owner"],
+      "id",
+    ),
   );
+  const consultor = asString(
+    pick(source, ["consultor", "Consultor", "consultorNome", "owner", "Owner"]),
+  );
+
   const tipoLead = asString(
     pick(source, ["tipoLead", "tipoDeLead", "Tipo_Lead", "Tipo_de_Lead"]),
   );
@@ -148,6 +171,7 @@ export function mapZohoPayloadToLead(payload) {
       "Created_Time",
       "createdTime",
       "Data_Novo_Lead",
+      "entradaEm",
     ]),
   );
   const dataQualificado = asIsoDate(
@@ -160,6 +184,10 @@ export function mapZohoPayloadToLead(payload) {
   );
 
   const now = new Date().toISOString();
+  const entradaEm =
+    asIsoDate(pick(source, ["entradaEm", "Entrada_Em"])) ||
+    dataNovoLead ||
+    now;
 
   return {
     id,
@@ -170,11 +198,13 @@ export function mapZohoPayloadToLead(payload) {
     numeroRegistro,
     ufCrm,
     evento,
-    zohoId,
+    idZoho,
+    consultorId: consultorId || consultor,
     consultor,
     tipoLead,
     gerencia,
     status,
+    entradaEm,
     dataNovoLead: dataNovoLead || now,
     dataConversao: null,
     dataQualificado: dataQualificado || now,
@@ -202,26 +232,26 @@ export function mapZohoPayloadToLead(payload) {
 export function validateCreateLeadInput(lead) {
   const errors = [];
 
-  if (!lead.zohoId) errors.push("id do zoho é obrigatório");
+  if (!lead.idZoho) errors.push("idZoho é obrigatório");
   if (!lead.nome) errors.push("Nome é obrigatório");
-  if (!lead.consultor) errors.push("consultor é obrigatório");
+  if (!lead.consultorId) errors.push("consultorId é obrigatório");
+  if (!lead.entradaEm) errors.push("entradaEm é obrigatório");
 
   return errors;
 }
 
-async function findLeadByZohoId(zohoId) {
+async function findLeadByZohoId(idZoho) {
   const indexName = ENV.DYNAMODB_LEADS_ZOHO_ID_INDEX || "gsi_zoho";
-  const zohoAttr = ENV.DYNAMODB_LEADS_ZOHO_ID_ATTR || "zohoId";
+  const zohoAttr = ENV.DYNAMODB_LEADS_ZOHO_ID_ATTR || "idZoho";
 
-  // gsi_zoho → partition key = atributo do id do Zoho (padrão: zohoId)
   try {
     const byGsi = await dynamoDocClient.send(
       new QueryCommand({
         TableName: TABLE(),
         IndexName: indexName,
-        KeyConditionExpression: "#zohoAttr = :zohoId",
+        KeyConditionExpression: "#zohoAttr = :idZoho",
         ExpressionAttributeNames: { "#zohoAttr": zohoAttr },
-        ExpressionAttributeValues: { ":zohoId": zohoId },
+        ExpressionAttributeValues: { ":idZoho": idZoho },
         Limit: 1,
       }),
     );
@@ -245,7 +275,7 @@ async function findLeadByZohoId(zohoId) {
 
 /**
  * Cria lead médico no DynamoDB a partir do payload Zoho.
- * Idempotente por zohoId (GSI). id da tabela = UUID próprio.
+ * Idempotente por idZoho (GSI gsi_zoho). id da tabela = UUID próprio.
  */
 export async function createLeadFromZoho(payload) {
   const lead = mapZohoPayloadToLead(payload);
@@ -258,7 +288,7 @@ export async function createLeadFromZoho(payload) {
     throw err;
   }
 
-  const existing = await findLeadByZohoId(lead.zohoId);
+  const existing = await findLeadByZohoId(lead.idZoho);
   if (existing) {
     return {
       created: false,
