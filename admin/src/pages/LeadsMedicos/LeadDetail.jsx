@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { MdArrowBack } from "react-icons/md";
 import MainLayout from "../../components/layout/MainLayout";
@@ -11,12 +11,102 @@ import LeadDetailsCard from "./LeadDetailsCard";
 import LeadFirstAttemptCard from "./LeadFirstAttemptCard";
 import LeadHistory from "./LeadHistory";
 
-/**
- * THESIS: Detalhe operacional do lead — timeline do funil, dados, 1ª tentativa e histórico.
- * OWN-WORLD: tegra-*, cards com borda cinza suave, teal para progresso ativo.
- * STORY: consultor entende onde o lead está, registra contato ou encerra sem interesse.
- * FORM: extensão Operate do shell MainLayout.
- */
+function SlaTimer({ lead, onCheckin, submitting }) {
+  const { slaStatus, slaDeadline, slaCheckinAt } = lead;
+  const [remaining, setRemaining] = useState(null);
+  const timerRef = useRef(null);
+
+  useEffect(() => {
+    if (slaStatus !== "pendente" || !slaDeadline) {
+      setRemaining(null);
+      return;
+    }
+
+    function tick() {
+      const diff = new Date(slaDeadline).getTime() - Date.now();
+      setRemaining(Math.max(0, diff));
+    }
+
+    tick();
+    timerRef.current = setInterval(tick, 1000);
+    return () => clearInterval(timerRef.current);
+  }, [slaStatus, slaDeadline]);
+
+  if (slaStatus === "aguardando_horario" || !slaStatus) return null;
+
+  if (slaStatus === "confirmado") {
+    return (
+      <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 flex items-center gap-3">
+        <span className="text-green-600 text-lg">✓</span>
+        <div>
+          <p className="text-sm font-semibold text-green-700">Check-in confirmado</p>
+          {slaCheckinAt && (
+            <p className="text-xs text-green-600">
+              {new Date(slaCheckinAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (slaStatus === "expirado" || slaStatus === "reatribuido") {
+    return (
+      <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 flex items-center gap-3">
+        <span className="text-red-500 text-lg">✕</span>
+        <p className="text-sm font-semibold text-red-700">
+          {slaStatus === "reatribuido" ? "Lead reatribuído (SLA expirado)" : "SLA expirado"}
+        </p>
+      </div>
+    );
+  }
+
+  if (slaStatus === "pendente" && remaining !== null) {
+    const totalSecs = Math.floor(remaining / 1000);
+    const mins = Math.floor(totalSecs / 60);
+    const secs = totalSecs % 60;
+    const display = `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+    const isUrgent = remaining < 2 * 60 * 1000;
+    const isWarning = remaining < 5 * 60 * 1000;
+
+    const colorClass = isUrgent
+      ? "border-red-300 bg-red-50 text-red-700"
+      : isWarning
+        ? "border-yellow-300 bg-yellow-50 text-yellow-700"
+        : "border-teal-200 bg-teal-50 text-teal-700";
+
+    const labelColor = isUrgent
+      ? "text-red-600"
+      : isWarning
+        ? "text-yellow-600"
+        : "text-teal-600";
+
+    return (
+      <div className={`rounded-xl border px-4 py-3 flex items-center justify-between gap-4 ${colorClass}`}>
+        <div className="flex items-center gap-3">
+          <span className="text-2xl font-mono font-bold tabular-nums">{display}</span>
+          <div>
+            <p className="text-sm font-semibold">Confirme o recebimento deste lead</p>
+            <p className={`text-xs ${labelColor}`}>
+              {remaining === 0 ? "Prazo encerrado" : "Clique em Check-in antes do prazo expirar"}
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          disabled={submitting || remaining === 0}
+          onClick={onCheckin}
+          className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+        >
+          Check-in
+        </button>
+      </div>
+    );
+  }
+
+  return null;
+}
+
 export default function LeadDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -64,6 +154,23 @@ export default function LeadDetail() {
         err?.response?.data?.error ||
         err?.message ||
         "Erro ao registrar tentativa";
+      showToast(message, "error", 3500);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleCheckin = async () => {
+    setSubmitting(true);
+    try {
+      const result = await leadsMedicosService.confirmarCheckin(id);
+      setLead(result.data);
+      showToast("Check-in confirmado com sucesso!", "success", 2500);
+    } catch (err) {
+      const message =
+        err?.response?.data?.error ||
+        err?.message ||
+        "Erro ao confirmar check-in";
       showToast(message, "error", 3500);
     } finally {
       setSubmitting(false);
@@ -155,6 +262,7 @@ export default function LeadDetail() {
           </div>
         ) : (
           <>
+            <SlaTimer lead={lead} onCheckin={handleCheckin} submitting={submitting} />
             <LeadTimeline timeline={lead.timeline} />
             <LeadDetailsCard lead={lead} />
             <LeadFirstAttemptCard

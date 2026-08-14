@@ -44,9 +44,18 @@ export async function marcarLeadSemInteresse(id, observacao) {
   };
 }
 
+export async function confirmarCheckin(id) {
+  const response = await api.post(API_ENDPOINTS.LEADS_MEDICOS.CHECKIN(id));
+  return {
+    success: Boolean(response.data?.success),
+    data: response.data?.data || null,
+  };
+}
+
 export const leadsMedicosService = {
   list: listLeadsMedicos,
   getById: getLeadMedico,
   registrarPrimeiraTentativa,
   marcarSemInteresse: marcarLeadSemInteresse,
+  confirmarCheckin,
 };

@@ -51,6 +51,7 @@ export const API_ENDPOINTS = {
     DETAIL: (id) => `/v1/leads-medicos/${id}`,
     PRIMEIRA_TENTATIVA: (id) => `/v1/leads-medicos/${id}/primeira-tentativa`,
     SEM_INTERESSE: (id) => `/v1/leads-medicos/${id}/sem-interesse`,
+    CHECKIN: (id) => `/v1/leads-medicos/${id}/checkin`,
   },
   PRODUCTS: {
     LIST: "/v1/products",

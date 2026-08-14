@@ -10,9 +10,60 @@ import { dynamoDocClient } from "../config/dynamodb.js";
 import { ENV } from "../config/env.js";
 import {
   findConsultorByEmail,
+  findConsultoresByRegiao,
   getConsultorDisplayName,
   getConsultorGerencia,
+  updateConsultorUltimaAtribuicao,
 } from "./consultores.js";
+
+// Mapa UF → Região (fallback quando Zoho não envia Dist_Regiao)
+const UF_REGIAO = {
+  SP: "SUDESTE", RJ: "SUDESTE", MG: "SUDESTE", ES: "SUDESTE",
+  RS: "SUL", SC: "SUL", PR: "SUL",
+  BA: "NORDESTE", PE: "NORDESTE", CE: "NORDESTE", MA: "NORDESTE",
+  PB: "NORDESTE", RN: "NORDESTE", AL: "NORDESTE", SE: "NORDESTE", PI: "NORDESTE",
+  AM: "NORTE", PA: "NORTE", AC: "NORTE", RO: "NORTE", RR: "NORTE", AP: "NORTE", TO: "NORTE",
+  MT: "CENTRO-OESTE", MS: "CENTRO-OESTE", GO: "CENTRO-OESTE", DF: "CENTRO-OESTE",
+};
+
+function resolveRegiaoFromUF(uf) {
+  if (!uf) return null;
+  return UF_REGIAO[String(uf).trim().toUpperCase()] || null;
+}
+
+function isBusinessHours() {
+  const now = new Date();
+  const brasiliaHour = (now.getUTCHours() - 3 + 24) % 24;
+  return brasiliaHour >= 8 && brasiliaHour < 18;
+}
+
+async function assignConsultorRoundRobin(lead) {
+  const regiao = lead.regiao;
+  if (!regiao) return lead;
+
+  try {
+    const consultores = await findConsultoresByRegiao(regiao);
+    if (!consultores.length) {
+      console.warn(`[LEADS] Nenhum consultor ativo para região "${regiao}"`);
+      return lead;
+    }
+
+    const chosen = consultores[0];
+    const now = new Date().toISOString();
+
+    lead.consultorId = String(chosen.id);
+    lead.consultor = getConsultorDisplayName(chosen) || lead.consultor;
+    lead.emailConsultor = chosen.email || lead.emailConsultor;
+    lead.gerencia = lead.gerencia || getConsultorGerencia(chosen);
+
+    await updateConsultorUltimaAtribuicao(chosen.id, now);
+    console.log(`[LEADS] Round-robin: lead atribuído a "${lead.consultor}" (${lead.consultorId}) — região ${regiao}`);
+  } catch (err) {
+    console.warn("[LEADS] Round-robin falhou:", err.message);
+  }
+
+  return lead;
+}
 
 const TABLE = () => ENV.DYNAMODB_LEADS_TABLE;
 
@@ -244,6 +295,10 @@ export function mapZohoPayloadToLead(payload) {
     ]),
   );
 
+  const regiao = asString(
+    pick(source, ["regiao", "Regiao", "Dist_Regiao", "dist_regiao", "region"]),
+  ) || resolveRegiaoFromUF(ufCrm || estado) || null;
+
   const status =
     asString(pick(source, ["status", "Status", "Stage"])) || "Qualificado";
   const dataNovoLead = asIsoDate(
@@ -271,6 +326,11 @@ export function mapZohoPayloadToLead(payload) {
     dataNovoLead ||
     now;
 
+  const slaDeadline = isBusinessHours()
+    ? new Date(Date.now() + 10 * 60 * 1000).toISOString()
+    : null;
+  const slaStatus = isBusinessHours() ? "pendente" : "aguardando_horario";
+
   return {
     id,
     nome,
@@ -284,6 +344,7 @@ export function mapZohoPayloadToLead(payload) {
     consultorId: consultorId || undefined,
     consultor,
     emailConsultor,
+    regiao,
     tipoLead,
     gerencia,
     rua,
@@ -313,6 +374,9 @@ export function mapZohoPayloadToLead(payload) {
     descricaoTerceiraTentativa: null,
     dataTerceiraTentativa: null,
     statusTerceiraTentativa: null,
+    slaDeadline,
+    slaStatus,
+    slaCheckinAt: null,
     createdAt: now,
     updatedAt: now,
     source: "zoho",
@@ -334,8 +398,8 @@ export function validateCreateLeadInput(lead) {
 
   if (!lead.idZoho) errors.push("idZoho é obrigatório");
   if (!lead.nome) errors.push("Nome é obrigatório");
-  if (!lead.consultorId && !lead.consultor && !lead.emailConsultor) {
-    errors.push("consultor / emailConsultor é obrigatório");
+  if (!lead.consultorId && !lead.consultor && !lead.emailConsultor && !lead.regiao) {
+    errors.push("consultor, emailConsultor ou regiao (round-robin) é obrigatório");
   }
   if (!lead.entradaEm) errors.push("entradaEm é obrigatório");
 
@@ -456,18 +520,14 @@ export async function createLeadFromZoho(payload) {
   let lead = mapZohoPayloadToLead(payload);
   lead = await enrichLeadWithPortalConsultor(lead, payload);
 
+  // Se não resolveu consultor por e-mail, tenta round-robin por região
+  if (!lead.consultorId && lead.regiao) {
+    lead = await assignConsultorRoundRobin(lead);
+  }
+
   const errors = validateCreateLeadInput(lead);
   if (errors.length) {
     const err = new Error(errors.join("; "));
-    err.status = 400;
-    err.code = "VALIDATION_ERROR";
-    throw err;
-  }
-
-  if (!lead.consultorId) {
-    const err = new Error(
-      "consultorId não resolvido. Cadastre o consultor em portal_consultores ou envie consultor/emailConsultor.",
-    );
     err.status = 400;
     err.code = "VALIDATION_ERROR";
     throw err;
@@ -627,6 +687,7 @@ export function toLeadListItem(lead) {
     consultor: lead.consultor || "",
     consultorId: lead.consultorId || "",
     gerencia: lead.gerencia || "",
+    regiao: lead.regiao || "",
     numeroRegistro: lead.numeroRegistro || "",
     rua: lead.rua || "",
     numero: lead.numero || "",
@@ -635,6 +696,9 @@ export function toLeadListItem(lead) {
     cidade: lead.cidade || "",
     estado: lead.estado || lead.ufCrm || "",
     cep: lead.cep || "",
+    slaDeadline: lead.slaDeadline || null,
+    slaStatus: lead.slaStatus || null,
+    slaCheckinAt: lead.slaCheckinAt || null,
   };
 }
 
@@ -1072,5 +1136,77 @@ export async function markLeadSemInteresse(leadId, user, { observacao } = {}) {
   }
 
   const updated = await updateLeadItem(leadId, updates);
+  return toLeadDetail(updated);
+}
+
+/**
+ * Confirma check-in do consultor dentro do prazo SLA (10 min).
+ */
+export async function checkinLead(leadId, user) {
+  const detail = await getLeadForUser(leadId, user);
+  const lead = detail.lead;
+
+  if (lead.slaStatus === "confirmado") {
+    const err = new Error("Check-in já realizado para este lead.");
+    err.status = 400;
+    err.code = "VALIDATION_ERROR";
+    throw err;
+  }
+
+  if (lead.slaStatus === "expirado" || lead.slaStatus === "reatribuido") {
+    const err = new Error("Prazo SLA expirado. Este lead foi ou será reatribuído.");
+    err.status = 400;
+    err.code = "VALIDATION_ERROR";
+    throw err;
+  }
+
+  const now = new Date().toISOString();
+
+  if (lead.slaDeadline && new Date(lead.slaDeadline) < new Date()) {
+    const raw = (
+      await dynamoDocClient.send(
+        new GetCommand({ TableName: TABLE(), Key: { id: leadId } }),
+      )
+    ).Item;
+
+    const historico = appendHistorico(raw, {
+      action: "sla_expirado",
+      label: "Check-in fora do prazo SLA",
+      detail: "Consultor tentou confirmar check-in após o prazo de 10 minutos.",
+      by: user.email || user.id || "usuario",
+    });
+
+    await updateLeadItem(leadId, {
+      slaStatus: "expirado",
+      updatedAt: now,
+      historico,
+    });
+
+    const err = new Error("Prazo de check-in de 10 minutos expirado.");
+    err.status = 400;
+    err.code = "VALIDATION_ERROR";
+    throw err;
+  }
+
+  const raw = (
+    await dynamoDocClient.send(
+      new GetCommand({ TableName: TABLE(), Key: { id: leadId } }),
+    )
+  ).Item;
+
+  const historico = appendHistorico(raw, {
+    action: "checkin_confirmado",
+    label: "Check-in confirmado",
+    detail: "Consultor confirmou recebimento do lead dentro do prazo SLA.",
+    by: user.email || user.id || "usuario",
+  });
+
+  const updated = await updateLeadItem(leadId, {
+    slaStatus: "confirmado",
+    slaCheckinAt: now,
+    updatedAt: now,
+    historico,
+  });
+
   return toLeadDetail(updated);
 }

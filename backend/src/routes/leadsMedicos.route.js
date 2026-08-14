@@ -1,5 +1,6 @@
 import express from "express";
 import {
+  checkinLead,
   createLeadFromZoho,
   getLeadForUser,
   listLeadsForUser,
@@ -182,6 +183,32 @@ router.post(
       return res.status(500).json({
         success: false,
         error: error.message || "Erro ao marcar lead sem interesse",
+      });
+    }
+  },
+);
+
+/**
+ * Confirma check-in do consultor dentro do prazo SLA.
+ * POST /v1/leads-medicos/:id/checkin
+ */
+router.post(
+  "/:id/checkin",
+  authenticateToken,
+  requireSafeResourceId("id"),
+  writeRateLimiter,
+  async (req, res) => {
+    try {
+      const lead = await checkinLead(req.params.id, req.user);
+      return res.json({ success: true, data: lead });
+    } catch (error) {
+      console.error("[LEADS] Erro no check-in:", error);
+      const handled = dynamoErrorResponse(res, error);
+      if (handled) return handled;
+
+      return res.status(500).json({
+        success: false,
+        error: error.message || "Erro ao registrar check-in",
       });
     }
   },

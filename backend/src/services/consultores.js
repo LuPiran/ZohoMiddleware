@@ -1,4 +1,4 @@
-import { QueryCommand } from "@aws-sdk/lib-dynamodb";
+import { QueryCommand, ScanCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { dynamoDocClient } from "../config/dynamodb.js";
 import { ENV } from "../config/env.js";
 
@@ -84,6 +84,53 @@ export function getConsultorDisplayName(consultor) {
     asString(consultor.Nome) ||
     asString(consultor.Name) ||
     undefined
+  );
+}
+
+/**
+ * Busca consultores ativos por região (ScanCommand com filtro).
+ * Retorna lista ordenada por ultimaAtribuicao (mais antigo primeiro = round-robin).
+ */
+export async function findConsultoresByRegiao(regiao) {
+  if (!regiao) return [];
+
+  const items = [];
+  let lastKey;
+
+  do {
+    const page = await dynamoDocClient.send(
+      new ScanCommand({
+        TableName: ENV.DYNAMODB_CONSULTORES_TABLE,
+        FilterExpression: "#reg = :reg AND #ativo = :ativo",
+        ExpressionAttributeNames: { "#reg": "regiao", "#ativo": "ativo" },
+        ExpressionAttributeValues: { ":reg": regiao, ":ativo": true },
+        ExclusiveStartKey: lastKey,
+      }),
+    );
+    items.push(...(page.Items || []));
+    lastKey = page.LastEvaluatedKey;
+  } while (lastKey);
+
+  items.sort((a, b) => {
+    const ta = a.ultimaAtribuicao ? new Date(a.ultimaAtribuicao).getTime() : 0;
+    const tb = b.ultimaAtribuicao ? new Date(b.ultimaAtribuicao).getTime() : 0;
+    return ta - tb;
+  });
+
+  return items;
+}
+
+/**
+ * Atualiza timestamp de última atribuição do consultor (ponteiro round-robin).
+ */
+export async function updateConsultorUltimaAtribuicao(consultorId, isoDate) {
+  await dynamoDocClient.send(
+    new UpdateCommand({
+      TableName: ENV.DYNAMODB_CONSULTORES_TABLE,
+      Key: { id: String(consultorId) },
+      UpdateExpression: "SET ultimaAtribuicao = :d",
+      ExpressionAttributeValues: { ":d": isoDate },
+    }),
   );
 }
 

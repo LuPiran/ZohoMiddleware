@@ -14,6 +14,7 @@ import propostaRoutes from "./routes/proposta.route.js";
 import savedFormsRoutes from "./routes/savedForms.route.js";
 import zohoRoutes from "./routes/zoho.route.js";
 import leadsMedicosRoutes from "./routes/leadsMedicos.route.js";
+import { startSlaSweeper } from "./services/slaSweeper.js";
 import { authenticateToken } from "./services/jwtService.js";
 import { requireAdmin } from "./middleware/authz.js";
 import {
@@ -205,6 +206,7 @@ app.use((req, res) => {
 });
 
 app.listen(ENV.PORT, () => {
+  startSlaSweeper();
   console.log("========================================");
   console.log("🚀 Server está rodando na porta", ENV.PORT);
   console.log("========================================");
