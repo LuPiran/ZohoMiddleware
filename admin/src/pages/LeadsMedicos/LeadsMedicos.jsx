@@ -33,11 +33,6 @@ const PER_PAGE = 10;
 
 const EMPTY_FILTERS = {
   statuses: [],
-  especialidades: [],
-  ufs: [],
-  origens: [],
-  prioridades: [],
-  importado: "all",
   periodoRapido: "",
   criadoDe: "",
   criadoAte: "",
@@ -100,11 +95,6 @@ function matchesDateRange(isoDate, from, to) {
 function countActiveFilters(filters) {
   return (
     filters.statuses.length +
-    filters.especialidades.length +
-    filters.ufs.length +
-    filters.origens.length +
-    filters.prioridades.length +
-    (filters.importado === "all" ? 0 : 1) +
     (filters.periodoRapido
       ? 1
       : [filters.criadoDe, filters.criadoAte].filter(Boolean).length) +
@@ -198,27 +188,6 @@ export default function LeadsMedicos() {
         appliedFilters.statuses.length === 0 ||
         appliedFilters.statuses.includes(canonicalizeLeadStatus(lead.status));
 
-      const matchesEspecialidade =
-        appliedFilters.especialidades.length === 0 ||
-        appliedFilters.especialidades.includes(lead.especialidade);
-
-      const matchesUf =
-        appliedFilters.ufs.length === 0 ||
-        appliedFilters.ufs.includes(lead.uf);
-
-      const matchesOrigem =
-        appliedFilters.origens.length === 0 ||
-        appliedFilters.origens.includes(lead.origem);
-
-      const matchesPrioridade =
-        appliedFilters.prioridades.length === 0 ||
-        appliedFilters.prioridades.includes(lead.prioridade);
-
-      const matchesImportado =
-        appliedFilters.importado === "all" ||
-        (appliedFilters.importado === "yes" && lead.importado) ||
-        (appliedFilters.importado === "no" && !lead.importado);
-
       const matchesCriado = matchesDateRange(
         lead.criadoEm,
         appliedFilters.criadoDe,
@@ -234,11 +203,6 @@ export default function LeadsMedicos() {
       return (
         matchesSearch &&
         matchesStatus &&
-        matchesEspecialidade &&
-        matchesUf &&
-        matchesOrigem &&
-        matchesPrioridade &&
-        matchesImportado &&
         matchesCriado &&
         matchesEntrada
       );

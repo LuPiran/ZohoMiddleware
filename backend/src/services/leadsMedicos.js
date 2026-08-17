@@ -1062,6 +1062,22 @@ function appendHistorico(lead, entry) {
 }
 
 export function buildLeadTimeline(lead) {
+  const lost =
+    Boolean(lead.dataSemInteresse) ||
+    normalizeText(lead.status).includes("sem interesse");
+  const converted = Boolean(
+    lead.dataConversao || normalizeText(lead.status).includes("convert"),
+  );
+  const treatedRound = [1, 2, 3].find((round) => isAttemptTreated(lead, round)) || null;
+  const interesseDate =
+    lead.dataEmAquecimento ||
+    lead.dataEmContato ||
+    (treatedRound ? lead[ATTEMPT_ROUNDS[treatedRound].date] : null) ||
+    (normalizeText(lead.status).includes("interesse") &&
+    !normalizeText(lead.status).includes("sem")
+      ? lead.updatedAt
+      : null);
+
   const stages = [
     {
       id: "criado",
@@ -1071,58 +1087,74 @@ export function buildLeadTimeline(lead) {
     {
       id: "qualificado",
       label: "Qualificado",
-      date: lead.dataQualificado || lead.entradaEm || null,
-    },
-    {
-      id: "tentativa1",
-      label: "Primeira Tentativa",
-      date: lead.dataPrimeiraTentativa || null,
-    },
-    {
-      id: "tentativa2",
-      label: "Segunda Tentativa",
-      date: lead.dataSegundaTentativa || null,
-    },
-    {
-      id: "tentativa3",
-      label: "Terceira Tentativa",
-      date: lead.dataTerceiraTentativa || null,
-    },
-    {
-      id: "interesse",
-      label: "Lead Com Interesse",
-      date: (() => {
-        if (lead.dataEmAquecimento) return lead.dataEmAquecimento;
-        const status = normalizeText(lead.status);
-        if (status.includes("interesse") && !status.includes("sem")) {
-          return lead.updatedAt || null;
-        }
-        return null;
-      })(),
-    },
-    {
-      id: "convertido",
-      label: "Convertido",
-      date: (() => {
-        if (lead.dataConversao) return lead.dataConversao;
-        if (normalizeText(lead.status).includes("convert")) {
-          return lead.updatedAt || null;
-        }
-        return null;
-      })(),
+      date: lead.dataQualificado || lead.slaCheckinAt || null,
     },
   ];
 
-  const lost =
-    Boolean(lead.dataSemInteresse) ||
-    normalizeText(lead.status).includes("sem interesse");
+  const attemptLabels = {
+    1: { id: "tentativa1", label: "Primeira Tentativa", date: lead.dataPrimeiraTentativa },
+    2: { id: "tentativa2", label: "Segunda Tentativa", date: lead.dataSegundaTentativa },
+    3: { id: "tentativa3", label: "Terceira Tentativa", date: lead.dataTerceiraTentativa },
+  };
 
-  let currentIndex = 0;
-  for (let i = 0; i < stages.length; i += 1) {
-    if (stages[i].date) currentIndex = i;
+  const qualified = Boolean(
+    lead.dataQualificado || lead.slaCheckinAt || isSlaAccepted(lead),
+  );
+
+  if (qualified || treatedRound || lost || isAttemptRoundDone(lead, 1)) {
+    const maxAttemptShown = treatedRound
+      ? treatedRound
+      : isAttemptNoReturn(lead, 3) || isAttemptRoundDone(lead, 3)
+        ? 3
+        : isAttemptNoReturn(lead, 2) || isAttemptRoundDone(lead, 2)
+          ? 3
+          : isAttemptNoReturn(lead, 1) || isAttemptRoundDone(lead, 1)
+            ? 2
+            : 1;
+
+    for (let round = 1; round <= maxAttemptShown; round += 1) {
+      if (treatedRound && round > treatedRound) break;
+      stages.push(attemptLabels[round]);
+    }
+
+    if (lost) {
+      stages.push({
+        id: "semInteresse",
+        label: "Lead Sem Interesse",
+        date: lead.dataSemInteresse || lead.updatedAt || null,
+      });
+    } else if (treatedRound || interesseDate) {
+      stages.push({
+        id: "interesse",
+        label: "Lead Com Interesse",
+        date: interesseDate,
+      });
+      stages.push({
+        id: "convertido",
+        label: "Convertido",
+        date: converted ? lead.dataConversao || lead.updatedAt : null,
+      });
+    } else if (!isAttemptNoReturn(lead, 3)) {
+      stages.push({
+        id: "interesse",
+        label: "Lead Com Interesse",
+        date: null,
+      });
+      stages.push({
+        id: "convertido",
+        label: "Convertido",
+        date: null,
+      });
+    }
   }
+
   if (!stages[0].date && lead.createdAt) {
     stages[0].date = lead.createdAt;
+  }
+
+  let currentIndex = -1;
+  for (let i = 0; i < stages.length; i += 1) {
+    if (stages[i].date) currentIndex = i;
   }
 
   return {
@@ -1131,10 +1163,9 @@ export function buildLeadTimeline(lead) {
     stages: stages.map((stage, index) => {
       let state = "pending";
       if (stage.date) state = "done";
-      else if (!lost && index === currentIndex + 1) state = "current";
-      else if (!lost && index === 0 && !stages.some((s) => s.date)) {
-        state = "current";
-      }
+      else if (lost) state = index < stages.length - 1 ? "pending" : "done";
+      else if (index === currentIndex + 1) state = "current";
+      else if (currentIndex < 0 && index === 0) state = "current";
       return { ...stage, state };
     }),
   };

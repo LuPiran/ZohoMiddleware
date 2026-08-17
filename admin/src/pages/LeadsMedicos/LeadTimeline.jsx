@@ -16,6 +16,7 @@ const ICONS = {
   tentativa2: MdPhoneCallback,
   tentativa3: MdPhoneForwarded,
   interesse: MdFavorite,
+  semInteresse: MdCancel,
   convertido: MdEmojiEvents,
 };
 
@@ -85,11 +86,13 @@ export default function LeadTimeline({ timeline }) {
               <span
                 className={[
                   "flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
-                  isDone
-                    ? "bg-tegra-teal border-tegra-teal text-white"
-                    : isCurrent
-                      ? "bg-white border-tegra-teal text-tegra-teal shadow-[0_0_0_4px_rgba(61,162,184,0.15)]"
-                      : "bg-tegra-gray-light border-tegra-gray-medium text-tegra-text-secondary/50",
+                  isDone && stage.id === "semInteresse"
+                    ? "bg-tegra-error border-tegra-error text-white"
+                    : isDone
+                      ? "bg-tegra-teal border-tegra-teal text-white"
+                      : isCurrent
+                        ? "bg-white border-tegra-teal text-tegra-teal shadow-[0_0_0_4px_rgba(61,162,184,0.15)]"
+                        : "bg-tegra-gray-light border-tegra-gray-medium text-tegra-text-secondary/50",
                 ].join(" ")}
                 aria-current={isCurrent ? "step" : undefined}
               >

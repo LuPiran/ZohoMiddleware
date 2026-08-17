@@ -61,9 +61,19 @@ function addNextAttemptFlags(round) {
 
 export function toZohoDate(iso) {
   if (!iso) return undefined;
-  const parsed = new Date(iso);
+  const parsed = iso instanceof Date ? iso : new Date(iso);
   if (Number.isNaN(parsed.getTime())) return undefined;
-  return parsed.toISOString().slice(0, 10);
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(parsed);
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  const day = parts.find((part) => part.type === "day")?.value;
+  if (!year || !month || !day) return parsed.toISOString().slice(0, 10);
+  return `${year}-${month}-${day}`;
 }
 
 function attemptFieldMap(round) {
@@ -128,13 +138,24 @@ export function syncZohoLead(idZoho, fields) {
 }
 
 export function syncZohoLeadAccepted(lead) {
-  const now = lead.slaCheckinAt || lead.dataQualificado || new Date().toISOString();
+  const now =
+    lead.slaCheckinAt || lead.dataQualificado || new Date().toISOString();
+  const qualificationDate = toZohoDate(now);
+
+  // Status + data primeiro: lookup de consultor não pode impedir a qualificação no CRM.
   syncZohoLead(lead.idZoho, {
     ...field(ENV.ZOHO_LEAD_STATUS_FIELD, ZOHO_LEAD_STATUS.QUALIFICACAO),
-    ...field(ENV.ZOHO_LEAD_DATA_QUALIFICADO_FIELD, toZohoDate(now)),
-    ...field(ENV.ZOHO_LEAD_CONSULTOR_FIELD, consultorLookup(lead)),
-    ...field(ENV.ZOHO_LEAD_EMAIL_CONSULTOR_FIELD, lead.emailConsultor),
+    ...field(ENV.ZOHO_LEAD_DATA_QUALIFICADO_FIELD, qualificationDate),
   });
+
+  const consultor = consultorLookup(lead);
+  const email = lead.emailConsultor;
+  if (consultor || email) {
+    syncZohoLead(lead.idZoho, {
+      ...field(ENV.ZOHO_LEAD_CONSULTOR_FIELD, consultor),
+      ...field(ENV.ZOHO_LEAD_EMAIL_CONSULTOR_FIELD, email),
+    });
+  }
 }
 
 export function syncZohoLeadAttemptTreated(lead, round, { observacao, at } = {}) {

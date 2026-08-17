@@ -4,29 +4,11 @@ import {
   MdFilterList,
   MdCalendarMonth,
   MdOutlineEventAvailable,
-  MdMedicalServices,
-  MdPlace,
-  MdCampaign,
-  MdFlag,
-  MdFileDownload,
   MdBolt,
 } from "react-icons/md";
 import DatePicker from "../../components/ui/date-picker";
-import {
-  DATE_PRESETS,
-  LEAD_ORIGINS,
-  LEAD_PRIORITIES,
-  LEAD_SPECIALTIES,
-  LEAD_UFS,
-  getPresetDateRange,
-} from "./mockLeads";
+import { DATE_PRESETS, getPresetDateRange } from "./mockLeads";
 import { LEAD_STATUSES, getLeadStatusMeta } from "./leadStatus";
-
-const PRIORITY_META = {
-  Alta: { color: "#f44336", soft: "rgba(244, 67, 54, 0.12)" },
-  Média: { color: "#ff9800", soft: "rgba(255, 152, 0, 0.14)" },
-  Baixa: { color: "#8FA9C1", soft: "rgba(143, 169, 193, 0.16)" },
-};
 
 function SectionHeader({ icon, title, hint, action }) {
   return (
@@ -49,53 +31,9 @@ function SectionHeader({ icon, title, hint, action }) {
   );
 }
 
-function ChipGroup({ options, selected, onToggle, metaMap }) {
-  return (
-    <div className="flex flex-wrap gap-2">
-      {options.map((option) => {
-        const checked = selected.includes(option);
-        const meta = metaMap?.[option];
-        return (
-          <button
-            key={option}
-            type="button"
-            aria-pressed={checked}
-            onClick={() => onToggle(option)}
-            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition cursor-pointer ${
-              checked
-                ? "text-white shadow-[0_8px_16px_rgba(26,47,91,0.16)]"
-                : "border border-tegra-blue-dark/10 bg-white text-tegra-text-primary hover:border-tegra-blue-dark/20 hover:bg-tegra-gray-light/70"
-            }`}
-            style={
-              checked
-                ? {
-                    backgroundColor: meta?.color || "#1a2f5b",
-                  }
-                : undefined
-            }
-          >
-            {option}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-function toggleListValue(list, value) {
-  return list.includes(value)
-    ? list.filter((item) => item !== value)
-    : [...list, value];
-}
-
 function countActiveFilters(filters) {
   return (
     filters.statuses.length +
-    filters.especialidades.length +
-    filters.ufs.length +
-    filters.origens.length +
-    filters.prioridades.length +
-    (filters.importado === "all" ? 0 : 1) +
     (filters.periodoRapido
       ? 1
       : [filters.criadoDe, filters.criadoAte].filter(Boolean).length) +
@@ -333,137 +271,6 @@ export default function LeadsFilterSidebar({
                     >
                       {status}
                     </span>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-
-          <section className="rounded-2xl border border-tegra-blue-dark/8 bg-white/75 p-4 shadow-[0_8px_22px_rgba(26,47,91,0.04)]">
-            <SectionHeader
-              icon={<MdMedicalServices className="text-lg" aria-hidden />}
-              title="Especialidade"
-              hint="Área de atuação do médico"
-              action={
-                filters.especialidades.length > 0 ? (
-                  <button
-                    type="button"
-                    onClick={() => onChange({ ...filters, especialidades: [] })}
-                    className="text-[11px] font-medium text-tegra-blue-green hover:text-tegra-blue-dark transition cursor-pointer"
-                  >
-                    Limpar
-                  </button>
-                ) : null
-              }
-            />
-            <ChipGroup
-              options={LEAD_SPECIALTIES}
-              selected={filters.especialidades}
-              onToggle={(value) =>
-                setField(
-                  "especialidades",
-                  toggleListValue(filters.especialidades, value),
-                )
-              }
-            />
-          </section>
-
-          <section className="rounded-2xl border border-tegra-blue-dark/8 bg-white/75 p-4 shadow-[0_8px_22px_rgba(26,47,91,0.04)]">
-            <SectionHeader
-              icon={<MdPlace className="text-lg" aria-hidden />}
-              title="UF"
-              hint="Estado de atuação"
-              action={
-                filters.ufs.length > 0 ? (
-                  <button
-                    type="button"
-                    onClick={() => onChange({ ...filters, ufs: [] })}
-                    className="text-[11px] font-medium text-tegra-blue-green hover:text-tegra-blue-dark transition cursor-pointer"
-                  >
-                    Limpar
-                  </button>
-                ) : null
-              }
-            />
-            <ChipGroup
-              options={LEAD_UFS}
-              selected={filters.ufs}
-              onToggle={(value) =>
-                setField("ufs", toggleListValue(filters.ufs, value))
-              }
-            />
-          </section>
-
-          <section className="rounded-2xl border border-tegra-blue-dark/8 bg-white/75 p-4 shadow-[0_8px_22px_rgba(26,47,91,0.04)]">
-            <SectionHeader
-              icon={<MdCampaign className="text-lg" aria-hidden />}
-              title="Origem"
-              hint="Como o lead chegou"
-              action={
-                filters.origens.length > 0 ? (
-                  <button
-                    type="button"
-                    onClick={() => onChange({ ...filters, origens: [] })}
-                    className="text-[11px] font-medium text-tegra-blue-green hover:text-tegra-blue-dark transition cursor-pointer"
-                  >
-                    Limpar
-                  </button>
-                ) : null
-              }
-            />
-            <ChipGroup
-              options={LEAD_ORIGINS}
-              selected={filters.origens}
-              onToggle={(value) =>
-                setField("origens", toggleListValue(filters.origens, value))
-              }
-            />
-          </section>
-
-          <section className="rounded-2xl border border-tegra-blue-dark/8 bg-white/75 p-4 shadow-[0_8px_22px_rgba(26,47,91,0.04)]">
-            <SectionHeader
-              icon={<MdFlag className="text-lg" aria-hidden />}
-              title="Prioridade"
-              hint="Urgência de follow-up"
-            />
-            <ChipGroup
-              options={LEAD_PRIORITIES}
-              selected={filters.prioridades}
-              onToggle={(value) =>
-                setField(
-                  "prioridades",
-                  toggleListValue(filters.prioridades, value),
-                )
-              }
-              metaMap={PRIORITY_META}
-            />
-          </section>
-
-          <section className="rounded-2xl border border-tegra-blue-dark/8 bg-white/75 p-4 shadow-[0_8px_22px_rgba(26,47,91,0.04)]">
-            <SectionHeader
-              icon={<MdFileDownload className="text-lg" aria-hidden />}
-              title="Importação"
-              hint="Leads já importados ou pendentes"
-            />
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                { id: "all", label: "Todos" },
-                { id: "yes", label: "Importados" },
-                { id: "no", label: "Pendentes" },
-              ].map((option) => {
-                const active = filters.importado === option.id;
-                return (
-                  <button
-                    key={option.id}
-                    type="button"
-                    onClick={() => setField("importado", option.id)}
-                    className={`rounded-xl px-2 py-2.5 text-xs font-semibold transition cursor-pointer ${
-                      active
-                        ? "bg-tegra-blue-dark text-white shadow-[0_8px_16px_rgba(26,47,91,0.18)]"
-                        : "border border-tegra-blue-dark/10 bg-white text-tegra-text-primary hover:bg-tegra-gray-light/70"
-                    }`}
-                  >
-                    {option.label}
                   </button>
                 );
               })}
