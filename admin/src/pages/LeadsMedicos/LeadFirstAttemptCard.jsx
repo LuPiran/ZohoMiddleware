@@ -117,6 +117,10 @@ export default function LeadFirstAttemptCard({
   };
 
   const handleSemInteresse = async () => {
+    if (round && (!observacao.trim() || observacao.trim().length < 3)) {
+      setError("Descreva o contato realizado (mínimo 3 caracteres).");
+      return;
+    }
     setError("");
     await onSemInteresse(observacao.trim());
   };
@@ -223,7 +227,7 @@ export default function LeadFirstAttemptCard({
           </div>
         )}
 
-        {attempt.canRegisterAttempt ? (
+        {round ? (
           <>
             <Textarea
               label="Observação do contato"
@@ -246,15 +250,17 @@ export default function LeadFirstAttemptCard({
                 <MdThumbDown aria-hidden />
                 Lead sem interesse
               </Button>
-              <Button
-                variant="teal"
-                className="inline-flex items-center justify-center gap-2"
-                loading={submitting}
-                onClick={handleAttempt}
-              >
-                <MdSend aria-hidden />
-                {copy.send}
-              </Button>
+              {attempt.canRegisterAttempt && (
+                <Button
+                  variant="teal"
+                  className="inline-flex items-center justify-center gap-2"
+                  loading={submitting}
+                  onClick={handleAttempt}
+                >
+                  <MdSend aria-hidden />
+                  {copy.send}
+                </Button>
+              )}
             </div>
           </>
         ) : (

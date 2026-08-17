@@ -35,8 +35,11 @@ function formatDateTime(dateString) {
   }
 }
 
+const VISIBLE_HISTORY_ITEMS = 5;
+
 export default function LeadHistory({ historico = [] }) {
   const items = Array.isArray(historico) ? historico : [];
+  const needsScroll = items.length > VISIBLE_HISTORY_ITEMS;
 
   return (
     <section
@@ -58,11 +61,21 @@ export default function LeadHistory({ historico = [] }) {
           </p>
         </div>
       ) : (
-        <ol className="divide-y divide-tegra-gray-medium">
+        <ol
+          className={[
+            "divide-y divide-tegra-gray-medium",
+            needsScroll
+              ? "max-h-[26.25rem] overflow-y-auto overscroll-contain"
+              : "",
+          ].join(" ")}
+        >
           {items.map((entry) => {
             const Icon = ACTION_ICONS[entry.action] || MdInfo;
             return (
-              <li key={entry.id || `${entry.at}-${entry.action}`} className="px-4 sm:px-5 py-4">
+              <li
+                key={entry.id || `${entry.at}-${entry.action}`}
+                className="px-4 sm:px-5 py-4 min-h-[5.25rem]"
+              >
                 <div className="flex gap-3">
                   <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-tegra-gray-light text-tegra-blue-dark">
                     <Icon className="text-lg" aria-hidden />

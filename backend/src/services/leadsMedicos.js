@@ -1496,6 +1496,7 @@ export async function expireOverdueAttempts() {
 
 /**
  * Marca lead como sem interesse.
+ * Se houver tentativa aberta (1, 2 ou 3), grava também status/data/observação dela.
  */
 export async function markLeadSemInteresse(leadId, user, { observacao } = {}) {
   const detail = await getLeadForUser(leadId, user);
@@ -1509,17 +1510,32 @@ export async function markLeadSemInteresse(leadId, user, { observacao } = {}) {
   }
 
   const now = new Date().toISOString();
-  const note = asString(observacao) || "Lead marcado como sem interesse";
   const raw = (
     await dynamoDocClient.send(
       new GetCommand({ TableName: TABLE(), Key: { id: leadId } }),
     )
   ).Item;
 
+  const round = currentOpenAttemptRound(raw);
+  const meta = round ? ATTEMPT_ROUNDS[round] : null;
+  const note = asString(observacao);
+
+  if (meta && (!note || note.length < 3)) {
+    const err = new Error(
+      `Informe a observação da ${meta.label.toLowerCase()} (mín. 3 caracteres).`,
+    );
+    err.status = 400;
+    err.code = "VALIDATION_ERROR";
+    throw err;
+  }
+
+  const detailNote = note || "Lead marcado como sem interesse";
   const historico = appendHistorico(raw, {
     action: "sem_interesse",
-    label: "Lead sem interesse",
-    detail: note,
+    label: meta
+      ? `Lead sem interesse — ${meta.label.toLowerCase()}`
+      : "Lead sem interesse",
+    detail: detailNote,
     by: user.email || user.id || "usuario",
   });
 
@@ -1530,8 +1546,18 @@ export async function markLeadSemInteresse(leadId, user, { observacao } = {}) {
     historico,
   };
 
+  if (meta) {
+    updates[meta.desc] = note;
+    updates[meta.date] = now;
+    updates[meta.status] = ZOHO_ATTEMPT_STATUS.TRATADO;
+  }
+
   const updated = await updateLeadItem(leadId, updates);
-  syncZohoLeadSemInteresse(updated, { at: now });
+  syncZohoLeadSemInteresse(updated, {
+    at: now,
+    observacao: note,
+    round,
+  });
   return toLeadDetail(updated);
 }
 

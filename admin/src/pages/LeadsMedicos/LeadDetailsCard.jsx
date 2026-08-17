@@ -33,19 +33,6 @@ function DetailItem({ icon: Icon, label, value }) {
   );
 }
 
-function formatDate(dateString) {
-  if (!dateString) return "—";
-  try {
-    return new Date(dateString).toLocaleDateString("pt-BR", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  } catch {
-    return "—";
-  }
-}
-
 function formatCep(cep) {
   if (!cep) return "";
   const digits = String(cep).replace(/\D/g, "");
@@ -94,16 +81,27 @@ export default function LeadDetailsCard({ lead }) {
       className="bg-tegra-bg-primary rounded-xl border border-tegra-gray-medium/80 shadow-sm overflow-hidden"
     >
       <div className="px-4 sm:px-5 py-4 border-b border-tegra-gray-medium bg-gradient-to-r from-tegra-blue-dark/5 to-transparent">
-        <p className="text-xs font-medium text-tegra-text-secondary tabular-nums">
-          ID {lead.id}
-          {lead.idZoho ? ` · Zoho ${lead.idZoho}` : ""}
-        </p>
+        <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs tabular-nums">
+          <p>
+            <span className="font-medium text-tegra-text-secondary">ID do portal</span>
+            {" "}
+            <span className="font-semibold text-tegra-text-primary break-all">
+              {lead.id || "—"}
+            </span>
+          </p>
+          <p>
+            <span className="font-medium text-tegra-text-secondary">ID Zoho</span>
+            {" "}
+            <span className="font-semibold text-tegra-text-primary break-all">
+              {lead.idZoho || "—"}
+            </span>
+          </p>
+        </div>
         <h2 className="mt-1 text-xl font-bold text-tegra-blue-dark">
           {lead.nome || "Lead sem nome"}
         </h2>
         <p className="mt-1 text-sm text-tegra-text-secondary flex flex-wrap items-center gap-2">
           <LeadStatusChip status={lead.status} />
-          <span>· Qualificado em {formatDate(lead.dataQualificado || lead.entradaEm)}</span>
         </p>
       </div>
 

@@ -6,7 +6,7 @@ import {
   MdPhoneForwarded,
   MdFavorite,
   MdEmojiEvents,
-  MdCancel,
+  MdClose,
 } from "react-icons/md";
 
 const ICONS = {
@@ -16,7 +16,7 @@ const ICONS = {
   tentativa2: MdPhoneCallback,
   tentativa3: MdPhoneForwarded,
   interesse: MdFavorite,
-  semInteresse: MdCancel,
+  semInteresse: MdClose,
   convertido: MdEmojiEvents,
 };
 
@@ -38,24 +38,16 @@ function formatTimelineDate(dateString) {
  */
 export default function LeadTimeline({ timeline }) {
   const stages = timeline?.stages || [];
-  const lost = Boolean(timeline?.lost);
 
   return (
     <section
       aria-label="Linha do tempo do lead"
       className="bg-tegra-bg-primary rounded-xl border border-tegra-gray-medium/80 shadow-sm px-3 sm:px-6 py-5 sm:py-6"
     >
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-5">
+      <div className="mb-5">
         <h2 className="text-base sm:text-lg font-bold text-tegra-blue-dark">
           Acompanhe o lead
         </h2>
-        {lost && (
-          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-tegra-error bg-red-50 border border-red-100 rounded-full px-2.5 py-1">
-            <MdCancel aria-hidden />
-            Encerrado — sem interesse
-            {timeline?.lostAt ? ` · ${formatTimelineDate(timeline.lostAt)}` : ""}
-          </span>
-        )}
       </div>
 
       <ol className="relative flex flex-col sm:flex-row sm:items-start gap-4 sm:gap-0">

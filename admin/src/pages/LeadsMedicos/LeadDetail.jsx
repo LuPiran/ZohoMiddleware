@@ -20,7 +20,7 @@ function isAcceptedStatus(status) {
 }
 
 function SlaTimer({ lead, onAccept, onRefuse, submitting }) {
-  const { slaStatus, slaDeadline, slaCheckinAt } = lead;
+  const { slaStatus, slaDeadline } = lead;
   const [remaining, setRemaining] = useState(null);
   const timerRef = useRef(null);
 
@@ -43,19 +43,7 @@ function SlaTimer({ lead, onAccept, onRefuse, submitting }) {
   if (slaStatus === "aguardando_horario" || !slaStatus) return null;
 
   if (isAcceptedStatus(slaStatus)) {
-    return (
-      <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 flex items-center gap-3">
-        <span className="text-green-600 text-lg">✓</span>
-        <div>
-          <p className="text-sm font-semibold text-green-700">Lead aceito</p>
-          {slaCheckinAt && (
-            <p className="text-xs text-green-600">
-              {new Date(slaCheckinAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-            </p>
-          )}
-        </div>
-      </div>
-    );
+    return null;
   }
 
   if (

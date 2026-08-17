@@ -186,9 +186,19 @@ export function syncZohoLeadAttemptNoReturn(lead, round, { at, observacao } = {}
   });
 }
 
-export function syncZohoLeadSemInteresse(lead, { at } = {}) {
+export function syncZohoLeadSemInteresse(lead, { at, observacao, round } = {}) {
+  const n = Number(round);
+  const attemptFields = [1, 2, 3].includes(n) ? attemptFieldMap(n) : null;
+
   syncZohoLead(lead.idZoho, {
     ...field(ENV.ZOHO_LEAD_STATUS_FIELD, ZOHO_LEAD_STATUS.SEM_INTERESSE),
     ...field(ENV.ZOHO_LEAD_DATA_SEM_INTERESSE_FIELD, toZohoDate(at)),
+    ...(attemptFields
+      ? {
+          ...field(attemptFields.date, toZohoDate(at)),
+          ...field(attemptFields.obs, observacao),
+          ...field(attemptFields.status, ZOHO_ATTEMPT_STATUS.TRATADO),
+        }
+      : {}),
   });
 }
