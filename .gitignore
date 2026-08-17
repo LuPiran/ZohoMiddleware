@@ -90,6 +90,11 @@ temp/
 *.swo
 *~
 
+# Testes locais (não versionar)
+backend/test/
+backend/vitest.config.js
+backend/backend/
+
 # Pacotes de deploy (podem embutir .env)
 *.tar.gz
 *.tgz

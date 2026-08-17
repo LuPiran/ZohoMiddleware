@@ -54,6 +54,7 @@ export const API_ENDPOINTS = {
     TENTATIVA_SEM_RETORNO: (id, round) =>
       `/v1/leads-medicos/${id}/tentativas/${round}/sem-retorno`,
     SEM_INTERESSE: (id) => `/v1/leads-medicos/${id}/sem-interesse`,
+    SEM_CONTATO: (id) => `/v1/leads-medicos/${id}/sem-contato`,
     CHECKIN: (id) => `/v1/leads-medicos/${id}/checkin`,
     ACEITAR: (id) => `/v1/leads-medicos/${id}/aceitar`,
     RECUSAR: (id) => `/v1/leads-medicos/${id}/recusar`,

@@ -244,6 +244,28 @@ export default function LeadDetail() {
     }
   };
 
+  const handleSemContato = async () => {
+    const ok = window.confirm(
+      "Confirmar que não foi possível contato com este lead? O status passará a Lead Sem Contato.",
+    );
+    if (!ok) return;
+
+    setSubmitting(true);
+    try {
+      const result = await leadsMedicosService.marcarSemContato(id);
+      setLead(result.data);
+      showToast("Lead marcado como sem contato", "success", 2500);
+    } catch (err) {
+      const message =
+        err?.response?.data?.error ||
+        err?.message ||
+        "Erro ao marcar sem contato";
+      showToast(message, "error", 3500);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <MainLayout>
       <div className="max-w-5xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-8 space-y-4 sm:space-y-5">
@@ -317,6 +339,7 @@ export default function LeadDetail() {
               submitting={submitting}
               onSubmitAttempt={handleAttempt}
               onSemInteresse={handleSemInteresse}
+              onSemContato={handleSemContato}
             />
             <LeadHistory historico={lead.historico} />
           </>

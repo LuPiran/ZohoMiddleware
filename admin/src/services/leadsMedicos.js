@@ -59,6 +59,14 @@ export async function marcarLeadSemInteresse(id, observacao) {
   };
 }
 
+export async function marcarLeadSemContato(id) {
+  const response = await api.post(API_ENDPOINTS.LEADS_MEDICOS.SEM_CONTATO(id));
+  return {
+    success: Boolean(response.data?.success),
+    data: response.data?.data || null,
+  };
+}
+
 export async function confirmarCheckin(id) {
   const response = await api.post(API_ENDPOINTS.LEADS_MEDICOS.ACEITAR(id));
   return {
@@ -92,6 +100,7 @@ export const leadsMedicosService = {
   registrarPrimeiraTentativa,
   registrarTentativa,
   marcarSemInteresse: marcarLeadSemInteresse,
+  marcarSemContato: marcarLeadSemContato,
   marcarSemRetorno: marcarTentativaSemRetorno,
   confirmarCheckin,
   aceitarOferta: confirmarCheckin,

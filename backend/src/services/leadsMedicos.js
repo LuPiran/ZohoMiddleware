@@ -25,14 +25,28 @@ import {
 } from "./slaOffers.js";
 import { notifyLeadOffer } from "./emailService.js";
 import {
-  ZOHO_ATTEMPT_STATUS,
   ZOHO_LEAD_STATUS,
   canonicalizeLeadStatus,
   syncZohoLeadAccepted,
   syncZohoLeadAttemptNoReturn,
   syncZohoLeadAttemptTreated,
+  syncZohoLeadSemContato,
   syncZohoLeadSemInteresse,
 } from "./zohoLeadSync.js";
+import {
+  ATTEMPT_ROUNDS,
+  TIMEOUT_OBSERVACAO,
+  buildAttemptView,
+  buildLeadTimeline,
+  currentOpenAttemptRound,
+  isAttemptWindowOpen,
+  parseAttemptRound,
+  qualificationStartIso,
+  semContatoUpdates,
+  semInteresseUpdates,
+  timeoutAttemptUpdates,
+  treatedAttemptUpdates,
+} from "../domain/leadAttempts.js";
 
 // Mapa UF → Região (fallback quando Zoho não envia Dist_Regiao)
 const UF_REGIAO = {
@@ -47,117 +61,6 @@ const UF_REGIAO = {
 function resolveRegiaoFromUF(uf) {
   if (!uf) return null;
   return UF_REGIAO[String(uf).trim().toUpperCase()] || null;
-}
-
-const ATTEMPT_ROUNDS = {
-  1: {
-    n: 1,
-    label: "Primeira tentativa",
-    date: "dataPrimeiraTentativa",
-    desc: "descricaoPrimeiraTentativa",
-    status: "statusPrimeiraTentativa",
-  },
-  2: {
-    n: 2,
-    label: "Segunda tentativa",
-    date: "dataSegundaTentativa",
-    desc: "descricaoSegundaTentativa",
-    status: "statusSegundaTentativa",
-  },
-  3: {
-    n: 3,
-    label: "Terceira tentativa",
-    date: "dataTerceiraTentativa",
-    desc: "descricaoTerceiraTentativa",
-    status: "statusTerceiraTentativa",
-  },
-};
-
-function parseAttemptRound(round) {
-  const n = Number(round);
-  if (![1, 2, 3].includes(n)) {
-    const err = new Error("Tentativa inválida. Use 1, 2 ou 3.");
-    err.status = 400;
-    err.code = "VALIDATION_ERROR";
-    throw err;
-  }
-  return n;
-}
-
-const ATTEMPT_WINDOW_MONTHS = 1;
-
-function isLeadClosed(lead) {
-  return (
-    Boolean(lead?.dataSemInteresse) ||
-    Boolean(lead?.dataConversao) ||
-    normalizeText(lead?.status).includes("convert") ||
-    normalizeText(lead?.status).includes("sem interesse")
-  );
-}
-
-function isAttemptRoundDone(lead, round) {
-  const meta = ATTEMPT_ROUNDS[round];
-  return Boolean(lead?.[meta.date]);
-}
-
-function isAttemptTreated(lead, round) {
-  return normalizeText(lead?.[ATTEMPT_ROUNDS[round].status]).includes("tratado");
-}
-
-function isAttemptNoReturn(lead, round) {
-  return normalizeText(lead?.[ATTEMPT_ROUNDS[round].status]).includes("retorno");
-}
-
-function qualificationStartIso(lead) {
-  return lead?.dataQualificado || lead?.slaCheckinAt || null;
-}
-
-function addCalendarMonths(iso, months) {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return null;
-  const result = new Date(date.getTime());
-  result.setMonth(result.getMonth() + months);
-  return result;
-}
-
-function attemptDeadlineAt(lead, round) {
-  const start = qualificationStartIso(lead);
-  if (!start || !round) return null;
-  return addCalendarMonths(start, round * ATTEMPT_WINDOW_MONTHS);
-}
-
-function daysUntil(iso) {
-  if (!iso) return null;
-  const target = iso instanceof Date ? iso : new Date(iso);
-  if (Number.isNaN(target.getTime())) return null;
-  const ms = target.getTime() - Date.now();
-  if (ms <= 0) return 0;
-  return Math.ceil(ms / (24 * 60 * 60 * 1000));
-}
-
-function isAttemptWindowOpen(lead, round) {
-  const deadline = attemptDeadlineAt(lead, round);
-  if (!deadline) return false;
-  return Date.now() <= deadline.getTime();
-}
-
-/**
- * Próxima tentativa em aberto.
- * A 2ª/3ª só existem se a anterior venceu o prazo (Sem Retorno).
- * Tentativa tratada no prazo encerra a cadeia.
- */
-function currentOpenAttemptRound(lead) {
-  if (isLeadClosed(lead) || !isSlaAccepted(lead)) return null;
-  for (const round of [1, 2, 3]) {
-    if (isAttemptRoundDone(lead, round)) {
-      if (isAttemptTreated(lead, round)) return null;
-      continue;
-    }
-    if (round === 1) return 1;
-    if (isAttemptNoReturn(lead, round - 1)) return round;
-    return null;
-  }
-  return null;
 }
 
 const TABLE = () => ENV.DYNAMODB_LEADS_TABLE;
@@ -222,29 +125,6 @@ function pick(payload, aliases = [], prefer = "name") {
 function asString(value) {
   if (value === undefined || value === null) return undefined;
   return String(value).trim();
-}
-
-const MIN_OBSERVACAO = 10;
-
-function requireObservacao(observacao) {
-  const note = asString(observacao);
-  if (!note) {
-    const err = new Error(
-      "Para enviar uma tentativa ou lead sem interesse, adicione uma observação",
-    );
-    err.status = 400;
-    err.code = "VALIDATION_ERROR";
-    throw err;
-  }
-  if (note.length < MIN_OBSERVACAO) {
-    const err = new Error(
-      "Observação da tentativa deve ter pelo menos 10 caracteres",
-    );
-    err.status = 400;
-    err.code = "VALIDATION_ERROR";
-    throw err;
-  }
-  return note;
 }
 
 function asIsoDate(value) {
@@ -1084,142 +964,11 @@ function appendHistorico(lead, entry) {
   return historico.slice(0, 200);
 }
 
-export function buildLeadTimeline(lead) {
-  const lost =
-    Boolean(lead.dataSemInteresse) ||
-    normalizeText(lead.status).includes("sem interesse");
-  const converted = Boolean(
-    lead.dataConversao || normalizeText(lead.status).includes("convert"),
-  );
-  const treatedRound = [1, 2, 3].find((round) => isAttemptTreated(lead, round)) || null;
-  const interesseDate =
-    lead.dataEmAquecimento ||
-    lead.dataEmContato ||
-    (treatedRound ? lead[ATTEMPT_ROUNDS[treatedRound].date] : null) ||
-    (normalizeText(lead.status).includes("interesse") &&
-    !normalizeText(lead.status).includes("sem")
-      ? lead.updatedAt
-      : null);
-
-  const stages = [
-    {
-      id: "criado",
-      label: "Criado",
-      date: lead.dataNovoLead || lead.createdAt || null,
-    },
-    {
-      id: "qualificado",
-      label: "Qualificado",
-      date: lead.dataQualificado || lead.slaCheckinAt || null,
-    },
-  ];
-
-  const attemptLabels = {
-    1: { id: "tentativa1", label: "Primeira Tentativa", date: lead.dataPrimeiraTentativa },
-    2: { id: "tentativa2", label: "Segunda Tentativa", date: lead.dataSegundaTentativa },
-    3: { id: "tentativa3", label: "Terceira Tentativa", date: lead.dataTerceiraTentativa },
-  };
-
-  const qualified = Boolean(
-    lead.dataQualificado || lead.slaCheckinAt || isSlaAccepted(lead),
-  );
-
-  if (qualified || treatedRound || lost || isAttemptRoundDone(lead, 1)) {
-    const maxAttemptShown = treatedRound
-      ? treatedRound
-      : isAttemptNoReturn(lead, 3) || isAttemptRoundDone(lead, 3)
-        ? 3
-        : isAttemptNoReturn(lead, 2) || isAttemptRoundDone(lead, 2)
-          ? 3
-          : isAttemptNoReturn(lead, 1) || isAttemptRoundDone(lead, 1)
-            ? 2
-            : 1;
-
-    for (let round = 1; round <= maxAttemptShown; round += 1) {
-      if (treatedRound && round > treatedRound) break;
-      stages.push(attemptLabels[round]);
-    }
-
-    if (lost) {
-      stages.push({
-        id: "semInteresse",
-        label: "Lead Sem Interesse",
-        date: lead.dataSemInteresse || lead.updatedAt || null,
-      });
-    } else if (treatedRound || interesseDate) {
-      stages.push({
-        id: "interesse",
-        label: "Lead Com Interesse",
-        date: interesseDate,
-      });
-      stages.push({
-        id: "convertido",
-        label: "Convertido",
-        date: converted ? lead.dataConversao || lead.updatedAt : null,
-      });
-    } else if (!isAttemptNoReturn(lead, 3)) {
-      stages.push({
-        id: "interesse",
-        label: "Lead Com Interesse",
-        date: null,
-      });
-      stages.push({
-        id: "convertido",
-        label: "Convertido",
-        date: null,
-      });
-    }
-  }
-
-  if (!stages[0].date && lead.createdAt) {
-    stages[0].date = lead.createdAt;
-  }
-
-  let currentIndex = -1;
-  for (let i = 0; i < stages.length; i += 1) {
-    if (stages[i].date) currentIndex = i;
-  }
-
-  return {
-    lost,
-    lostAt: lead.dataSemInteresse || null,
-    stages: stages.map((stage, index) => {
-      let state = "pending";
-      if (stage.date) state = "done";
-      else if (lost) state = index < stages.length - 1 ? "pending" : "done";
-      else if (index === currentIndex + 1) state = "current";
-      else if (currentIndex < 0 && index === 0) state = "current";
-      return { ...stage, state };
-    }),
-  };
-}
+export { buildLeadTimeline };
 
 export function toLeadDetail(lead) {
   const qualificadoEm = qualificationStartIso(lead);
-  const hasFirstAttempt = Boolean(lead.dataPrimeiraTentativa);
-  const hasSecondAttempt = Boolean(lead.dataSegundaTentativa);
-  const hasThirdAttempt = Boolean(lead.dataTerceiraTentativa);
-  const hasSemInteresse = Boolean(lead.dataSemInteresse);
-  const converted = Boolean(
-    lead.dataConversao || normalizeText(lead.status).includes("convert"),
-  );
-  const currentRound = currentOpenAttemptRound(lead);
-  const deadlineAt = currentRound ? attemptDeadlineAt(lead, currentRound) : null;
-  const daysRemaining = daysUntil(deadlineAt);
-  const expired = Boolean(
-    currentRound && deadlineAt && Date.now() > deadlineAt.getTime(),
-  );
-  const treatedOnTime =
-    !currentRound &&
-    (isAttemptTreated(lead, 1) ||
-      isAttemptTreated(lead, 2) ||
-      isAttemptTreated(lead, 3));
-
-  const windowLabels = {
-    1: "1ª tentativa — 1 mês a partir da qualificação",
-    2: "2ª tentativa — aberta porque a 1ª não foi feita no prazo",
-    3: "3ª tentativa — aberta porque a 2ª não foi feita no prazo",
-  };
+  const attempt = buildAttemptView(lead);
 
   return {
     ...toLeadListItem(lead),
@@ -1246,24 +995,8 @@ export function toLeadDetail(lead) {
     historico: Array.isArray(lead.historico) ? lead.historico : [],
     timeline: buildLeadTimeline(lead),
     attempt: {
+      ...attempt,
       daysSinceQualification: daysBetween(qualificadoEm),
-      daysRemaining,
-      deadlineAt: deadlineAt ? deadlineAt.toISOString() : null,
-      expired,
-      treatedOnTime,
-      currentRound,
-      canRegisterAttempt: currentRound !== null && !expired,
-      canRegisterFirstAttempt: currentRound === 1 && !expired,
-      hasFirstAttempt,
-      hasSecondAttempt,
-      hasThirdAttempt,
-      hasSemInteresse,
-      converted,
-      windowLabel: expired
-        ? "Prazo de 1 mês encerrado. Sem retorno será aplicado automaticamente."
-        : treatedOnTime
-          ? "Tentativa registrada no prazo. A próxima não será aberta."
-          : windowLabels[currentRound] || "Tentativas de contato",
     },
   };
 }
@@ -1359,40 +1092,7 @@ async function updateLeadItem(leadId, updates, condition) {
  * Registra tentativa de contato (1, 2 ou 3) como "Tratado Pelo Consultor".
  */
 export async function registerContactAttempt(leadId, user, round, { observacao } = {}) {
-  const n = parseAttemptRound(round);
-  const meta = ATTEMPT_ROUNDS[n];
-  const detail = await getLeadForUser(leadId, user);
-  const lead = detail.lead;
-
-  if (lead.attempt.converted || lead.attempt.hasSemInteresse) {
-    const err = new Error("Lead já encerrado (sem interesse / convertido).");
-    err.status = 400;
-    err.code = "VALIDATION_ERROR";
-    throw err;
-  }
-
-  if (lead.attempt.currentRound !== n) {
-    const err = new Error(
-      n === 1
-        ? "Primeira tentativa já registrada ou lead ainda não aceito."
-        : `${meta.label} não está disponível neste momento.`,
-    );
-    err.status = 400;
-    err.code = "VALIDATION_ERROR";
-    throw err;
-  }
-
-  if (!isAttemptWindowOpen(lead, n)) {
-    const err = new Error(
-      "O prazo de 1 mês desta tentativa já encerrou. Sem retorno será aplicado automaticamente.",
-    );
-    err.status = 400;
-    err.code = "VALIDATION_ERROR";
-    throw err;
-  }
-
-  const note = requireObservacao(observacao);
-
+  await getLeadForUser(leadId, user);
   const now = new Date().toISOString();
   const raw = (
     await dynamoDocClient.send(
@@ -1400,6 +1100,11 @@ export async function registerContactAttempt(leadId, user, round, { observacao }
     )
   ).Item;
 
+  const { n, note, updates } = treatedAttemptUpdates(raw, round, {
+    observacao,
+    at: now,
+  });
+  const meta = ATTEMPT_ROUNDS[n];
   const historico = appendHistorico(raw, {
     action: n === 1 ? "primeira_tentativa" : n === 2 ? "segunda_tentativa" : "terceira_tentativa",
     label: `${meta.label} — tratado pelo consultor`,
@@ -1407,18 +1112,7 @@ export async function registerContactAttempt(leadId, user, round, { observacao }
     by: user.email || user.id || "usuario",
   });
 
-  const updates = {
-    [meta.desc]: note,
-    [meta.date]: now,
-    [meta.status]: ZOHO_ATTEMPT_STATUS.TRATADO,
-    status: ZOHO_LEAD_STATUS.COM_INTERESSE,
-    dataEmContato: raw.dataEmContato || now,
-    dataEmAquecimento: raw.dataEmAquecimento || now,
-    updatedAt: now,
-    historico,
-  };
-
-  const updated = await updateLeadItem(leadId, updates);
+  const updated = await updateLeadItem(leadId, { ...updates, historico });
   syncZohoLeadAttemptTreated(updated, n, { observacao: note, at: now });
   return toLeadDetail(updated);
 }
@@ -1441,33 +1135,24 @@ export async function markAttemptSemRetorno() {
 }
 
 async function applyAttemptTimeout(raw, round) {
+  const now = new Date().toISOString();
+  const updates = timeoutAttemptUpdates(raw, round, now);
+  if (!updates) return null;
+
   const n = parseAttemptRound(round);
   const meta = ATTEMPT_ROUNDS[n];
-  if (isLeadClosed(raw) || isAttemptRoundDone(raw, n)) return null;
-  if (currentOpenAttemptRound(raw) !== n) return null;
-  if (isAttemptWindowOpen(raw, n)) return null;
-
-  const now = new Date().toISOString();
   const historico = appendHistorico(raw, {
     action: "tentativa_sem_retorno",
     label: `${meta.label} — sem retorno`,
-    detail: "Prazo de 1 mês encerrado sem registro da tentativa.",
+    detail: TIMEOUT_OBSERVACAO,
     by: "sistema",
   });
 
-  const updates = {
-    [meta.date]: now,
-    [meta.status]: ZOHO_ATTEMPT_STATUS.SEM_RETORNO,
-    status: ZOHO_LEAD_STATUS.SEM_CONTATO,
-    dataSemContato: now,
-    updatedAt: now,
-    historico,
-  };
-  if (n === 1) updates.adicionarSegundaTentativa = true;
-  if (n === 2) updates.adicionarTerceiraTentativa = true;
-
-  const updated = await updateLeadItem(raw.id, updates);
-  syncZohoLeadAttemptNoReturn(updated, n, { at: now });
+  const updated = await updateLeadItem(raw.id, { ...updates, historico });
+  syncZohoLeadAttemptNoReturn(updated, n, {
+    at: now,
+    observacao: TIMEOUT_OBSERVACAO,
+  });
   return updated;
 }
 
@@ -1516,25 +1201,7 @@ export async function expireOverdueAttempts() {
  * Se houver tentativa aberta (1, 2 ou 3), grava também status/data/observação dela.
  */
 export async function markLeadSemInteresse(leadId, user, { observacao } = {}) {
-  const detail = await getLeadForUser(leadId, user);
-  const lead = detail.lead;
-
-  if (lead.attempt.hasSemInteresse || lead.attempt.converted) {
-    const err = new Error("Lead já encerrado.");
-    err.status = 400;
-    err.code = "VALIDATION_ERROR";
-    throw err;
-  }
-
-  if (lead.attempt.treatedOnTime) {
-    const err = new Error(
-      "Tentativa já registrada no prazo. O lead está com interesse.",
-    );
-    err.status = 400;
-    err.code = "VALIDATION_ERROR";
-    throw err;
-  }
-
+  await getLeadForUser(leadId, user);
   const now = new Date().toISOString();
   const raw = (
     await dynamoDocClient.send(
@@ -1542,10 +1209,11 @@ export async function markLeadSemInteresse(leadId, user, { observacao } = {}) {
     )
   ).Item;
 
-  const round = currentOpenAttemptRound(raw);
+  const { note, round, updates } = semInteresseUpdates(raw, {
+    observacao,
+    at: now,
+  });
   const meta = round ? ATTEMPT_ROUNDS[round] : null;
-  const note = requireObservacao(observacao);
-
   const historico = appendHistorico(raw, {
     action: "sem_interesse",
     label: meta
@@ -1555,25 +1223,37 @@ export async function markLeadSemInteresse(leadId, user, { observacao } = {}) {
     by: user.email || user.id || "usuario",
   });
 
-  const updates = {
-    status: ZOHO_LEAD_STATUS.SEM_INTERESSE,
-    dataSemInteresse: now,
-    updatedAt: now,
-    historico,
-  };
-
-  if (meta) {
-    updates[meta.desc] = note;
-    updates[meta.date] = now;
-    updates[meta.status] = ZOHO_ATTEMPT_STATUS.TRATADO;
-  }
-
-  const updated = await updateLeadItem(leadId, updates);
+  const updated = await updateLeadItem(leadId, { ...updates, historico });
   syncZohoLeadSemInteresse(updated, {
     at: now,
     observacao: note,
     round,
   });
+  return toLeadDetail(updated);
+}
+
+/**
+ * Consultor marca o lead como sem contato (status do lead + data).
+ */
+export async function markLeadSemContato(leadId, user) {
+  await getLeadForUser(leadId, user);
+  const now = new Date().toISOString();
+  const raw = (
+    await dynamoDocClient.send(
+      new GetCommand({ TableName: TABLE(), Key: { id: leadId } }),
+    )
+  ).Item;
+
+  const { updates } = semContatoUpdates(raw, { at: now });
+  const historico = appendHistorico(raw, {
+    action: "sem_contato",
+    label: "Lead sem contato",
+    detail: "Consultor registrou que não foi possível contato com o lead.",
+    by: user.email || user.id || "usuario",
+  });
+
+  const updated = await updateLeadItem(leadId, { ...updates, historico });
+  syncZohoLeadSemContato(updated, { at: now });
   return toLeadDetail(updated);
 }
 

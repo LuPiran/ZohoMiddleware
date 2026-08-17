@@ -16,6 +16,7 @@ const ACTION_ICONS = {
   segunda_tentativa: MdPhoneInTalk,
   terceira_tentativa: MdPhoneInTalk,
   tentativa_sem_retorno: MdPhoneMissed,
+  sem_contato: MdPhoneMissed,
   sem_interesse: MdThumbDown,
   lead_convertido: MdEmojiEvents,
 };

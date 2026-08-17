@@ -1,14 +1,12 @@
 import { ENV } from "../config/env.js";
 import { chamarZohoApi } from "./zohoApi.js";
+import {
+  ZOHO_ATTEMPT_STATUS,
+  ZOHO_LEAD_STATUS,
+} from "../domain/leadStatus.js";
+import { TIMEOUT_OBSERVACAO } from "../domain/leadAttempts.js";
 
-export const ZOHO_LEAD_STATUS = {
-  NOVO: "Novo Lead",
-  QUALIFICACAO: "Lead Em Qualificação",
-  COM_INTERESSE: "Lead Com Interesse",
-  SEM_CONTATO: "Lead Sem Contato",
-  SEM_INTERESSE: "Lead Sem Interesse",
-  CONVERTIDO: "Lead Convertido",
-};
+export { ZOHO_ATTEMPT_STATUS, ZOHO_LEAD_STATUS };
 
 const STATUS_ALIASES = {
   "novo lead": ZOHO_LEAD_STATUS.NOVO,
@@ -31,11 +29,6 @@ export function canonicalizeLeadStatus(raw, fallback = ZOHO_LEAD_STATUS.NOVO) {
   if (Object.values(ZOHO_LEAD_STATUS).includes(value)) return value;
   return STATUS_ALIASES[value.toLowerCase()] || value;
 }
-
-export const ZOHO_ATTEMPT_STATUS = {
-  TRATADO: "Tratado Pelo Consultor",
-  SEM_RETORNO: "Sem Retorno",
-};
 
 function field(name, value) {
   if (!name || value === undefined || value === null || value === "") return {};
@@ -159,11 +152,15 @@ export function syncZohoLeadAccepted(lead) {
 }
 
 export function syncZohoLeadAttemptTreated(lead, round, { observacao, at } = {}) {
+  syncZohoLead(lead.idZoho, buildZohoAttemptTreatedFields(lead, round, { observacao, at }));
+}
+
+export function buildZohoAttemptTreatedFields(lead, round, { observacao, at } = {}) {
   const fields = attemptFieldMap(round);
   const firstAt = lead.dataPrimeiraTentativa || at;
   const firstObs = lead.descricaoPrimeiraTentativa || observacao;
 
-  syncZohoLead(lead.idZoho, {
+  return {
     ...field(ENV.ZOHO_LEAD_STATUS_FIELD, ZOHO_LEAD_STATUS.COM_INTERESSE),
     ...field(ENV.ZOHO_LEAD_DATA_INTERESSE_FIELD, toZohoDate(at)),
     ...field(ENV.ZOHO_LEAD_DATA_1A_FIELD, toZohoDate(firstAt)),
@@ -171,26 +168,44 @@ export function syncZohoLeadAttemptTreated(lead, round, { observacao, at } = {})
     ...field(fields.date, toZohoDate(at)),
     ...field(fields.obs, observacao),
     ...field(fields.status, ZOHO_ATTEMPT_STATUS.TRATADO),
-  });
+  };
 }
 
 export function syncZohoLeadAttemptNoReturn(lead, round, { at, observacao } = {}) {
+  syncZohoLead(lead.idZoho, buildZohoAttemptNoReturnFields(lead, round, { at, observacao }));
+}
+
+export function buildZohoAttemptNoReturnFields(_lead, round, { at, observacao } = {}) {
   const fields = attemptFieldMap(round);
-  syncZohoLead(lead.idZoho, {
-    ...field(ENV.ZOHO_LEAD_STATUS_FIELD, ZOHO_LEAD_STATUS.SEM_CONTATO),
-    ...field(ENV.ZOHO_LEAD_DATA_SEM_CONTATO_FIELD, toZohoDate(at)),
+  const note = observacao || TIMEOUT_OBSERVACAO;
+  return {
     ...field(fields.date, toZohoDate(at)),
-    ...field(fields.obs, observacao),
+    ...field(fields.obs, note),
     ...field(fields.status, ZOHO_ATTEMPT_STATUS.SEM_RETORNO),
     ...addNextAttemptFlags(round),
-  });
+  };
+}
+
+export function syncZohoLeadSemContato(lead, { at } = {}) {
+  syncZohoLead(lead.idZoho, buildZohoSemContatoFields(lead, { at }));
+}
+
+export function buildZohoSemContatoFields(_lead, { at } = {}) {
+  return {
+    ...field(ENV.ZOHO_LEAD_STATUS_FIELD, ZOHO_LEAD_STATUS.SEM_CONTATO),
+    ...field(ENV.ZOHO_LEAD_DATA_SEM_CONTATO_FIELD, toZohoDate(at)),
+  };
 }
 
 export function syncZohoLeadSemInteresse(lead, { at, observacao, round } = {}) {
+  syncZohoLead(lead.idZoho, buildZohoSemInteresseFields(lead, { at, observacao, round }));
+}
+
+export function buildZohoSemInteresseFields(_lead, { at, observacao, round } = {}) {
   const n = Number(round);
   const attemptFields = [1, 2, 3].includes(n) ? attemptFieldMap(n) : null;
 
-  syncZohoLead(lead.idZoho, {
+  return {
     ...field(ENV.ZOHO_LEAD_STATUS_FIELD, ZOHO_LEAD_STATUS.SEM_INTERESSE),
     ...field(ENV.ZOHO_LEAD_DATA_SEM_INTERESSE_FIELD, toZohoDate(at)),
     ...(attemptFields
@@ -200,5 +215,5 @@ export function syncZohoLeadSemInteresse(lead, { at, observacao, round } = {}) {
           ...field(attemptFields.status, ZOHO_ATTEMPT_STATUS.TRATADO),
         }
       : {}),
-  });
+  };
 }

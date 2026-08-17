@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MdSchedule, MdSend, MdThumbDown } from "react-icons/md";
+import { MdPhoneMissed, MdSchedule, MdSend, MdThumbDown } from "react-icons/md";
 import Button from "../../components/ui/Button";
 import Textarea from "../../components/ui/Textarea";
 import { useToast } from "../../components/feedback/auth/ToastContainer";
@@ -98,6 +98,7 @@ export default function LeadFirstAttemptCard({
   lead,
   onSubmitAttempt,
   onSemInteresse,
+  onSemContato,
   submitting,
 }) {
   const { showToast } = useToast();
@@ -141,6 +142,10 @@ export default function LeadFirstAttemptCard({
     const note = validateObservacao();
     if (!note) return;
     await onSemInteresse(note);
+  };
+
+  const handleSemContato = async () => {
+    await onSemContato();
   };
 
   if (attempt.converted) {
@@ -259,6 +264,17 @@ export default function LeadFirstAttemptCard({
             />
 
             <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 sm:justify-end">
+              {attempt.canMarkSemContato && (
+                <Button
+                  variant="warning"
+                  className="inline-flex items-center justify-center gap-2"
+                  disabled={submitting}
+                  onClick={handleSemContato}
+                >
+                  <MdPhoneMissed aria-hidden />
+                  Lead sem contato
+                </Button>
+              )}
               <Button
                 variant="danger"
                 className="inline-flex items-center justify-center gap-2"
@@ -281,6 +297,18 @@ export default function LeadFirstAttemptCard({
               )}
             </div>
           </>
+        ) : attempt.canMarkSemContato ? (
+          <div className="flex justify-end">
+            <Button
+              variant="warning"
+              className="inline-flex items-center justify-center gap-2"
+              disabled={submitting}
+              onClick={handleSemContato}
+            >
+              <MdPhoneMissed aria-hidden />
+              Lead sem contato
+            </Button>
+          </div>
         ) : null}
       </div>
     </section>
