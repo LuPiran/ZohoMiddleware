@@ -224,6 +224,29 @@ function asString(value) {
   return String(value).trim();
 }
 
+const MIN_OBSERVACAO = 10;
+
+function requireObservacao(observacao) {
+  const note = asString(observacao);
+  if (!note) {
+    const err = new Error(
+      "Para enviar uma tentativa ou lead sem interesse, adicione uma observação",
+    );
+    err.status = 400;
+    err.code = "VALIDATION_ERROR";
+    throw err;
+  }
+  if (note.length < MIN_OBSERVACAO) {
+    const err = new Error(
+      "Observação da tentativa deve ter pelo menos 10 caracteres",
+    );
+    err.status = 400;
+    err.code = "VALIDATION_ERROR";
+    throw err;
+  }
+  return note;
+}
+
 function asIsoDate(value) {
   if (value === undefined || value === null || value === "") return undefined;
   if (value instanceof Date && !Number.isNaN(value.getTime())) {
@@ -1368,13 +1391,7 @@ export async function registerContactAttempt(leadId, user, round, { observacao }
     throw err;
   }
 
-  const note = asString(observacao);
-  if (!note || note.length < 3) {
-    const err = new Error(`Informe a observação da ${meta.label.toLowerCase()} (mín. 3 caracteres).`);
-    err.status = 400;
-    err.code = "VALIDATION_ERROR";
-    throw err;
-  }
+  const note = requireObservacao(observacao);
 
   const now = new Date().toISOString();
   const raw = (
@@ -1509,6 +1526,15 @@ export async function markLeadSemInteresse(leadId, user, { observacao } = {}) {
     throw err;
   }
 
+  if (lead.attempt.treatedOnTime) {
+    const err = new Error(
+      "Tentativa já registrada no prazo. O lead está com interesse.",
+    );
+    err.status = 400;
+    err.code = "VALIDATION_ERROR";
+    throw err;
+  }
+
   const now = new Date().toISOString();
   const raw = (
     await dynamoDocClient.send(
@@ -1518,24 +1544,14 @@ export async function markLeadSemInteresse(leadId, user, { observacao } = {}) {
 
   const round = currentOpenAttemptRound(raw);
   const meta = round ? ATTEMPT_ROUNDS[round] : null;
-  const note = asString(observacao);
+  const note = requireObservacao(observacao);
 
-  if (meta && (!note || note.length < 3)) {
-    const err = new Error(
-      `Informe a observação da ${meta.label.toLowerCase()} (mín. 3 caracteres).`,
-    );
-    err.status = 400;
-    err.code = "VALIDATION_ERROR";
-    throw err;
-  }
-
-  const detailNote = note || "Lead marcado como sem interesse";
   const historico = appendHistorico(raw, {
     action: "sem_interesse",
     label: meta
       ? `Lead sem interesse — ${meta.label.toLowerCase()}`
       : "Lead sem interesse",
-    detail: detailNote,
+    detail: note,
     by: user.email || user.id || "usuario",
   });
 

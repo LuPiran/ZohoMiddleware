@@ -2,6 +2,9 @@ import { useState } from "react";
 import { MdSchedule, MdSend, MdThumbDown } from "react-icons/md";
 import Button from "../../components/ui/Button";
 import Textarea from "../../components/ui/Textarea";
+import { useToast } from "../../components/feedback/auth/ToastContainer";
+
+const MIN_OBSERVACAO = 10;
 
 const ROUND_COPY = {
   1: { title: "Primeira tentativa", send: "Enviar primeira tentativa" },
@@ -97,6 +100,7 @@ export default function LeadFirstAttemptCard({
   onSemInteresse,
   submitting,
 }) {
+  const { showToast } = useToast();
   const [observacao, setObservacao] = useState("");
   const [error, setError] = useState("");
 
@@ -106,23 +110,37 @@ export default function LeadFirstAttemptCard({
   const days =
     typeof attempt.daysRemaining === "number" ? attempt.daysRemaining : null;
 
-  const handleAttempt = async () => {
-    if (!observacao.trim() || observacao.trim().length < 3) {
-      setError("Descreva o contato realizado (mínimo 3 caracteres).");
-      return;
+  const validateObservacao = () => {
+    const note = observacao.trim();
+    if (!note) {
+      const message =
+        "Para enviar uma tentativa ou lead sem interesse, adicione uma observação";
+      setError(message);
+      showToast(message, "error", 3500);
+      return null;
+    }
+    if (note.length < MIN_OBSERVACAO) {
+      const message =
+        "Observação da tentativa deve ter pelo menos 10 caracteres";
+      setError(message);
+      showToast(message, "warning", 3500);
+      return null;
     }
     setError("");
-    await onSubmitAttempt(round, observacao.trim());
+    return note;
+  };
+
+  const handleAttempt = async () => {
+    const note = validateObservacao();
+    if (!note) return;
+    await onSubmitAttempt(round, note);
     setObservacao("");
   };
 
   const handleSemInteresse = async () => {
-    if (round && (!observacao.trim() || observacao.trim().length < 3)) {
-      setError("Descreva o contato realizado (mínimo 3 caracteres).");
-      return;
-    }
-    setError("");
-    await onSemInteresse(observacao.trim());
+    const note = validateObservacao();
+    if (!note) return;
+    await onSemInteresse(note);
   };
 
   if (attempt.converted) {
@@ -263,19 +281,7 @@ export default function LeadFirstAttemptCard({
               )}
             </div>
           </>
-        ) : (
-          <div className="flex justify-end">
-            <Button
-              variant="danger"
-              className="inline-flex items-center justify-center gap-2"
-              disabled={submitting}
-              onClick={handleSemInteresse}
-            >
-              <MdThumbDown aria-hidden />
-              Lead sem interesse
-            </Button>
-          </div>
-        )}
+        ) : null}
       </div>
     </section>
   );
