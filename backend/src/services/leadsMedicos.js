@@ -10,11 +10,28 @@ import { dynamoDocClient } from "../config/dynamodb.js";
 import { ENV } from "../config/env.js";
 import {
   findConsultorByEmail,
-  findConsultoresByRegiao,
   getConsultorDisplayName,
   getConsultorGerencia,
-  updateConsultorUltimaAtribuicao,
 } from "./consultores.js";
+import {
+  applyOfferToLead,
+  isBusinessHours,
+  isSlaAccepted,
+  isSlaOffered,
+  offerLeadOnCreate,
+  offeredStatusCondition,
+  reofferLead,
+  slaOfferMinutes,
+} from "./slaOffers.js";
+import { notifyLeadOffer } from "./emailService.js";
+import {
+  ZOHO_ATTEMPT_STATUS,
+  ZOHO_LEAD_STATUS,
+  syncZohoLeadAccepted,
+  syncZohoLeadAttemptNoReturn,
+  syncZohoLeadAttemptTreated,
+  syncZohoLeadSemInteresse,
+} from "./zohoLeadSync.js";
 
 // Mapa UF → Região (fallback quando Zoho não envia Dist_Regiao)
 const UF_REGIAO = {
@@ -31,38 +48,64 @@ function resolveRegiaoFromUF(uf) {
   return UF_REGIAO[String(uf).trim().toUpperCase()] || null;
 }
 
-function isBusinessHours() {
-  const now = new Date();
-  const brasiliaHour = (now.getUTCHours() - 3 + 24) % 24;
-  return brasiliaHour >= 8 && brasiliaHour < 18;
+const ATTEMPT_ROUNDS = {
+  1: {
+    n: 1,
+    label: "Primeira tentativa",
+    date: "dataPrimeiraTentativa",
+    desc: "descricaoPrimeiraTentativa",
+    status: "statusPrimeiraTentativa",
+  },
+  2: {
+    n: 2,
+    label: "Segunda tentativa",
+    date: "dataSegundaTentativa",
+    desc: "descricaoSegundaTentativa",
+    status: "statusSegundaTentativa",
+  },
+  3: {
+    n: 3,
+    label: "Terceira tentativa",
+    date: "dataTerceiraTentativa",
+    desc: "descricaoTerceiraTentativa",
+    status: "statusTerceiraTentativa",
+  },
+};
+
+function parseAttemptRound(round) {
+  const n = Number(round);
+  if (![1, 2, 3].includes(n)) {
+    const err = new Error("Tentativa inválida. Use 1, 2 ou 3.");
+    err.status = 400;
+    err.code = "VALIDATION_ERROR";
+    throw err;
+  }
+  return n;
 }
 
-async function assignConsultorRoundRobin(lead) {
-  const regiao = lead.regiao;
-  if (!regiao) return lead;
+function isLeadClosed(lead) {
+  return (
+    Boolean(lead?.dataSemInteresse) ||
+    Boolean(lead?.dataConversao) ||
+    normalizeText(lead?.status).includes("convert") ||
+    normalizeText(lead?.status).includes("sem interesse")
+  );
+}
 
-  try {
-    const consultores = await findConsultoresByRegiao(regiao);
-    if (!consultores.length) {
-      console.warn(`[LEADS] Nenhum consultor ativo para região "${regiao}"`);
-      return lead;
+function isAttemptRoundDone(lead, round) {
+  const meta = ATTEMPT_ROUNDS[round];
+  return Boolean(lead?.[meta.date]);
+}
+
+function currentOpenAttemptRound(lead) {
+  if (isLeadClosed(lead) || !isSlaAccepted(lead)) return null;
+  for (const round of [1, 2, 3]) {
+    if (!isAttemptRoundDone(lead, round)) {
+      if (round === 1 || isAttemptRoundDone(lead, round - 1)) return round;
+      return null;
     }
-
-    const chosen = consultores[0];
-    const now = new Date().toISOString();
-
-    lead.consultorId = String(chosen.id);
-    lead.consultor = getConsultorDisplayName(chosen) || lead.consultor;
-    lead.emailConsultor = chosen.email || lead.emailConsultor;
-    lead.gerencia = lead.gerencia || getConsultorGerencia(chosen);
-
-    await updateConsultorUltimaAtribuicao(chosen.id, now);
-    console.log(`[LEADS] Round-robin: lead atribuído a "${lead.consultor}" (${lead.consultorId}) — região ${regiao}`);
-  } catch (err) {
-    console.warn("[LEADS] Round-robin falhou:", err.message);
   }
-
-  return lead;
+  return null;
 }
 
 const TABLE = () => ENV.DYNAMODB_LEADS_TABLE;
@@ -295,9 +338,13 @@ export function mapZohoPayloadToLead(payload) {
     ]),
   );
 
-  const regiao = asString(
+  const regiaoRaw = asString(
     pick(source, ["regiao", "Regiao", "Dist_Regiao", "dist_regiao", "region"]),
-  ) || resolveRegiaoFromUF(ufCrm || estado) || null;
+  );
+  const regiao =
+    (regiaoRaw ? String(regiaoRaw).trim().toUpperCase() : null) ||
+    resolveRegiaoFromUF(ufCrm || estado) ||
+    null;
 
   const status =
     asString(pick(source, ["status", "Status", "Stage"])) || "Qualificado";
@@ -325,11 +372,6 @@ export function mapZohoPayloadToLead(payload) {
     asIsoDate(pick(source, ["entradaEm", "Entrada_Em"])) ||
     dataNovoLead ||
     now;
-
-  const slaDeadline = isBusinessHours()
-    ? new Date(Date.now() + 10 * 60 * 1000).toISOString()
-    : null;
-  const slaStatus = isBusinessHours() ? "pendente" : "aguardando_horario";
 
   return {
     id,
@@ -374,9 +416,11 @@ export function mapZohoPayloadToLead(payload) {
     descricaoTerceiraTentativa: null,
     dataTerceiraTentativa: null,
     statusTerceiraTentativa: null,
-    slaDeadline,
-    slaStatus,
-    slaCheckinAt: null,
+    slaDeadline: undefined,
+    slaStatus: isBusinessHours() ? undefined : "aguardando_horario",
+    slaCheckinAt: undefined,
+    slaRecusados: [],
+    slaOfertaRound: 0,
     createdAt: now,
     updatedAt: now,
     source: "zoho",
@@ -516,13 +560,66 @@ async function findLeadByZohoId(idZoho) {
  * Cria lead médico no DynamoDB a partir do payload Zoho.
  * Idempotente por idZoho (GSI gsi_zoho). id da tabela = UUID próprio.
  */
+async function offerLeadWithoutRegion(lead) {
+  if (!lead.consultorId) return lead;
+
+  try {
+    const record = lead.emailConsultor
+      ? await findConsultorByEmail(lead.emailConsultor)
+      : null;
+    if (!record?.id) {
+      lead.slaStatus = isBusinessHours() ? "ofertado" : "aguardando_horario";
+      if (isBusinessHours()) {
+        lead.slaDeadline = new Date(
+          Date.now() + slaOfferMinutes() * 60 * 1000,
+        ).toISOString();
+        lead.consultorIdOferta = String(lead.consultorId);
+      }
+      return lead;
+    }
+
+    if (!isBusinessHours()) {
+      lead.consultorId = String(record.id);
+      lead.consultor = getConsultorDisplayName(record) || lead.consultor;
+      lead.emailConsultor = record.email || lead.emailConsultor;
+      lead.gerencia = lead.gerencia || getConsultorGerencia(record);
+      lead.slaStatus = "aguardando_horario";
+      lead.slaDeadline = null;
+      return lead;
+    }
+
+    applyOfferToLead(lead, record, {
+      reason: "Oferecido pelo e-mail do consultor (lead sem região).",
+    });
+    void notifyLeadOffer(lead, record);
+  } catch (error) {
+    console.warn("[SLA] Oferta por e-mail falhou:", error.message);
+  }
+
+  return lead;
+}
+
+/**
+ * Cria lead médico no DynamoDB a partir do payload Zoho.
+ * Idempotente por idZoho (GSI gsi_zoho). id da tabela = UUID próprio.
+ *
+ * Com região: entra na fila SLA (menor carteira). O consultor do Zoho não vira dono.
+ * Sem região: fallback por e-mail do consultor.
+ */
 export async function createLeadFromZoho(payload) {
   let lead = mapZohoPayloadToLead(payload);
-  lead = await enrichLeadWithPortalConsultor(lead, payload);
 
-  // Se não resolveu consultor por e-mail, tenta round-robin por região
-  if (!lead.consultorId && lead.regiao) {
-    lead = await assignConsultorRoundRobin(lead);
+  if (lead.regiao) {
+    lead.consultorId = undefined;
+    if (isBusinessHours()) {
+      lead = await offerLeadOnCreate(lead);
+    } else {
+      lead.slaStatus = "aguardando_horario";
+      lead.slaDeadline = null;
+    }
+  } else {
+    lead = await enrichLeadWithPortalConsultor(lead, payload);
+    lead = await offerLeadWithoutRegion(lead);
   }
 
   const errors = validateCreateLeadInput(lead);
@@ -766,7 +863,9 @@ export async function listLeadsForUser(user = {}) {
       }
     }
 
-    leads = [...collected.values()];
+    leads = [...collected.values()].filter(
+      (lead) => !lead.slaStatus || isSlaAccepted(lead),
+    );
   }
 
   leads.sort((a, b) => {
@@ -784,6 +883,69 @@ export async function listLeadsForUser(user = {}) {
       gerencia: viewer.gerencia || null,
     },
     leads: leads.map(toLeadListItem),
+  };
+}
+
+function viewerOwnsOffer(lead, viewer) {
+  return leadMatchesConsultor(lead, viewer);
+}
+
+/**
+ * Ofertas SLA ainda pendentes para o consultor logado (não entram na carteira).
+ */
+export async function listPendingOffersForUser(user = {}) {
+  const { role, viewer } = await resolveViewerContext(user);
+  if (!viewer.id && !viewer.email) {
+    return {
+      role,
+      viewer: {
+        id: viewer.id || null,
+        email: viewer.email || null,
+        nome: viewer.nome || null,
+        gerencia: viewer.gerencia || null,
+      },
+      offers: [],
+    };
+  }
+
+  const keys = new Set(
+    [viewer.id, viewer.nome].filter(Boolean).map((v) => String(v)),
+  );
+  const collected = new Map();
+
+  for (const key of keys) {
+    const rows = await queryLeadsByConsultorId(key);
+    for (const row of rows) {
+      if (row?.id && isSlaOffered(row) && viewerOwnsOffer(row, viewer)) {
+        collected.set(row.id, row);
+      }
+    }
+  }
+
+  if (collected.size === 0) {
+    const all = await scanAllLeads();
+    for (const row of all) {
+      if (row?.id && isSlaOffered(row) && viewerOwnsOffer(row, viewer)) {
+        collected.set(row.id, row);
+      }
+    }
+  }
+
+  const offers = [...collected.values()].sort((a, b) => {
+    const da = new Date(a.slaDeadline || 0).getTime();
+    const db = new Date(b.slaDeadline || 0).getTime();
+    return da - db;
+  });
+
+  return {
+    role,
+    viewer: {
+      id: viewer.id || null,
+      email: viewer.email || null,
+      nome: viewer.nome || null,
+      gerencia: viewer.gerencia || null,
+    },
+    offers: offers.map(toLeadListItem),
   };
 }
 
@@ -928,10 +1090,13 @@ export function toLeadDetail(lead) {
   const qualificadoEm = lead.dataQualificado || lead.entradaEm || lead.createdAt;
   const daysSinceQualification = daysBetween(qualificadoEm);
   const hasFirstAttempt = Boolean(lead.dataPrimeiraTentativa);
+  const hasSecondAttempt = Boolean(lead.dataSegundaTentativa);
+  const hasThirdAttempt = Boolean(lead.dataTerceiraTentativa);
   const hasSemInteresse = Boolean(lead.dataSemInteresse);
   const converted = Boolean(
     lead.dataConversao || normalizeText(lead.status).includes("convert"),
   );
+  const currentRound = currentOpenAttemptRound(lead);
 
   return {
     ...toLeadListItem(lead),
@@ -959,12 +1124,22 @@ export function toLeadDetail(lead) {
     timeline: buildLeadTimeline(lead),
     attempt: {
       daysSinceQualification,
-      canRegisterFirstAttempt:
-        !hasFirstAttempt && !hasSemInteresse && !converted,
+      currentRound,
+      canRegisterAttempt: currentRound !== null,
+      canRegisterFirstAttempt: currentRound === 1,
       hasFirstAttempt,
+      hasSecondAttempt,
+      hasThirdAttempt,
       hasSemInteresse,
       converted,
-      windowLabel: "1ª tentativa — a partir da data de qualificação",
+      windowLabel:
+        currentRound === 1
+          ? "1ª tentativa — a partir da data de qualificação"
+          : currentRound === 2
+            ? "2ª tentativa"
+            : currentRound === 3
+              ? "3ª tentativa"
+              : "Tentativas de contato",
     },
   };
 }
@@ -1012,9 +1187,9 @@ export async function getLeadForUser(leadId, user = {}) {
   };
 }
 
-async function updateLeadItem(leadId, updates) {
-  const names = {};
-  const values = {};
+async function updateLeadItem(leadId, updates, condition) {
+  const names = { ...(condition?.names || {}) };
+  const values = { ...(condition?.values || {}) };
   const parts = [];
   let i = 0;
 
@@ -1027,31 +1202,56 @@ async function updateLeadItem(leadId, updates) {
     i += 1;
   }
 
-  const result = await dynamoDocClient.send(
-    new UpdateCommand({
-      TableName: TABLE(),
-      Key: { id: leadId },
-      UpdateExpression: `SET ${parts.join(", ")}`,
-      ExpressionAttributeNames: names,
-      ExpressionAttributeValues: values,
-      ConditionExpression: "attribute_exists(id)",
-      ReturnValues: "ALL_NEW",
-    }),
-  );
+  const exists = "attribute_exists(id)";
+  const conditionExpression = condition?.expression
+    ? `${exists} AND ${condition.expression}`
+    : exists;
 
-  return result.Attributes;
+  try {
+    const result = await dynamoDocClient.send(
+      new UpdateCommand({
+        TableName: TABLE(),
+        Key: { id: leadId },
+        UpdateExpression: `SET ${parts.join(", ")}`,
+        ExpressionAttributeNames: names,
+        ExpressionAttributeValues: values,
+        ConditionExpression: conditionExpression,
+        ReturnValues: "ALL_NEW",
+      }),
+    );
+    return result.Attributes;
+  } catch (error) {
+    if (error.name === "ConditionalCheckFailedException") {
+      const err = new Error("Esta oferta não está mais disponível.");
+      err.status = 409;
+      err.code = "OFFER_GONE";
+      throw err;
+    }
+    throw error;
+  }
 }
 
 /**
- * Registra a 1ª tentativa de contato (regra: após qualificação).
+ * Registra tentativa de contato (1, 2 ou 3) como "Tratado Pelo Consultor".
  */
-export async function registerFirstAttempt(leadId, user, { observacao } = {}) {
+export async function registerContactAttempt(leadId, user, round, { observacao } = {}) {
+  const n = parseAttemptRound(round);
+  const meta = ATTEMPT_ROUNDS[n];
   const detail = await getLeadForUser(leadId, user);
   const lead = detail.lead;
 
-  if (!lead.attempt.canRegisterFirstAttempt) {
+  if (lead.attempt.converted || lead.attempt.hasSemInteresse) {
+    const err = new Error("Lead já encerrado (sem interesse / convertido).");
+    err.status = 400;
+    err.code = "VALIDATION_ERROR";
+    throw err;
+  }
+
+  if (lead.attempt.currentRound !== n) {
     const err = new Error(
-      "Primeira tentativa já registrada ou lead encerrado (sem interesse / convertido).",
+      n === 1
+        ? "Primeira tentativa já registrada ou lead ainda não aceito."
+        : `${meta.label} não está disponível neste momento.`,
     );
     err.status = 400;
     err.code = "VALIDATION_ERROR";
@@ -1060,7 +1260,7 @@ export async function registerFirstAttempt(leadId, user, { observacao } = {}) {
 
   const note = asString(observacao);
   if (!note || note.length < 3) {
-    const err = new Error("Informe a observação da primeira tentativa (mín. 3 caracteres).");
+    const err = new Error(`Informe a observação da ${meta.label.toLowerCase()} (mín. 3 caracteres).`);
     err.status = 400;
     err.code = "VALIDATION_ERROR";
     throw err;
@@ -1074,22 +1274,87 @@ export async function registerFirstAttempt(leadId, user, { observacao } = {}) {
   ).Item;
 
   const historico = appendHistorico(raw, {
-    action: "primeira_tentativa",
-    label: "Primeira tentativa registrada",
+    action: n === 1 ? "primeira_tentativa" : n === 2 ? "segunda_tentativa" : "terceira_tentativa",
+    label: `${meta.label} — tratado pelo consultor`,
     detail: note,
     by: user.email || user.id || "usuario",
   });
 
-  const updated = await updateLeadItem(leadId, {
-    descricaoPrimeiraTentativa: note,
-    dataPrimeiraTentativa: now,
-    statusPrimeiraTentativa: "Realizada",
-    status: "Em contato",
+  const updates = {
+    [meta.desc]: note,
+    [meta.date]: now,
+    [meta.status]: ZOHO_ATTEMPT_STATUS.TRATADO,
+    status: ZOHO_LEAD_STATUS.COM_INTERESSE,
     dataEmContato: raw.dataEmContato || now,
+    dataEmAquecimento: raw.dataEmAquecimento || now,
     updatedAt: now,
     historico,
+  };
+
+  if (n === 1) updates.adicionarSegundaTentativa = true;
+  if (n === 2) updates.adicionarTerceiraTentativa = true;
+
+  const updated = await updateLeadItem(leadId, updates);
+  syncZohoLeadAttemptTreated(updated, n, { observacao: note, at: now });
+  return toLeadDetail(updated);
+}
+
+export async function registerFirstAttempt(leadId, user, payload = {}) {
+  return registerContactAttempt(leadId, user, 1, payload);
+}
+
+/**
+ * Marca a tentativa aberta como Sem Retorno e envia Lead Sem Contato ao Zoho.
+ */
+export async function markAttemptSemRetorno(leadId, user, round, { observacao } = {}) {
+  const n = parseAttemptRound(round);
+  const meta = ATTEMPT_ROUNDS[n];
+  const detail = await getLeadForUser(leadId, user);
+  const lead = detail.lead;
+
+  if (lead.attempt.converted || lead.attempt.hasSemInteresse) {
+    const err = new Error("Lead já encerrado (sem interesse / convertido).");
+    err.status = 400;
+    err.code = "VALIDATION_ERROR";
+    throw err;
+  }
+
+  if (lead.attempt.currentRound !== n) {
+    const err = new Error(`${meta.label} não está disponível para Sem Retorno.`);
+    err.status = 400;
+    err.code = "VALIDATION_ERROR";
+    throw err;
+  }
+
+  const now = new Date().toISOString();
+  const note = asString(observacao);
+  const raw = (
+    await dynamoDocClient.send(
+      new GetCommand({ TableName: TABLE(), Key: { id: leadId } }),
+    )
+  ).Item;
+
+  const historico = appendHistorico(raw, {
+    action: "tentativa_sem_retorno",
+    label: `${meta.label} — sem retorno`,
+    detail: note || "Consultor não obteve retorno nesta tentativa.",
+    by: user.email || user.id || "usuario",
   });
 
+  const updates = {
+    [meta.date]: now,
+    [meta.status]: ZOHO_ATTEMPT_STATUS.SEM_RETORNO,
+    status: ZOHO_LEAD_STATUS.SEM_CONTATO,
+    dataSemContato: now,
+    updatedAt: now,
+    historico,
+  };
+  if (note) updates[meta.desc] = note;
+  if (n === 1) updates.adicionarSegundaTentativa = true;
+  if (n === 2) updates.adicionarTerceiraTentativa = true;
+
+  const updated = await updateLeadItem(leadId, updates);
+  syncZohoLeadAttemptNoReturn(updated, n, { at: now, observacao: note });
   return toLeadDetail(updated);
 }
 
@@ -1123,40 +1388,52 @@ export async function markLeadSemInteresse(leadId, user, { observacao } = {}) {
   });
 
   const updates = {
-    status: "Sem interesse",
+    status: ZOHO_LEAD_STATUS.SEM_INTERESSE,
     dataSemInteresse: now,
     updatedAt: now,
     historico,
   };
 
-  if (!raw.dataPrimeiraTentativa && note) {
-    updates.descricaoPrimeiraTentativa = note;
-    updates.dataPrimeiraTentativa = now;
-    updates.statusPrimeiraTentativa = "Sem interesse";
-  }
-
   const updated = await updateLeadItem(leadId, updates);
+  syncZohoLeadSemInteresse(updated, { at: now });
   return toLeadDetail(updated);
 }
 
 /**
- * Confirma check-in do consultor dentro do prazo SLA (10 min).
+ * Consultor aceita a oferta (vira dono). Alias do check-in antigo.
  */
 export async function checkinLead(leadId, user) {
-  const detail = await getLeadForUser(leadId, user);
-  const lead = detail.lead;
+  const { role, viewer, lead } = await getLeadForUser(leadId, user);
 
-  if (lead.slaStatus === "confirmado") {
-    const err = new Error("Check-in já realizado para este lead.");
+  if (isSlaAccepted(lead)) {
+    const err = new Error("Este lead já foi aceito.");
     err.status = 400;
     err.code = "VALIDATION_ERROR";
     throw err;
   }
 
-  if (lead.slaStatus === "expirado" || lead.slaStatus === "reatribuido") {
-    const err = new Error("Prazo SLA expirado. Este lead foi ou será reatribuído.");
+  if (
+    lead.slaStatus === "expirado" ||
+    lead.slaStatus === "reatribuido" ||
+    lead.slaStatus === "expirado_ciclo"
+  ) {
+    const err = new Error("Esta oferta expirou e o lead já foi redistribuído.");
     err.status = 400;
     err.code = "VALIDATION_ERROR";
+    throw err;
+  }
+
+  if (!isSlaOffered(lead)) {
+    const err = new Error("Este lead não está aguardando aceite.");
+    err.status = 400;
+    err.code = "VALIDATION_ERROR";
+    throw err;
+  }
+
+  if (role !== "admin" && !viewerOwnsOffer(lead, viewer)) {
+    const err = new Error("Esta oferta não é sua.");
+    err.status = 403;
+    err.code = "FORBIDDEN";
     throw err;
   }
 
@@ -1169,20 +1446,14 @@ export async function checkinLead(leadId, user) {
       )
     ).Item;
 
-    const historico = appendHistorico(raw, {
-      action: "sla_expirado",
-      label: "Check-in fora do prazo SLA",
-      detail: "Consultor tentou confirmar check-in após o prazo de 10 minutos.",
-      by: user.email || user.id || "usuario",
-    });
+    if (raw && isSlaOffered(raw)) {
+      await reofferLead(raw, {
+        reason: "Prazo de aceite expirado no momento da confirmação.",
+        by: user.email || user.id || "usuario",
+      });
+    }
 
-    await updateLeadItem(leadId, {
-      slaStatus: "expirado",
-      updatedAt: now,
-      historico,
-    });
-
-    const err = new Error("Prazo de check-in de 10 minutos expirado.");
+    const err = new Error("Prazo de aceite expirado. O lead foi oferecido ao próximo consultor.");
     err.status = 400;
     err.code = "VALIDATION_ERROR";
     throw err;
@@ -1194,19 +1465,154 @@ export async function checkinLead(leadId, user) {
     )
   ).Item;
 
+  if (!raw || !isSlaOffered(raw)) {
+    const err = new Error("Esta oferta não está mais disponível.");
+    err.status = 409;
+    err.code = "OFFER_GONE";
+    throw err;
+  }
+
   const historico = appendHistorico(raw, {
-    action: "checkin_confirmado",
-    label: "Check-in confirmado",
-    detail: "Consultor confirmou recebimento do lead dentro do prazo SLA.",
+    action: "sla_aceito",
+    label: "Lead aceito",
+    detail: "Consultor aceitou a oferta e passou a ser o dono do lead.",
     by: user.email || user.id || "usuario",
   });
 
-  const updated = await updateLeadItem(leadId, {
-    slaStatus: "confirmado",
-    slaCheckinAt: now,
+  const offered = offeredStatusCondition();
+  const updated = await updateLeadItem(
+    leadId,
+    {
+      slaStatus: "aceito",
+      slaCheckinAt: now,
+      status: ZOHO_LEAD_STATUS.QUALIFICACAO,
+      dataQualificado: raw.dataQualificado || now,
+      updatedAt: now,
+      historico,
+    },
+    {
+      expression: `${offered.expression} AND #cidCond = :cidCond`,
+      names: { ...offered.names, "#cidCond": "consultorId" },
+      values: { ...offered.values, ":cidCond": String(raw.consultorId) },
+    },
+  );
+
+  syncZohoLeadAccepted(updated);
+  return toLeadDetail(updated);
+}
+
+/**
+ * Consultor recusa a oferta — o lead segue para o próximo da região.
+ */
+export async function recusarLead(leadId, user) {
+  const { role, viewer, lead } = await getLeadForUser(leadId, user);
+
+  if (!isSlaOffered(lead)) {
+    const err = new Error("Este lead não está aguardando aceite.");
+    err.status = 400;
+    err.code = "VALIDATION_ERROR";
+    throw err;
+  }
+
+  if (role !== "admin" && !viewerOwnsOffer(lead, viewer)) {
+    const err = new Error("Esta oferta não é sua.");
+    err.status = 403;
+    err.code = "FORBIDDEN";
+    throw err;
+  }
+
+  const raw = (
+    await dynamoDocClient.send(
+      new GetCommand({ TableName: TABLE(), Key: { id: leadId } }),
+    )
+  ).Item;
+
+  if (!raw || !isSlaOffered(raw)) {
+    const err = new Error("Esta oferta não está mais disponível.");
+    err.status = 409;
+    err.code = "OFFER_GONE";
+    throw err;
+  }
+
+  const updated = await reofferLead(raw, {
+    reason: `Consultor recusou a oferta (${user.email || user.id || "usuario"}).`,
+    by: user.email || user.id || "usuario",
+  });
+
+  if (!updated) {
+    const err = new Error("Esta oferta não está mais disponível.");
+    err.status = 409;
+    err.code = "OFFER_GONE";
+    throw err;
+  }
+
+  return toLeadDetail(updated);
+}
+
+/**
+ * Zoho informa que o lead foi convertido.
+ */
+export async function markLeadConvertedFromZoho(payload) {
+  const source =
+    payload?.data && typeof payload.data === "object" ? payload.data : payload;
+  const idZoho = asString(
+    pick(source, ["idZoho", "zohoId", "id", "id_do_zoho", "Zoho_ID"], "id"),
+  );
+
+  if (!idZoho) {
+    const err = new Error("idZoho é obrigatório");
+    err.status = 400;
+    err.code = "VALIDATION_ERROR";
+    throw err;
+  }
+
+  const existing = await findLeadByZohoId(idZoho);
+  if (!existing) {
+    const err = new Error("Lead não encontrado para este idZoho");
+    err.status = 404;
+    err.code = "NOT_FOUND";
+    throw err;
+  }
+
+  const already =
+    Boolean(existing.dataConversao) ||
+    normalizeText(existing.status).includes("convert");
+  if (already) {
+    return {
+      updated: false,
+      alreadyConverted: true,
+      lead: existing,
+    };
+  }
+
+  const now = new Date().toISOString();
+  const convertedAt =
+    asIsoDate(
+      pick(source, [
+        "dataConversao",
+        "Data_Conversao",
+        "convertedAt",
+        "Converted_Date",
+      ]),
+    ) || now;
+
+  const historico = appendHistorico(existing, {
+    action: "lead_convertido",
+    label: "Lead convertido",
+    detail: "Status recebido do Zoho CRM: Lead Convertido.",
+    by: "zoho",
+  });
+
+  const updated = await updateLeadItem(existing.id, {
+    status: ZOHO_LEAD_STATUS.CONVERTIDO,
+    dataConversao: convertedAt,
     updatedAt: now,
     historico,
   });
 
-  return toLeadDetail(updated);
+  return {
+    updated: true,
+    alreadyConverted: false,
+    lead: updated,
+  };
 }

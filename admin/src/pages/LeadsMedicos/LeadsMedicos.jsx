@@ -27,6 +27,30 @@ import {
 const PER_PAGE = 10;
 
 const STATUS_STYLES = {
+  "Novo Lead": {
+    color: "#8FA9C1",
+    soft: "rgba(143, 169, 193, 0.16)",
+  },
+  "Lead em Qualificação": {
+    color: "#E5989B",
+    soft: "rgba(229, 152, 155, 0.16)",
+  },
+  "Lead Com Interesse": {
+    color: "#3da2b8",
+    soft: "rgba(61, 162, 184, 0.14)",
+  },
+  "Lead Sem Contato": {
+    color: "#ff9800",
+    soft: "rgba(255, 152, 0, 0.14)",
+  },
+  "Lead Sem Interesse": {
+    color: "#f44336",
+    soft: "rgba(244, 67, 54, 0.12)",
+  },
+  "Lead Convertido": {
+    color: "#4caf50",
+    soft: "rgba(76, 175, 80, 0.14)",
+  },
   Novo: {
     color: "#8FA9C1",
     soft: "rgba(143, 169, 193, 0.16)",

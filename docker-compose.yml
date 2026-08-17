@@ -9,7 +9,6 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
-      FRONTEND_URL: http://localhost:8081
       SERVE_FRONTEND: "false"
       TRUST_PROXY: "1"
       JSON_BODY_LIMIT: 2mb

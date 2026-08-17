@@ -4,12 +4,20 @@ import {
   MdThumbDown,
   MdPersonAdd,
   MdInfo,
+  MdPhoneMissed,
+  MdEmojiEvents,
+  MdCheckCircle,
 } from "react-icons/md";
 
 const ACTION_ICONS = {
   lead_criado: MdPersonAdd,
+  sla_aceito: MdCheckCircle,
   primeira_tentativa: MdPhoneInTalk,
+  segunda_tentativa: MdPhoneInTalk,
+  terceira_tentativa: MdPhoneInTalk,
+  tentativa_sem_retorno: MdPhoneMissed,
   sem_interesse: MdThumbDown,
+  lead_convertido: MdEmojiEvents,
 };
 
 function formatDateTime(dateString) {

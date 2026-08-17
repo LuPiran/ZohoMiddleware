@@ -4,6 +4,12 @@
  */
 
 export const LEAD_STATUSES = [
+  "Novo Lead",
+  "Lead em Qualificação",
+  "Lead Com Interesse",
+  "Lead Sem Contato",
+  "Lead Sem Interesse",
+  "Lead Convertido",
   "Novo",
   "Em contato",
   "Qualificado",

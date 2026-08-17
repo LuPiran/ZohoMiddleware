@@ -94,6 +94,7 @@ export function getConsultorDisplayName(consultor) {
 export async function findConsultoresByRegiao(regiao) {
   if (!regiao) return [];
 
+  const target = String(regiao).trim().toUpperCase();
   const items = [];
   let lastKey;
 
@@ -101,9 +102,9 @@ export async function findConsultoresByRegiao(regiao) {
     const page = await dynamoDocClient.send(
       new ScanCommand({
         TableName: ENV.DYNAMODB_CONSULTORES_TABLE,
-        FilterExpression: "#reg = :reg AND #ativo = :ativo",
-        ExpressionAttributeNames: { "#reg": "regiao", "#ativo": "ativo" },
-        ExpressionAttributeValues: { ":reg": regiao, ":ativo": true },
+        FilterExpression: "#ativo = :ativo",
+        ExpressionAttributeNames: { "#ativo": "ativo" },
+        ExpressionAttributeValues: { ":ativo": true },
         ExclusiveStartKey: lastKey,
       }),
     );
@@ -111,13 +112,17 @@ export async function findConsultoresByRegiao(regiao) {
     lastKey = page.LastEvaluatedKey;
   } while (lastKey);
 
-  items.sort((a, b) => {
+  const matched = items.filter(
+    (c) => String(c.regiao || "").trim().toUpperCase() === target,
+  );
+
+  matched.sort((a, b) => {
     const ta = a.ultimaAtribuicao ? new Date(a.ultimaAtribuicao).getTime() : 0;
     const tb = b.ultimaAtribuicao ? new Date(b.ultimaAtribuicao).getTime() : 0;
     return ta - tb;
   });
 
-  return items;
+  return matched;
 }
 
 /**

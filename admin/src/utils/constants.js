@@ -50,8 +50,14 @@ export const API_ENDPOINTS = {
     LIST: "/v1/leads-medicos",
     DETAIL: (id) => `/v1/leads-medicos/${id}`,
     PRIMEIRA_TENTATIVA: (id) => `/v1/leads-medicos/${id}/primeira-tentativa`,
+    TENTATIVA: (id, round) => `/v1/leads-medicos/${id}/tentativas/${round}`,
+    TENTATIVA_SEM_RETORNO: (id, round) =>
+      `/v1/leads-medicos/${id}/tentativas/${round}/sem-retorno`,
     SEM_INTERESSE: (id) => `/v1/leads-medicos/${id}/sem-interesse`,
     CHECKIN: (id) => `/v1/leads-medicos/${id}/checkin`,
+    ACEITAR: (id) => `/v1/leads-medicos/${id}/aceitar`,
+    RECUSAR: (id) => `/v1/leads-medicos/${id}/recusar`,
+    OFERTAS_PENDENTES: "/v1/leads-medicos/ofertas-pendentes",
   },
   PRODUCTS: {
     LIST: "/v1/products",

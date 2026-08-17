@@ -13,6 +13,12 @@ import {
 import { MdTrendingUp } from "react-icons/md";
 
 const STATUS_COLORS = {
+  "Novo Lead": "#8FA9C1",
+  "Lead em Qualificação": "#E5989B",
+  "Lead Com Interesse": "#3da2b8",
+  "Lead Sem Contato": "#ff9800",
+  "Lead Sem Interesse": "#f44336",
+  "Lead Convertido": "#4caf50",
   Novo: "#8FA9C1",
   "Em contato": "#3da2b8",
   Qualificado: "#E5989B",

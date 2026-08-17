@@ -58,4 +58,48 @@ export const ENV = {
   DYNAMODB_CONSULTORES_EMAIL_ATTR:
     process.env.DYNAMODB_CONSULTORES_EMAIL_ATTR || "email",
   ZOHO_LEADS_WEBHOOK_SECRET: process.env.ZOHO_LEADS_WEBHOOK_SECRET,
+
+  SLA_OFFER_MINUTES: Number(process.env.SLA_OFFER_MINUTES || 10),
+
+  // Módulo CRM dos leads médicos (não confundir com ZOHO_MODULE_NAME dos usuários)
+  ZOHO_LEADS_MODULE: process.env.ZOHO_LEADS_MODULE || "Leads_M_dicos",
+  ZOHO_LEAD_STATUS_FIELD: process.env.ZOHO_LEAD_STATUS_FIELD || "Status",
+  ZOHO_LEAD_CONSULTOR_FIELD:
+    process.env.ZOHO_LEAD_CONSULTOR_FIELD || "Consultor_Tegra",
+  ZOHO_LEAD_EMAIL_CONSULTOR_FIELD: process.env.ZOHO_LEAD_EMAIL_CONSULTOR_FIELD || "",
+  ZOHO_LEAD_DATA_QUALIFICADO_FIELD:
+    process.env.ZOHO_LEAD_DATA_QUALIFICADO_FIELD || "Data_Lead_qualifica_o",
+  ZOHO_LEAD_DATA_INTERESSE_FIELD:
+    process.env.ZOHO_LEAD_DATA_INTERESSE_FIELD || "Data_Lead_Com_Interesse",
+  ZOHO_LEAD_DATA_SEM_CONTATO_FIELD:
+    process.env.ZOHO_LEAD_DATA_SEM_CONTATO_FIELD || "Data_lead_sem_contato",
+  ZOHO_LEAD_DATA_SEM_INTERESSE_FIELD:
+    process.env.ZOHO_LEAD_DATA_SEM_INTERESSE_FIELD || "Data_lead_sem_interesse",
+  ZOHO_LEAD_DATA_CONVERTIDO_FIELD:
+    process.env.ZOHO_LEAD_DATA_CONVERTIDO_FIELD || "Data_Conversao",
+  ZOHO_LEAD_DATA_1A_FIELD: process.env.ZOHO_LEAD_DATA_1A_FIELD || "Data_1_Tentativa",
+  ZOHO_LEAD_OBS_1A_FIELD: process.env.ZOHO_LEAD_OBS_1A_FIELD || "Tentativa_1",
+  ZOHO_LEAD_STATUS_1A_FIELD:
+    process.env.ZOHO_LEAD_STATUS_1A_FIELD || "Status_1_Tentativa",
+  ZOHO_LEAD_DATA_2A_FIELD: process.env.ZOHO_LEAD_DATA_2A_FIELD || "Data_2_Tentativa",
+  ZOHO_LEAD_OBS_2A_FIELD: process.env.ZOHO_LEAD_OBS_2A_FIELD || "Tentativa_2",
+  ZOHO_LEAD_STATUS_2A_FIELD:
+    process.env.ZOHO_LEAD_STATUS_2A_FIELD || "Status_2_Tentativa",
+  ZOHO_LEAD_DATA_3A_FIELD: process.env.ZOHO_LEAD_DATA_3A_FIELD || "Data_3_Tentativa",
+  ZOHO_LEAD_OBS_3A_FIELD: process.env.ZOHO_LEAD_OBS_3A_FIELD || "Tentativa_3",
+  ZOHO_LEAD_STATUS_3A_FIELD:
+    process.env.ZOHO_LEAD_STATUS_3A_FIELD || "Status_3_Tentativa",
+  ZOHO_LEAD_ADD_2A_FIELD:
+    process.env.ZOHO_LEAD_ADD_2A_FIELD || "Adicionar_2_Tentativa",
+  ZOHO_LEAD_ADD_3A_FIELD:
+    process.env.ZOHO_LEAD_ADD_3A_FIELD || "Adicionar_3_Tentativa",
+
+  // E-mail transacional: none | microsoft | resend
+  MAIL_PROVIDER: (process.env.MAIL_PROVIDER || "none").toLowerCase(),
+  MAIL_FROM: process.env.MAIL_FROM || "",
+  GRAPH_MAIL_TENANT_ID:
+    process.env.GRAPH_MAIL_TENANT_ID || process.env.ENTRA_TENANT_ID,
+  GRAPH_MAIL_CLIENT_ID: process.env.GRAPH_MAIL_CLIENT_ID,
+  GRAPH_MAIL_CLIENT_SECRET: process.env.GRAPH_MAIL_CLIENT_SECRET,
+  RESEND_API_KEY: process.env.RESEND_API_KEY,
 };

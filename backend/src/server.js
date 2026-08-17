@@ -39,7 +39,8 @@ const allowedOrigins = [
   "http://localhost:5174",
   "http://localhost:3000",
   "http://localhost:8081",
-  ENV.FRONTEND_URL,
+  "http://18.220.136.160",
+  String(ENV.FRONTEND_URL || "").replace(/\/$/, ""),
 ].filter(Boolean);
 
 function isLocalNetworkOrigin(origin) {

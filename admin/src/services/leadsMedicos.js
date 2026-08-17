@@ -22,9 +22,24 @@ export async function getLeadMedico(id) {
   };
 }
 
-export async function registrarPrimeiraTentativa(id, observacao) {
+export async function registrarTentativa(id, round, observacao) {
   const response = await api.post(
-    API_ENDPOINTS.LEADS_MEDICOS.PRIMEIRA_TENTATIVA(id),
+    API_ENDPOINTS.LEADS_MEDICOS.TENTATIVA(id, round),
+    { observacao },
+  );
+  return {
+    success: Boolean(response.data?.success),
+    data: response.data?.data || null,
+  };
+}
+
+export async function registrarPrimeiraTentativa(id, observacao) {
+  return registrarTentativa(id, 1, observacao);
+}
+
+export async function marcarTentativaSemRetorno(id, round, observacao) {
+  const response = await api.post(
+    API_ENDPOINTS.LEADS_MEDICOS.TENTATIVA_SEM_RETORNO(id, round),
     { observacao },
   );
   return {
@@ -45,10 +60,29 @@ export async function marcarLeadSemInteresse(id, observacao) {
 }
 
 export async function confirmarCheckin(id) {
-  const response = await api.post(API_ENDPOINTS.LEADS_MEDICOS.CHECKIN(id));
+  const response = await api.post(API_ENDPOINTS.LEADS_MEDICOS.ACEITAR(id));
   return {
     success: Boolean(response.data?.success),
     data: response.data?.data || null,
+  };
+}
+
+export async function recusarOferta(id) {
+  const response = await api.post(API_ENDPOINTS.LEADS_MEDICOS.RECUSAR(id));
+  return {
+    success: Boolean(response.data?.success),
+    data: response.data?.data || null,
+  };
+}
+
+export async function listPendingOffers() {
+  const response = await api.get(API_ENDPOINTS.LEADS_MEDICOS.OFERTAS_PENDENTES);
+  return {
+    success: Boolean(response.data?.success),
+    role: response.data?.role,
+    viewer: response.data?.viewer || null,
+    total: response.data?.total ?? response.data?.data?.length ?? 0,
+    data: Array.isArray(response.data?.data) ? response.data.data : [],
   };
 }
 
@@ -56,6 +90,11 @@ export const leadsMedicosService = {
   list: listLeadsMedicos,
   getById: getLeadMedico,
   registrarPrimeiraTentativa,
+  registrarTentativa,
   marcarSemInteresse: marcarLeadSemInteresse,
+  marcarSemRetorno: marcarTentativaSemRetorno,
   confirmarCheckin,
+  aceitarOferta: confirmarCheckin,
+  recusarOferta,
+  listPendingOffers,
 };

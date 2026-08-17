@@ -6,6 +6,7 @@ import { getPlatformUpdateStorageKey, ROUTES } from "../../utils/constants";
 import { authService } from "../../services/auth";
 import Header from "./Header";
 import Navbar from "./Navbar";
+import SlaOfferModal from "./SlaOfferModal";
 
 /**
  * Layout principal da aplicação
@@ -57,6 +58,7 @@ export default function MainLayout({ children }) {
         isOpen={showPlatformUpdate && isDashboardRoute}
         onContinue={handleContinue}
       />
+      <SlaOfferModal />
     </div>
   );
 }

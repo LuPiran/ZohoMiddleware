@@ -4,7 +4,12 @@ import {
   createLeadFromZoho,
   getLeadForUser,
   listLeadsForUser,
+  listPendingOffersForUser,
+  markAttemptSemRetorno,
+  markLeadConvertedFromZoho,
   markLeadSemInteresse,
+  recusarLead,
+  registerContactAttempt,
   registerFirstAttempt,
 } from "../services/leadsMedicos.js";
 import { authenticateLeadsWebhook } from "../middleware/leadsWebhookAuth.js";
@@ -33,6 +38,13 @@ function dynamoErrorResponse(res, error) {
     return res.status(404).json({
       success: false,
       error: error.message || "Não encontrado",
+    });
+  }
+
+  if (error.status === 409 || error.code === "OFFER_GONE") {
+    return res.status(409).json({
+      success: false,
+      error: error.message || "Oferta não está mais disponível",
     });
   }
 
@@ -103,6 +115,85 @@ router.get("/", authenticateToken, async (req, res) => {
 });
 
 /**
+ * Ofertas SLA pendentes do consultor logado.
+ * GET /v1/leads-medicos/ofertas-pendentes
+ */
+router.get("/ofertas-pendentes", authenticateToken, async (req, res) => {
+  try {
+    const result = await listPendingOffersForUser(req.user);
+    return res.json({
+      success: true,
+      role: result.role,
+      viewer: result.viewer,
+      total: result.offers.length,
+      data: result.offers,
+    });
+  } catch (error) {
+    console.error("[LEADS] Erro ao listar ofertas:", error);
+    const handled = dynamoErrorResponse(res, error);
+    if (handled) return handled;
+
+    return res.status(500).json({
+      success: false,
+      error: error.message || "Erro ao listar ofertas pendentes",
+    });
+  }
+});
+
+/**
+ * Cria lead médico no DynamoDB a partir do Zoho CRM.
+ * POST /v1/leads-medicos/from-zoho
+ */
+router.post("/from-zoho", authenticateLeadsWebhook, writeRateLimiter, async (req, res) => {
+  try {
+    console.log("[LEADS] Recebendo lead do Zoho");
+
+    const result = await createLeadFromZoho(req.body);
+
+    return res.status(result.created ? 201 : 200).json({
+      success: true,
+      created: result.created,
+      alreadyExists: result.alreadyExists,
+      data: result.lead,
+    });
+  } catch (error) {
+    console.error("[LEADS] Erro ao criar lead:", error);
+    const handled = dynamoErrorResponse(res, error);
+    if (handled) return handled;
+
+    return res.status(500).json({
+      success: false,
+      error: error.message || "Erro ao criar lead médico",
+    });
+  }
+});
+
+/**
+ * Zoho informa conversão do lead.
+ * POST /v1/leads-medicos/convertido
+ */
+router.post("/convertido", authenticateLeadsWebhook, writeRateLimiter, async (req, res) => {
+  try {
+    const result = await markLeadConvertedFromZoho(req.body);
+    return res.json({
+      success: true,
+      updated: result.updated,
+      alreadyConverted: result.alreadyConverted,
+      data: result.lead,
+    });
+  } catch (error) {
+    console.error("[LEADS] Erro ao converter lead:", error);
+    const handled = dynamoErrorResponse(res, error);
+    if (handled) return handled;
+
+    return res.status(500).json({
+      success: false,
+      error: error.message || "Erro ao marcar lead convertido",
+    });
+  }
+});
+
+/**
  * Detalhe de um lead.
  * GET /v1/leads-medicos/:id
  */
@@ -155,6 +246,68 @@ router.post(
       return res.status(500).json({
         success: false,
         error: error.message || "Erro ao registrar primeira tentativa",
+      });
+    }
+  },
+);
+
+/**
+ * Registra 1ª, 2ª ou 3ª tentativa como tratado pelo consultor.
+ * POST /v1/leads-medicos/:id/tentativas/:round
+ */
+router.post(
+  "/:id/tentativas/:round",
+  authenticateToken,
+  requireSafeResourceId("id"),
+  writeRateLimiter,
+  async (req, res) => {
+    try {
+      const lead = await registerContactAttempt(
+        req.params.id,
+        req.user,
+        req.params.round,
+        { observacao: req.body?.observacao || req.body?.descricao },
+      );
+      return res.json({ success: true, data: lead });
+    } catch (error) {
+      console.error("[LEADS] Erro na tentativa:", error);
+      const handled = dynamoErrorResponse(res, error);
+      if (handled) return handled;
+
+      return res.status(500).json({
+        success: false,
+        error: error.message || "Erro ao registrar tentativa",
+      });
+    }
+  },
+);
+
+/**
+ * Marca a tentativa como Sem Retorno.
+ * POST /v1/leads-medicos/:id/tentativas/:round/sem-retorno
+ */
+router.post(
+  "/:id/tentativas/:round/sem-retorno",
+  authenticateToken,
+  requireSafeResourceId("id"),
+  writeRateLimiter,
+  async (req, res) => {
+    try {
+      const lead = await markAttemptSemRetorno(
+        req.params.id,
+        req.user,
+        req.params.round,
+        { observacao: req.body?.observacao || req.body?.descricao },
+      );
+      return res.json({ success: true, data: lead });
+    } catch (error) {
+      console.error("[LEADS] Erro no sem retorno:", error);
+      const handled = dynamoErrorResponse(res, error);
+      if (handled) return handled;
+
+      return res.status(500).json({
+        success: false,
+        error: error.message || "Erro ao marcar tentativa sem retorno",
       });
     }
   },
@@ -215,31 +368,55 @@ router.post(
 );
 
 /**
- * Cria lead médico no DynamoDB a partir do Zoho CRM.
- * POST /v1/leads-medicos/from-zoho
+ * Aceita a oferta SLA (alias de check-in).
+ * POST /v1/leads-medicos/:id/aceitar
  */
-router.post("/from-zoho", authenticateLeadsWebhook, writeRateLimiter, async (req, res) => {
-  try {
-    console.log("[LEADS] Recebendo lead do Zoho");
+router.post(
+  "/:id/aceitar",
+  authenticateToken,
+  requireSafeResourceId("id"),
+  writeRateLimiter,
+  async (req, res) => {
+    try {
+      const lead = await checkinLead(req.params.id, req.user);
+      return res.json({ success: true, data: lead });
+    } catch (error) {
+      console.error("[LEADS] Erro ao aceitar oferta:", error);
+      const handled = dynamoErrorResponse(res, error);
+      if (handled) return handled;
 
-    const result = await createLeadFromZoho(req.body);
+      return res.status(500).json({
+        success: false,
+        error: error.message || "Erro ao aceitar o lead",
+      });
+    }
+  },
+);
 
-    return res.status(result.created ? 201 : 200).json({
-      success: true,
-      created: result.created,
-      alreadyExists: result.alreadyExists,
-      data: result.lead,
-    });
-  } catch (error) {
-    console.error("[LEADS] Erro ao criar lead:", error);
-    const handled = dynamoErrorResponse(res, error);
-    if (handled) return handled;
+/**
+ * Recusa a oferta SLA e envia ao próximo consultor da região.
+ * POST /v1/leads-medicos/:id/recusar
+ */
+router.post(
+  "/:id/recusar",
+  authenticateToken,
+  requireSafeResourceId("id"),
+  writeRateLimiter,
+  async (req, res) => {
+    try {
+      const lead = await recusarLead(req.params.id, req.user);
+      return res.json({ success: true, data: lead });
+    } catch (error) {
+      console.error("[LEADS] Erro ao recusar oferta:", error);
+      const handled = dynamoErrorResponse(res, error);
+      if (handled) return handled;
 
-    return res.status(500).json({
-      success: false,
-      error: error.message || "Erro ao criar lead médico",
-    });
-  }
-});
+      return res.status(500).json({
+        success: false,
+        error: error.message || "Erro ao recusar o lead",
+      });
+    }
+  },
+);
 
 export default router;
