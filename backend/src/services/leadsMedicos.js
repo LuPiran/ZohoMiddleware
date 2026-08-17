@@ -27,6 +27,7 @@ import { notifyLeadOffer } from "./emailService.js";
 import {
   ZOHO_ATTEMPT_STATUS,
   ZOHO_LEAD_STATUS,
+  canonicalizeLeadStatus,
   syncZohoLeadAccepted,
   syncZohoLeadAttemptNoReturn,
   syncZohoLeadAttemptTreated,
@@ -83,6 +84,8 @@ function parseAttemptRound(round) {
   return n;
 }
 
+const ATTEMPT_WINDOW_MONTHS = 1;
+
 function isLeadClosed(lead) {
   return (
     Boolean(lead?.dataSemInteresse) ||
@@ -97,13 +100,62 @@ function isAttemptRoundDone(lead, round) {
   return Boolean(lead?.[meta.date]);
 }
 
+function isAttemptTreated(lead, round) {
+  return normalizeText(lead?.[ATTEMPT_ROUNDS[round].status]).includes("tratado");
+}
+
+function isAttemptNoReturn(lead, round) {
+  return normalizeText(lead?.[ATTEMPT_ROUNDS[round].status]).includes("retorno");
+}
+
+function qualificationStartIso(lead) {
+  return lead?.dataQualificado || lead?.slaCheckinAt || null;
+}
+
+function addCalendarMonths(iso, months) {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  const result = new Date(date.getTime());
+  result.setMonth(result.getMonth() + months);
+  return result;
+}
+
+function attemptDeadlineAt(lead, round) {
+  const start = qualificationStartIso(lead);
+  if (!start || !round) return null;
+  return addCalendarMonths(start, round * ATTEMPT_WINDOW_MONTHS);
+}
+
+function daysUntil(iso) {
+  if (!iso) return null;
+  const target = iso instanceof Date ? iso : new Date(iso);
+  if (Number.isNaN(target.getTime())) return null;
+  const ms = target.getTime() - Date.now();
+  if (ms <= 0) return 0;
+  return Math.ceil(ms / (24 * 60 * 60 * 1000));
+}
+
+function isAttemptWindowOpen(lead, round) {
+  const deadline = attemptDeadlineAt(lead, round);
+  if (!deadline) return false;
+  return Date.now() <= deadline.getTime();
+}
+
+/**
+ * Próxima tentativa em aberto.
+ * A 2ª/3ª só existem se a anterior venceu o prazo (Sem Retorno).
+ * Tentativa tratada no prazo encerra a cadeia.
+ */
 function currentOpenAttemptRound(lead) {
   if (isLeadClosed(lead) || !isSlaAccepted(lead)) return null;
   for (const round of [1, 2, 3]) {
-    if (!isAttemptRoundDone(lead, round)) {
-      if (round === 1 || isAttemptRoundDone(lead, round - 1)) return round;
-      return null;
+    if (isAttemptRoundDone(lead, round)) {
+      if (isAttemptTreated(lead, round)) return null;
+      continue;
     }
+    if (round === 1) return 1;
+    if (isAttemptNoReturn(lead, round - 1)) return round;
+    return null;
   }
   return null;
 }
@@ -346,8 +398,10 @@ export function mapZohoPayloadToLead(payload) {
     resolveRegiaoFromUF(ufCrm || estado) ||
     null;
 
-  const status =
-    asString(pick(source, ["status", "Status", "Stage"])) || "Qualificado";
+  const status = canonicalizeLeadStatus(
+    asString(pick(source, ["status", "Status", "Stage"])),
+    ZOHO_LEAD_STATUS.NOVO,
+  );
   const dataNovoLead = asIsoDate(
     pick(source, [
       "dataNovoLead",
@@ -400,7 +454,7 @@ export function mapZohoPayloadToLead(payload) {
     entradaEm,
     dataNovoLead: dataNovoLead || now,
     dataConversao: null,
-    dataQualificado: dataQualificado || now,
+    dataQualificado: dataQualificado || null,
     dataSemInteresse: null,
     dataSemContato: null,
     dataEmContato: null,
@@ -1087,8 +1141,7 @@ export function buildLeadTimeline(lead) {
 }
 
 export function toLeadDetail(lead) {
-  const qualificadoEm = lead.dataQualificado || lead.entradaEm || lead.createdAt;
-  const daysSinceQualification = daysBetween(qualificadoEm);
+  const qualificadoEm = qualificationStartIso(lead);
   const hasFirstAttempt = Boolean(lead.dataPrimeiraTentativa);
   const hasSecondAttempt = Boolean(lead.dataSegundaTentativa);
   const hasThirdAttempt = Boolean(lead.dataTerceiraTentativa);
@@ -1097,6 +1150,22 @@ export function toLeadDetail(lead) {
     lead.dataConversao || normalizeText(lead.status).includes("convert"),
   );
   const currentRound = currentOpenAttemptRound(lead);
+  const deadlineAt = currentRound ? attemptDeadlineAt(lead, currentRound) : null;
+  const daysRemaining = daysUntil(deadlineAt);
+  const expired = Boolean(
+    currentRound && deadlineAt && Date.now() > deadlineAt.getTime(),
+  );
+  const treatedOnTime =
+    !currentRound &&
+    (isAttemptTreated(lead, 1) ||
+      isAttemptTreated(lead, 2) ||
+      isAttemptTreated(lead, 3));
+
+  const windowLabels = {
+    1: "1ª tentativa — 1 mês a partir da qualificação",
+    2: "2ª tentativa — aberta porque a 1ª não foi feita no prazo",
+    3: "3ª tentativa — aberta porque a 2ª não foi feita no prazo",
+  };
 
   return {
     ...toLeadListItem(lead),
@@ -1123,23 +1192,24 @@ export function toLeadDetail(lead) {
     historico: Array.isArray(lead.historico) ? lead.historico : [],
     timeline: buildLeadTimeline(lead),
     attempt: {
-      daysSinceQualification,
+      daysSinceQualification: daysBetween(qualificadoEm),
+      daysRemaining,
+      deadlineAt: deadlineAt ? deadlineAt.toISOString() : null,
+      expired,
+      treatedOnTime,
       currentRound,
-      canRegisterAttempt: currentRound !== null,
-      canRegisterFirstAttempt: currentRound === 1,
+      canRegisterAttempt: currentRound !== null && !expired,
+      canRegisterFirstAttempt: currentRound === 1 && !expired,
       hasFirstAttempt,
       hasSecondAttempt,
       hasThirdAttempt,
       hasSemInteresse,
       converted,
-      windowLabel:
-        currentRound === 1
-          ? "1ª tentativa — a partir da data de qualificação"
-          : currentRound === 2
-            ? "2ª tentativa"
-            : currentRound === 3
-              ? "3ª tentativa"
-              : "Tentativas de contato",
+      windowLabel: expired
+        ? "Prazo de 1 mês encerrado. Sem retorno será aplicado automaticamente."
+        : treatedOnTime
+          ? "Tentativa registrada no prazo. A próxima não será aberta."
+          : windowLabels[currentRound] || "Tentativas de contato",
     },
   };
 }
@@ -1258,6 +1328,15 @@ export async function registerContactAttempt(leadId, user, round, { observacao }
     throw err;
   }
 
+  if (!isAttemptWindowOpen(lead, n)) {
+    const err = new Error(
+      "O prazo de 1 mês desta tentativa já encerrou. Sem retorno será aplicado automaticamente.",
+    );
+    err.status = 400;
+    err.code = "VALIDATION_ERROR";
+    throw err;
+  }
+
   const note = asString(observacao);
   if (!note || note.length < 3) {
     const err = new Error(`Informe a observação da ${meta.label.toLowerCase()} (mín. 3 caracteres).`);
@@ -1291,9 +1370,6 @@ export async function registerContactAttempt(leadId, user, round, { observacao }
     historico,
   };
 
-  if (n === 1) updates.adicionarSegundaTentativa = true;
-  if (n === 2) updates.adicionarTerceiraTentativa = true;
-
   const updated = await updateLeadItem(leadId, updates);
   syncZohoLeadAttemptTreated(updated, n, { observacao: note, at: now });
   return toLeadDetail(updated);
@@ -1304,41 +1380,31 @@ export async function registerFirstAttempt(leadId, user, payload = {}) {
 }
 
 /**
- * Marca a tentativa aberta como Sem Retorno e envia Lead Sem Contato ao Zoho.
+ * Sem retorno é automático ao vencer o prazo de 1 mês.
+ * Consultores não disparam esta ação.
  */
-export async function markAttemptSemRetorno(leadId, user, round, { observacao } = {}) {
+export async function markAttemptSemRetorno() {
+  const err = new Error(
+    "Sem retorno é aplicado automaticamente quando o prazo de 1 mês da tentativa vence.",
+  );
+  err.status = 400;
+  err.code = "VALIDATION_ERROR";
+  throw err;
+}
+
+async function applyAttemptTimeout(raw, round) {
   const n = parseAttemptRound(round);
   const meta = ATTEMPT_ROUNDS[n];
-  const detail = await getLeadForUser(leadId, user);
-  const lead = detail.lead;
-
-  if (lead.attempt.converted || lead.attempt.hasSemInteresse) {
-    const err = new Error("Lead já encerrado (sem interesse / convertido).");
-    err.status = 400;
-    err.code = "VALIDATION_ERROR";
-    throw err;
-  }
-
-  if (lead.attempt.currentRound !== n) {
-    const err = new Error(`${meta.label} não está disponível para Sem Retorno.`);
-    err.status = 400;
-    err.code = "VALIDATION_ERROR";
-    throw err;
-  }
+  if (isLeadClosed(raw) || isAttemptRoundDone(raw, n)) return null;
+  if (currentOpenAttemptRound(raw) !== n) return null;
+  if (isAttemptWindowOpen(raw, n)) return null;
 
   const now = new Date().toISOString();
-  const note = asString(observacao);
-  const raw = (
-    await dynamoDocClient.send(
-      new GetCommand({ TableName: TABLE(), Key: { id: leadId } }),
-    )
-  ).Item;
-
   const historico = appendHistorico(raw, {
     action: "tentativa_sem_retorno",
     label: `${meta.label} — sem retorno`,
-    detail: note || "Consultor não obteve retorno nesta tentativa.",
-    by: user.email || user.id || "usuario",
+    detail: "Prazo de 1 mês encerrado sem registro da tentativa.",
+    by: "sistema",
   });
 
   const updates = {
@@ -1349,13 +1415,52 @@ export async function markAttemptSemRetorno(leadId, user, round, { observacao } 
     updatedAt: now,
     historico,
   };
-  if (note) updates[meta.desc] = note;
   if (n === 1) updates.adicionarSegundaTentativa = true;
   if (n === 2) updates.adicionarTerceiraTentativa = true;
 
-  const updated = await updateLeadItem(leadId, updates);
-  syncZohoLeadAttemptNoReturn(updated, n, { at: now, observacao: note });
-  return toLeadDetail(updated);
+  const updated = await updateLeadItem(raw.id, updates);
+  syncZohoLeadAttemptNoReturn(updated, n, { at: now });
+  return updated;
+}
+
+/**
+ * Varre leads aceitos cujo prazo da tentativa aberta já venceu.
+ */
+export async function expireOverdueAttempts() {
+  const items = [];
+  for (const status of ["aceito", "confirmado"]) {
+    let lastKey;
+    do {
+      const page = await dynamoDocClient.send(
+        new ScanCommand({
+          TableName: TABLE(),
+          FilterExpression: "#ss = :status",
+          ExpressionAttributeNames: { "#ss": "slaStatus" },
+          ExpressionAttributeValues: { ":status": status },
+          ExclusiveStartKey: lastKey,
+        }),
+      );
+      items.push(...(page.Items || []));
+      lastKey = page.LastEvaluatedKey;
+    } while (lastKey);
+  }
+
+  let expired = 0;
+  for (const lead of items) {
+    const round = currentOpenAttemptRound(lead);
+    if (!round) continue;
+    if (isAttemptWindowOpen(lead, round)) continue;
+    try {
+      const updated = await applyAttemptTimeout(lead, round);
+      if (updated) expired += 1;
+    } catch (error) {
+      console.warn(
+        `[TENTATIVAS] Falha ao expirar lead ${lead.id}:`,
+        error.message,
+      );
+    }
+  }
+  return expired;
 }
 
 /**
@@ -1486,7 +1591,7 @@ export async function checkinLead(leadId, user) {
       slaStatus: "aceito",
       slaCheckinAt: now,
       status: ZOHO_LEAD_STATUS.QUALIFICACAO,
-      dataQualificado: raw.dataQualificado || now,
+      dataQualificado: now,
       updatedAt: now,
       historico,
     },

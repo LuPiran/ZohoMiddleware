@@ -197,27 +197,6 @@ export default function LeadDetail() {
     }
   };
 
-  const handleSemRetorno = async (round, observacao) => {
-    setSubmitting(true);
-    try {
-      const result = await leadsMedicosService.marcarSemRetorno(
-        id,
-        round,
-        observacao,
-      );
-      setLead(result.data);
-      showToast("Tentativa marcada como Sem Retorno", "success", 2500);
-    } catch (err) {
-      const message =
-        err?.response?.data?.error ||
-        err?.message ||
-        "Erro ao marcar sem retorno";
-      showToast(message, "error", 3500);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   const handleAccept = async () => {
     setSubmitting(true);
     try {
@@ -349,7 +328,6 @@ export default function LeadDetail() {
               lead={lead}
               submitting={submitting}
               onSubmitAttempt={handleAttempt}
-              onSemRetorno={handleSemRetorno}
               onSemInteresse={handleSemInteresse}
             />
             <LeadHistory historico={lead.historico} />

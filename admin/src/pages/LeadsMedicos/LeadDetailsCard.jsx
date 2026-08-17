@@ -13,6 +13,7 @@ import {
   MdLocationCity,
   MdMarkunreadMailbox,
 } from "react-icons/md";
+import { canonicalizeLeadStatus, getLeadStatusMeta } from "./leadStatus";
 
 function DetailItem({ icon: Icon, label, value }) {
   return (
@@ -54,6 +55,28 @@ function formatCep(cep) {
   return String(cep);
 }
 
+function LeadStatusChip({ status }) {
+  const label = canonicalizeLeadStatus(status) || status || "—";
+  const meta = getLeadStatusMeta(label);
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold"
+      style={{
+        color: meta.color,
+        backgroundColor: meta.soft,
+        boxShadow: `inset 0 0 0 1px ${meta.color}33`,
+      }}
+    >
+      <span
+        className="h-1.5 w-1.5 rounded-full"
+        style={{ backgroundColor: meta.chart || meta.color }}
+        aria-hidden
+      />
+      {label}
+    </span>
+  );
+}
+
 export default function LeadDetailsCard({ lead }) {
   if (!lead) return null;
 
@@ -78,13 +101,9 @@ export default function LeadDetailsCard({ lead }) {
         <h2 className="mt-1 text-xl font-bold text-tegra-blue-dark">
           {lead.nome || "Lead sem nome"}
         </h2>
-        <p className="mt-1 text-sm text-tegra-text-secondary">
-          Status:{" "}
-          <span className="font-semibold text-tegra-text-primary">
-            {lead.status || "—"}
-          </span>
-          {" · "}
-          Qualificado em {formatDate(lead.dataQualificado || lead.entradaEm)}
+        <p className="mt-1 text-sm text-tegra-text-secondary flex flex-wrap items-center gap-2">
+          <LeadStatusChip status={lead.status} />
+          <span>· Qualificado em {formatDate(lead.dataQualificado || lead.entradaEm)}</span>
         </p>
       </div>
 

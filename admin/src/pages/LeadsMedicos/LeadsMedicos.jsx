@@ -23,59 +23,13 @@ import {
   aggregateLeadsByStatus,
   computeConversionRate,
 } from "./mockLeads";
+import {
+  canonicalizeLeadStatus,
+  getLeadStatusMeta,
+  isConvertedLeadStatus,
+} from "./leadStatus";
 
 const PER_PAGE = 10;
-
-const STATUS_STYLES = {
-  "Novo Lead": {
-    color: "#8FA9C1",
-    soft: "rgba(143, 169, 193, 0.16)",
-  },
-  "Lead em Qualificação": {
-    color: "#E5989B",
-    soft: "rgba(229, 152, 155, 0.16)",
-  },
-  "Lead Com Interesse": {
-    color: "#3da2b8",
-    soft: "rgba(61, 162, 184, 0.14)",
-  },
-  "Lead Sem Contato": {
-    color: "#ff9800",
-    soft: "rgba(255, 152, 0, 0.14)",
-  },
-  "Lead Sem Interesse": {
-    color: "#f44336",
-    soft: "rgba(244, 67, 54, 0.12)",
-  },
-  "Lead Convertido": {
-    color: "#4caf50",
-    soft: "rgba(76, 175, 80, 0.14)",
-  },
-  Novo: {
-    color: "#8FA9C1",
-    soft: "rgba(143, 169, 193, 0.16)",
-  },
-  "Em contato": {
-    color: "#3da2b8",
-    soft: "rgba(61, 162, 184, 0.14)",
-  },
-  Qualificado: {
-    color: "#E5989B",
-    soft: "rgba(229, 152, 155, 0.16)",
-  },
-  "Lead Em Qualificação": {
-    color: "#E5989B",
-    soft: "rgba(229, 152, 155, 0.16)",
-  },
-  Convertido: {
-    color: "#4caf50",
-    soft: "rgba(76, 175, 80, 0.14)",
-  },
-  Perdido: {
-    color: "#f44336",
-    soft: "rgba(244, 67, 54, 0.12)",
-  },
-};
 
 const EMPTY_FILTERS = {
   statuses: [],
@@ -92,10 +46,8 @@ const EMPTY_FILTERS = {
 };
 
 function StatusBadge({ status }) {
-  const style = STATUS_STYLES[status] || {
-    color: "#1a2f5b",
-    soft: "rgba(26, 47, 91, 0.08)",
-  };
+  const label = canonicalizeLeadStatus(status) || status || "—";
+  const style = getLeadStatusMeta(label);
 
   return (
     <span
@@ -108,10 +60,10 @@ function StatusBadge({ status }) {
     >
       <span
         className="h-1.5 w-1.5 rounded-full"
-        style={{ backgroundColor: style.color }}
+        style={{ backgroundColor: style.chart || style.color }}
         aria-hidden
       />
-      {status}
+      {label}
     </span>
   );
 }
@@ -244,7 +196,7 @@ export default function LeadsMedicos() {
 
       const matchesStatus =
         appliedFilters.statuses.length === 0 ||
-        appliedFilters.statuses.includes(lead.status);
+        appliedFilters.statuses.includes(canonicalizeLeadStatus(lead.status));
 
       const matchesEspecialidade =
         appliedFilters.especialidades.length === 0 ||
@@ -308,8 +260,7 @@ export default function LeadsMedicos() {
   const convertedCount = useMemo(
     () =>
       filteredLeads.filter((lead) => {
-        const status = String(lead.status || "").toLowerCase();
-        return status === "convertido" || status.includes("conver");
+        return isConvertedLeadStatus(lead.status);
       }).length,
     [filteredLeads],
   );

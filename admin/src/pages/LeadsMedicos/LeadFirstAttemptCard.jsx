@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MdSchedule, MdSend, MdThumbDown, MdPhoneMissed } from "react-icons/md";
+import { MdSchedule, MdSend, MdThumbDown } from "react-icons/md";
 import Button from "../../components/ui/Button";
 import Textarea from "../../components/ui/Textarea";
 
@@ -12,6 +12,15 @@ const ROUND_COPY = {
 function formatWhen(iso) {
   if (!iso) return "—";
   return new Date(iso).toLocaleString("pt-BR");
+}
+
+function formatDeadline(iso) {
+  if (!iso) return null;
+  return new Date(iso).toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 function RoundHistory({ title, date, status, description }) {
@@ -40,10 +49,51 @@ function RoundHistory({ title, date, status, description }) {
   );
 }
 
+function DaysRemainingChip({ days, expired, deadlineAt }) {
+  const value = days === null ? "—" : days < 0 ? 0 : days;
+  const urgent = expired || (typeof days === "number" && days <= 5);
+  const deadlineLabel = formatDeadline(deadlineAt);
+
+  return (
+    <div
+      className={`inline-flex items-center gap-2.5 rounded-2xl border px-3 py-2 ${
+        urgent
+          ? "border-[#E5989B]/55 bg-[#FBE9EA]"
+          : "border-[#E5989B]/35 bg-[#F7F1F2]"
+      }`}
+    >
+      <span
+        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+          urgent ? "bg-[#E07076]" : "bg-[#E5989B]"
+        }`}
+        aria-hidden
+      >
+        <MdSchedule className="text-lg text-white" />
+      </span>
+      <div>
+        <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-tegra-text-secondary">
+          Dias até o fim da tentativa
+        </p>
+        <p className="text-lg font-bold tabular-nums leading-none text-tegra-blue-dark">
+          {value}
+          <span className="ml-1 text-xs font-medium text-tegra-text-secondary">
+            dias
+          </span>
+        </p>
+        {deadlineLabel && (
+          <p className="mt-1 text-[11px] text-tegra-text-secondary">
+            {expired ? "Prazo encerrado em " : "Até "}
+            {deadlineLabel}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function LeadFirstAttemptCard({
   lead,
   onSubmitAttempt,
-  onSemRetorno,
   onSemInteresse,
   submitting,
 }) {
@@ -54,9 +104,7 @@ export default function LeadFirstAttemptCard({
   const round = attempt.currentRound;
   const copy = ROUND_COPY[round] || ROUND_COPY[1];
   const days =
-    typeof attempt.daysSinceQualification === "number"
-      ? attempt.daysSinceQualification
-      : null;
+    typeof attempt.daysRemaining === "number" ? attempt.daysRemaining : null;
 
   const handleAttempt = async () => {
     if (!observacao.trim() || observacao.trim().length < 3) {
@@ -68,20 +116,9 @@ export default function LeadFirstAttemptCard({
     setObservacao("");
   };
 
-  const handleSemRetorno = async () => {
-    const ok = window.confirm(
-      `Marcar a ${copy.title.toLowerCase()} como Sem Retorno? O status no Zoho vai para Lead Sem Contato.`,
-    );
-    if (!ok) return;
-    setError("");
-    await onSemRetorno(round, observacao.trim());
-    setObservacao("");
-  };
-
   const handleSemInteresse = async () => {
     setError("");
     await onSemInteresse(observacao.trim());
-    setObservacao("");
   };
 
   if (attempt.converted) {
@@ -123,7 +160,8 @@ export default function LeadFirstAttemptCard({
           Tentativas de contato
         </h2>
         <p className="mt-1 text-sm text-tegra-text-secondary">
-          Aceite o lead para registrar as tentativas e sincronizar o status no Zoho.
+          Aceite o lead para registrar as tentativas. O prazo de 1 mês começa na
+          qualificação.
         </p>
       </section>
     );
@@ -150,6 +188,8 @@ export default function LeadFirstAttemptCard({
     },
   ].filter(Boolean);
 
+  const showCountdown = Boolean(attempt.currentRound || attempt.deadlineAt);
+
   return (
     <section
       aria-label="Tentativas de contato"
@@ -165,20 +205,13 @@ export default function LeadFirstAttemptCard({
           </p>
         </div>
 
-        <div className="inline-flex items-center gap-2 rounded-xl border border-tegra-teal/25 bg-tegra-teal/10 px-3 py-2 text-tegra-blue-dark">
-          <MdSchedule className="text-xl text-tegra-teal" aria-hidden />
-          <div>
-            <p className="text-[10px] uppercase tracking-wide font-semibold text-tegra-text-secondary">
-              Dias desde a qualificação
-            </p>
-            <p className="text-lg font-bold tabular-nums leading-none">
-              {days === null ? "—" : days < 0 ? 0 : days}
-              <span className="ml-1 text-xs font-medium text-tegra-text-secondary">
-                dias
-              </span>
-            </p>
-          </div>
-        </div>
+        {showCountdown && (
+          <DaysRemainingChip
+            days={days}
+            expired={attempt.expired}
+            deadlineAt={attempt.deadlineAt}
+          />
+        )}
       </div>
 
       <div className="p-4 sm:p-5 space-y-4">
@@ -212,15 +245,6 @@ export default function LeadFirstAttemptCard({
               >
                 <MdThumbDown aria-hidden />
                 Lead sem interesse
-              </Button>
-              <Button
-                variant="secondary"
-                className="inline-flex items-center justify-center gap-2"
-                disabled={submitting}
-                onClick={handleSemRetorno}
-              >
-                <MdPhoneMissed aria-hidden />
-                Sem retorno
               </Button>
               <Button
                 variant="teal"

@@ -3,19 +3,9 @@
  * Rótulo: SYNTHETIC
  */
 
-export const LEAD_STATUSES = [
-  "Novo Lead",
-  "Lead em Qualificação",
-  "Lead Com Interesse",
-  "Lead Sem Contato",
-  "Lead Sem Interesse",
-  "Lead Convertido",
-  "Novo",
-  "Em contato",
-  "Qualificado",
-  "Convertido",
-  "Perdido",
-];
+import { canonicalizeLeadStatus, LEAD_STATUSES as CRM_LEAD_STATUSES } from "./leadStatus";
+
+export const LEAD_STATUSES = CRM_LEAD_STATUSES;
 
 export const LEAD_SPECIALTIES = [
   "Cardiologia",
@@ -193,7 +183,7 @@ export function aggregateLeadsByMonth(leads) {
 export function aggregateLeadsByStatus(leads) {
   const counts = {};
   leads.forEach((lead) => {
-    const status = lead.status || "—";
+    const status = canonicalizeLeadStatus(lead.status) || "—";
     counts[status] = (counts[status] || 0) + 1;
   });
 
@@ -214,8 +204,8 @@ export function aggregateLeadsByStatus(leads) {
 export function computeConversionRate(leads) {
   if (!leads.length) return 0;
   const converted = leads.filter((l) => {
-    const status = String(l.status || "").toLowerCase();
-    return status === "convertido" || status.includes("conver");
+    const status = canonicalizeLeadStatus(l.status);
+    return status === "Lead Convertido";
   }).length;
   return Math.round((converted / leads.length) * 1000) / 10;
 }

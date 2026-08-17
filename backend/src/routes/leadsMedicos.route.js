@@ -283,7 +283,7 @@ router.post(
 );
 
 /**
- * Marca a tentativa como Sem Retorno.
+ * Sem retorno é automático ao vencer o prazo. Consultor não dispara esta ação.
  * POST /v1/leads-medicos/:id/tentativas/:round/sem-retorno
  */
 router.post(
@@ -293,18 +293,11 @@ router.post(
   writeRateLimiter,
   async (req, res) => {
     try {
-      const lead = await markAttemptSemRetorno(
-        req.params.id,
-        req.user,
-        req.params.round,
-        { observacao: req.body?.observacao || req.body?.descricao },
-      );
-      return res.json({ success: true, data: lead });
+      await markAttemptSemRetorno();
+      return res.json({ success: true });
     } catch (error) {
-      console.error("[LEADS] Erro no sem retorno:", error);
       const handled = dynamoErrorResponse(res, error);
       if (handled) return handled;
-
       return res.status(500).json({
         success: false,
         error: error.message || "Erro ao marcar tentativa sem retorno",

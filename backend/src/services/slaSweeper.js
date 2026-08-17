@@ -7,6 +7,7 @@ import {
   reofferLead,
   startOfferCycle,
 } from "./slaOffers.js";
+import { expireOverdueAttempts } from "./leadsMedicos.js";
 
 const TABLE = () => ENV.DYNAMODB_LEADS_TABLE;
 const SWEEP_INTERVAL_MS = 60 * 1000;
@@ -73,6 +74,13 @@ async function runSweep() {
             by: "sweeper",
           }),
         ),
+      );
+    }
+
+    const expiredAttempts = await expireOverdueAttempts();
+    if (expiredAttempts) {
+      console.log(
+        `[SWEEPER] ${expiredAttempts} tentativa(s) vencida(s) — Sem retorno aplicado.`,
       );
     }
 

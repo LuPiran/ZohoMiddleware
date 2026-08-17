@@ -11,20 +11,7 @@ import {
   YAxis,
 } from "recharts";
 import { MdTrendingUp } from "react-icons/md";
-
-const STATUS_COLORS = {
-  "Novo Lead": "#8FA9C1",
-  "Lead em Qualificação": "#E5989B",
-  "Lead Com Interesse": "#3da2b8",
-  "Lead Sem Contato": "#ff9800",
-  "Lead Sem Interesse": "#f44336",
-  "Lead Convertido": "#4caf50",
-  Novo: "#8FA9C1",
-  "Em contato": "#3da2b8",
-  Qualificado: "#E5989B",
-  Convertido: "#4caf50",
-  Perdido: "#f44336",
-};
+import { getLeadStatusColor } from "./leadStatus";
 
 function ChartTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
@@ -141,7 +128,7 @@ export default function LeadsDashboard({
                   {statusData.map((entry) => (
                     <Cell
                       key={entry.name}
-                      fill={STATUS_COLORS[entry.name] || "#8FA9C1"}
+                      fill={getLeadStatusColor(entry.name)}
                     />
                   ))}
                 </Pie>
@@ -158,7 +145,7 @@ export default function LeadsDashboard({
                 <span className="flex items-center gap-2 min-w-0">
                   <span
                     className="w-2.5 h-2.5 rounded-full shrink-0"
-                    style={{ backgroundColor: STATUS_COLORS[entry.name] }}
+                    style={{ backgroundColor: getLeadStatusColor(entry.name) }}
                   />
                   <span className="truncate">{entry.name}</span>
                 </span>

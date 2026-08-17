@@ -2,12 +2,35 @@ import { ENV } from "../config/env.js";
 import { chamarZohoApi } from "./zohoApi.js";
 
 export const ZOHO_LEAD_STATUS = {
-  QUALIFICACAO: "Lead em Qualificação",
+  NOVO: "Novo Lead",
+  QUALIFICACAO: "Lead Em Qualificação",
   COM_INTERESSE: "Lead Com Interesse",
   SEM_CONTATO: "Lead Sem Contato",
   SEM_INTERESSE: "Lead Sem Interesse",
   CONVERTIDO: "Lead Convertido",
 };
+
+const STATUS_ALIASES = {
+  "novo lead": ZOHO_LEAD_STATUS.NOVO,
+  novo: ZOHO_LEAD_STATUS.NOVO,
+  "lead em qualificação": ZOHO_LEAD_STATUS.QUALIFICACAO,
+  "lead em qualificacao": ZOHO_LEAD_STATUS.QUALIFICACAO,
+  qualificado: ZOHO_LEAD_STATUS.QUALIFICACAO,
+  "lead com interesse": ZOHO_LEAD_STATUS.COM_INTERESSE,
+  "em contato": ZOHO_LEAD_STATUS.COM_INTERESSE,
+  "lead sem contato": ZOHO_LEAD_STATUS.SEM_CONTATO,
+  "lead sem interesse": ZOHO_LEAD_STATUS.SEM_INTERESSE,
+  perdido: ZOHO_LEAD_STATUS.SEM_INTERESSE,
+  "lead convertido": ZOHO_LEAD_STATUS.CONVERTIDO,
+  convertido: ZOHO_LEAD_STATUS.CONVERTIDO,
+};
+
+export function canonicalizeLeadStatus(raw, fallback = ZOHO_LEAD_STATUS.NOVO) {
+  const value = String(raw || "").trim();
+  if (!value) return fallback;
+  if (Object.values(ZOHO_LEAD_STATUS).includes(value)) return value;
+  return STATUS_ALIASES[value.toLowerCase()] || value;
+}
 
 export const ZOHO_ATTEMPT_STATUS = {
   TRATADO: "Tratado Pelo Consultor",
@@ -127,7 +150,6 @@ export function syncZohoLeadAttemptTreated(lead, round, { observacao, at } = {})
     ...field(fields.date, toZohoDate(at)),
     ...field(fields.obs, observacao),
     ...field(fields.status, ZOHO_ATTEMPT_STATUS.TRATADO),
-    ...addNextAttemptFlags(round),
   });
 }
 

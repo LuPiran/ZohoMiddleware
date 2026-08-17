@@ -17,57 +17,10 @@ import {
   LEAD_ORIGINS,
   LEAD_PRIORITIES,
   LEAD_SPECIALTIES,
-  LEAD_STATUSES,
   LEAD_UFS,
   getPresetDateRange,
 } from "./mockLeads";
-
-const STATUS_META = {
-  "Novo Lead": {
-    color: "#8FA9C1",
-    soft: "rgba(143, 169, 193, 0.16)",
-  },
-  "Lead em Qualificação": {
-    color: "#E5989B",
-    soft: "rgba(229, 152, 155, 0.16)",
-  },
-  "Lead Com Interesse": {
-    color: "#3da2b8",
-    soft: "rgba(61, 162, 184, 0.14)",
-  },
-  "Lead Sem Contato": {
-    color: "#ff9800",
-    soft: "rgba(255, 152, 0, 0.14)",
-  },
-  "Lead Sem Interesse": {
-    color: "#f44336",
-    soft: "rgba(244, 67, 54, 0.12)",
-  },
-  "Lead Convertido": {
-    color: "#4caf50",
-    soft: "rgba(76, 175, 80, 0.14)",
-  },
-  Novo: {
-    color: "#8FA9C1",
-    soft: "rgba(143, 169, 193, 0.16)",
-  },
-  "Em contato": {
-    color: "#3da2b8",
-    soft: "rgba(61, 162, 184, 0.14)",
-  },
-  Qualificado: {
-    color: "#E5989B",
-    soft: "rgba(229, 152, 155, 0.16)",
-  },
-  Convertido: {
-    color: "#4caf50",
-    soft: "rgba(76, 175, 80, 0.14)",
-  },
-  Perdido: {
-    color: "#f44336",
-    soft: "rgba(244, 67, 54, 0.12)",
-  },
-};
+import { LEAD_STATUSES, getLeadStatusMeta } from "./leadStatus";
 
 const PRIORITY_META = {
   Alta: { color: "#f44336", soft: "rgba(244, 67, 54, 0.12)" },
@@ -317,7 +270,7 @@ export default function LeadsFilterSidebar({
             <div className="grid grid-cols-1 gap-2">
               {LEAD_STATUSES.map((status) => {
                 const checked = filters.statuses.includes(status);
-                const meta = STATUS_META[status];
+                const meta = getLeadStatusMeta(status);
 
                 return (
                   <button
@@ -367,7 +320,7 @@ export default function LeadsFilterSidebar({
 
                     <span
                       className="h-2.5 w-2.5 shrink-0 rounded-full"
-                      style={{ backgroundColor: meta.color }}
+                      style={{ backgroundColor: meta.chart || meta.color }}
                       aria-hidden
                     />
 

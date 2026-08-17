@@ -7,6 +7,7 @@ import { authService } from "../../services/auth";
 import Header from "./Header";
 import Navbar from "./Navbar";
 import SlaOfferModal from "./SlaOfferModal";
+import { SlaOfferProvider } from "../../contexts/SlaOfferContext";
 
 /**
  * Layout principal da aplicação
@@ -36,7 +37,8 @@ export default function MainLayout({ children }) {
   }
 
   return (
-    <div className="min-h-screen bg-tegra-bg-secondary">
+    <SlaOfferProvider>
+      <div className="min-h-screen bg-tegra-bg-secondary">
       <Header />
       <Navbar />
       <main>{children}</main>
@@ -59,6 +61,7 @@ export default function MainLayout({ children }) {
         onContinue={handleContinue}
       />
       <SlaOfferModal />
-    </div>
+      </div>
+    </SlaOfferProvider>
   );
 }
