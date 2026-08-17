@@ -1,16 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  MdNotifications,
-  MdPersonAdd,
-  MdDescription,
-  MdCheck,
-  MdClose,
-} from "react-icons/md";
-import { authService } from "../../services/auth";
-import {
-  obterFormulariosSalvos,
-  sincronizarOwnerOcorrenciasSalvas,
-} from "../../services/savedForms";
+import { useEffect, useRef, useState } from "react";
+import { MdNotifications, MdNotificationsActive, MdPersonAdd, MdCheck, MdClose } from "react-icons/md";
 import { useSlaOffers } from "../../contexts/SlaOfferContext";
 
 function formatCountdown(ms) {
@@ -18,22 +7,6 @@ function formatCountdown(ms) {
   const mins = Math.floor(totalSecs / 60);
   const secs = totalSecs % 60;
   return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
-}
-
-function formatRelativeTime(isoDate) {
-  if (!isoDate) return "Agora";
-  const date = new Date(isoDate);
-  if (Number.isNaN(date.getTime())) return "Agora";
-
-  const diffMs = Date.now() - date.getTime();
-  const minutes = Math.floor(diffMs / 60000);
-  const hours = Math.floor(minutes / 60);
-  const days = Math.floor(hours / 24);
-
-  if (minutes < 1) return "Agora";
-  if (minutes < 60) return `${minutes} min`;
-  if (hours < 24) return `${hours} h`;
-  return `${days} d`;
 }
 
 function OfferCountdown({ deadline }) {
@@ -63,101 +36,11 @@ function OfferCountdown({ deadline }) {
   );
 }
 
-const TIPO_LABEL = {
-  compra: "Compra",
-  recompra: "Recompra",
-  proposta: "Proposta",
-  ocorrencia: "Ocorrência",
-};
-
-function formStatusText(form) {
-  const tipoLabel = TIPO_LABEL[form?.tipo] || "Formulário";
-
-  if (form?.statusEnvio === "falha_envio") {
-    return `${tipoLabel} com falha de envio.`;
-  }
-  if (form?.tipo !== "ocorrencia") {
-    const protocoloTexto = form?.protocolo ? ` #${form.protocolo}` : "";
-    return `${tipoLabel}${protocoloTexto} enviado com sucesso.`;
-  }
-
-  const protocolo = form?.protocolo ? `#${form.protocolo}` : "sem protocolo";
-  if (form?.crmStatus === "em_tratamento") {
-    return `Ocorrência ${protocolo} em tratamento.`;
-  }
-  if (form?.crmStatus === "nao_atendida") {
-    return `Ocorrência ${protocolo} aguardando atendimento.`;
-  }
-  if (form?.crmStatus === "resolvida") {
-    return `Ocorrência ${protocolo} finalizada.`;
-  }
-  return `Ocorrência ${protocolo} enviada.`;
-}
-
 export default function NotificationBell() {
-  const user = authService.getUser();
-  const {
-    offers,
-    acceptOffer,
-    refuseOffer,
-    openOffer,
-    submittingId,
-  } = useSlaOffers();
+  const { offers, acceptOffer, refuseOffer, openOffer, submittingId } =
+    useSlaOffers();
   const [open, setOpen] = useState(false);
-  const [formItems, setFormItems] = useState([]);
-  const [formUnread, setFormUnread] = useState(0);
   const panelRef = useRef(null);
-  const seenKey = `formularios_notifications_seen_${(user?.email || user?.id || "anonymous").toLowerCase()}`;
-
-  const loadForms = async () => {
-    try {
-      await sincronizarOwnerOcorrenciasSalvas();
-      const forms = await obterFormulariosSalvos();
-      const eventos = forms
-        .filter(
-          (form) =>
-            form?.statusEnvio === "enviado" ||
-            form?.statusEnvio === "falha_envio" ||
-            (form?.tipo === "ocorrencia" && form?.enviado === true),
-        )
-        .map((form) => {
-          const updatedAt =
-            form?.dataAtualizacao ||
-            form?.crmSyncAt ||
-            form?.crmResolvedAt ||
-            form?.dataEnvio ||
-            form?.dataSalvamento ||
-            new Date().toISOString();
-          const tipoLabel = TIPO_LABEL[form?.tipo] || "Formulário";
-          return {
-            id: form?.id || `${form?.protocolo || "occ"}_${updatedAt}`,
-            updatedAt,
-            title: form?.paciente
-              ? `${tipoLabel} de ${form.paciente}`
-              : `Atualização de ${tipoLabel.toLowerCase()}`,
-            message: formStatusText(form),
-          };
-        })
-        .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
-        .slice(0, 8);
-
-      setFormItems(eventos);
-      const lastSeenRaw = localStorage.getItem(seenKey);
-      const lastSeen = lastSeenRaw ? new Date(lastSeenRaw).getTime() : 0;
-      setFormUnread(
-        eventos.filter((item) => new Date(item.updatedAt).getTime() > lastSeen)
-          .length,
-      );
-    } catch (error) {
-      console.warn("Erro ao carregar notificações de formulários:", error);
-    }
-  };
-
-  useEffect(() => {
-    loadForms();
-    const interval = setInterval(loadForms, 60_000);
-    return () => clearInterval(interval);
-  }, []);
 
   useEffect(() => {
     function onPointerDown(event) {
@@ -180,22 +63,6 @@ export default function NotificationBell() {
   }, [open]);
 
   const pendingCount = offers.length;
-  const badgeCount = pendingCount + (pendingCount ? 0 : formUnread);
-  const showDot = pendingCount > 0 || formUnread > 0;
-
-  const lastSeen = useMemo(() => {
-    const raw = localStorage.getItem(seenKey);
-    return raw ? new Date(raw).getTime() : 0;
-  }, [seenKey, open, formItems]);
-
-  const toggle = () => {
-    const willOpen = !open;
-    setOpen(willOpen);
-    if (willOpen) {
-      localStorage.setItem(seenKey, new Date().toISOString());
-      setFormUnread(0);
-    }
-  };
 
   const handleAccept = async (event, offer) => {
     event.stopPropagation();
@@ -207,38 +74,42 @@ export default function NotificationBell() {
     await refuseOffer(offer);
   };
 
-  const empty = pendingCount === 0 && formItems.length === 0;
-
   return (
     <div className="relative" ref={panelRef}>
       <button
         type="button"
-        onClick={toggle}
+        onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
         aria-haspopup="dialog"
         aria-label={
           pendingCount
             ? `${pendingCount} lead${pendingCount > 1 ? "s" : ""} aguardando aceite`
-            : "Notificações"
+            : "Notificações de leads"
         }
-        className={`relative flex h-10 w-10 items-center justify-center rounded-xl border transition duration-200 ${
+        title="Notificações de leads"
+        className={`relative flex h-10 w-10 items-center justify-center rounded-xl border bg-white text-[#1A1A1A] transition duration-200 ${
           open
-            ? "border-tegra-blue/40 bg-white text-[#2D8CFF] shadow-[0_8px_18px_rgba(45,140,255,0.16)]"
-            : "border-tegra-gray-medium bg-white text-[#2D8CFF] hover:border-tegra-blue/35 hover:shadow-[0_6px_14px_rgba(26,47,91,0.08)]"
+            ? "border-tegra-gray-dark/25 shadow-[0_6px_14px_rgba(26,47,91,0.10)]"
+            : "border-tegra-gray-medium hover:border-tegra-gray-dark/30 hover:shadow-[0_4px_10px_rgba(26,47,91,0.08)]"
         }`}
       >
-        <MdNotifications className="text-[22px]" aria-hidden />
-        {showDot && (
-          <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-[#F5A623] px-1 text-[9px] font-bold leading-none text-white shadow-[0_0_0_2px_#fff]">
-            {badgeCount > 1 ? (badgeCount > 9 ? "9+" : badgeCount) : ""}
-          </span>
+        {pendingCount > 0 ? (
+          <MdNotificationsActive className="text-[22px]" aria-hidden />
+        ) : (
+          <MdNotifications className="text-[22px]" aria-hidden />
+        )}
+        {pendingCount > 0 && (
+          <span
+            className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-[#22C55E] shadow-[0_0_0_2px_#fff]"
+            aria-hidden
+          />
         )}
       </button>
 
       {open && (
         <div
           role="dialog"
-          aria-label="Notificações"
+          aria-label="Notificações de leads"
           className="absolute right-0 top-full z-50 mt-3 w-[min(22.5rem,calc(100vw-1.5rem))] origin-top-right animate-toast-in"
         >
           <span
@@ -258,9 +129,9 @@ export default function NotificationBell() {
             </div>
 
             <div className="max-h-[min(28rem,70vh)] overflow-y-auto">
-              {empty && (
+              {pendingCount === 0 && (
                 <p className="px-4 py-8 text-center text-sm text-tegra-text-secondary">
-                  Nenhuma notificação no momento.
+                  Nenhum lead aguardando aceite.
                 </p>
               )}
 
@@ -321,38 +192,6 @@ export default function NotificationBell() {
                         <MdCheck className="text-sm" aria-hidden />
                         {busy ? "Salvando…" : "Aceitar"}
                       </button>
-                    </div>
-                  </div>
-                );
-              })}
-
-              {formItems.map((item) => {
-                const unread = new Date(item.updatedAt).getTime() > lastSeen;
-                return (
-                  <div
-                    key={item.id}
-                    className="flex items-start gap-3 border-t border-tegra-gray-light px-4 py-3.5"
-                  >
-                    <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#F4F6F8] text-tegra-text-secondary">
-                      <MdDescription className="text-lg" aria-hidden />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="text-sm font-semibold leading-snug text-tegra-text-primary">
-                          {item.title}
-                        </p>
-                        {unread ? (
-                          <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[#2D8CFF]" />
-                        ) : (
-                          <MdCheck className="mt-0.5 shrink-0 text-base text-tegra-text-light" />
-                        )}
-                      </div>
-                      <p className="mt-0.5 text-xs text-tegra-text-secondary">
-                        {item.message}
-                      </p>
-                      <p className="mt-1 text-[11px] text-tegra-text-light">
-                        {formatRelativeTime(item.updatedAt)}
-                      </p>
                     </div>
                   </div>
                 );

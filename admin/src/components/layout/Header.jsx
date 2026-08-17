@@ -8,6 +8,7 @@ import SplashScreen from "../feedback/auth/SplashScreen";
 import { useMenu } from "../../contexts/MenuContext";
 import { useUserDropdown } from "../../contexts/UserContext";
 import NotificationBell from "./NotificationBell";
+import MessagesBell from "./MessagesBell";
 
 export default function Header() {
   const navigate = useNavigate();
@@ -118,8 +119,9 @@ export default function Header() {
             </button>
           </div>
 
-          {/* Ações: sino + usuário */}
-          <div className="flex items-center gap-2 sm:gap-4">
+          {/* Ações: mensagens + sino + usuário */}
+          <div className="flex items-center gap-1 sm:gap-2">
+            <MessagesBell />
             <NotificationBell />
 
             <div className="relative lg:hidden" ref={userMenuRef}>
