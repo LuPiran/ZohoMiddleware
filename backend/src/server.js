@@ -39,7 +39,7 @@ const allowedOrigins = [
   "http://localhost:5174",
   "http://localhost:3000",
   "http://localhost:8081",
-  "http://18.220.136.160",
+  "http://18.216.220.177",
   String(ENV.FRONTEND_URL || "").replace(/\/$/, ""),
 ].filter(Boolean);
 
