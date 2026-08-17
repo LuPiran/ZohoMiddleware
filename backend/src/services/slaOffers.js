@@ -50,6 +50,13 @@ function refusedSet(lead) {
   return new Set(raw.map((id) => String(id)));
 }
 
+function toExcludeIdList(excludeIds) {
+  if (!excludeIds) return [];
+  if (excludeIds instanceof Set) return [...excludeIds];
+  if (Array.isArray(excludeIds)) return excludeIds;
+  return [];
+}
+
 async function countAcceptedLeads(consultorId) {
   const indexName = ENV.DYNAMODB_LEADS_CONSULTOR_INDEX || "gsi_consultor";
   const pkAttr = ENV.DYNAMODB_LEADS_CONSULTOR_ATTR || "consultorId";
@@ -84,7 +91,7 @@ async function countAcceptedLeads(consultorId) {
  * Escolhe o consultor ativo da região com menor número de leads aceitos.
  */
 export async function pickConsultorForOffer(regiao, excludeIds = []) {
-  const excluded = new Set((excludeIds || []).map((id) => String(id)));
+  const excluded = new Set(toExcludeIdList(excludeIds).map((id) => String(id)));
   const consultores = await findConsultoresByRegiao(regiao);
   const candidates = consultores.filter((c) => c?.id && !excluded.has(String(c.id)));
   if (!candidates.length) return null;
