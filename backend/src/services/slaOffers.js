@@ -1,10 +1,11 @@
 import { randomUUID } from "crypto";
-import { QueryCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
+import { UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { dynamoDocClient } from "../config/dynamodb.js";
 import { ENV } from "../config/env.js";
 import {
   findConsultoresByRegiao,
   findConsultoresGestao,
+  getConsultorCargaAceita,
   getConsultorDisplayName,
   getConsultorGerencia,
   isPerfilConsultorFila,
@@ -59,46 +60,14 @@ function consultorNome(consultor) {
   return getConsultorDisplayName(consultor) || consultor?.email || consultor?.id;
 }
 
-async function countAcceptedLeads(consultorId) {
-  const indexName = ENV.DYNAMODB_LEADS_CONSULTOR_INDEX || "gsi_consultor";
-  const pkAttr = ENV.DYNAMODB_LEADS_CONSULTOR_ATTR || "consultorId";
-  let count = 0;
-  let ExclusiveStartKey;
-
-  try {
-    do {
-      const page = await dynamoDocClient.send(
-        new QueryCommand({
-          TableName: TABLE(),
-          IndexName: indexName,
-          KeyConditionExpression: "#pk = :pk",
-          ExpressionAttributeNames: { "#pk": pkAttr },
-          ExpressionAttributeValues: { ":pk": String(consultorId) },
-          ExclusiveStartKey,
-        }),
-      );
-      for (const item of page.Items || []) {
-        if (isSlaAccepted(item)) count += 1;
-      }
-      ExclusiveStartKey = page.LastEvaluatedKey;
-    } while (ExclusiveStartKey);
-  } catch (error) {
-    console.warn("[SLA] Contagem de carga falhou:", error.message);
-  }
-
-  return count;
-}
-
-async function scoreCandidates(candidates) {
-  const scored = await Promise.all(
-    candidates.map(async (consultor) => ({
-      consultor,
-      carga: await countAcceptedLeads(consultor.id),
-      ultima: consultor.ultimaAtribuicao
-        ? new Date(consultor.ultimaAtribuicao).getTime()
-        : 0,
-    })),
-  );
+function scoreCandidates(candidates) {
+  const scored = candidates.map((consultor) => ({
+    consultor,
+    carga: getConsultorCargaAceita(consultor),
+    ultima: consultor.ultimaAtribuicao
+      ? new Date(consultor.ultimaAtribuicao).getTime()
+      : 0,
+  }));
   scored.sort((a, b) => a.carga - b.carga || a.ultima - b.ultima);
   return scored[0]?.consultor || null;
 }
@@ -117,10 +86,10 @@ export async function pickConsultorForOffer(regiao, excludeIds = []) {
   if (!people.length) return null;
 
   const consultores = people.filter(isPerfilConsultorFila);
-  if (consultores.length) return scoreCandidates(consultores);
+  if (consultores.length) return scoreCandidates(consultores) || null;
 
   const gerentes = people.filter(isPerfilGerencia);
-  if (gerentes.length) return scoreCandidates(gerentes);
+  if (gerentes.length) return scoreCandidates(gerentes) || null;
 
   return null;
 }

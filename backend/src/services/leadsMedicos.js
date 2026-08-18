@@ -9,9 +9,11 @@ import {
 import { dynamoDocClient } from "../config/dynamodb.js";
 import { ENV } from "../config/env.js";
 import {
+  decrementCargaAceita,
   findConsultorByEmail,
   getConsultorDisplayName,
   getConsultorGerencia,
+  incrementCargaAceita,
 } from "./consultores.js";
 import {
   isSlaAccepted,
@@ -151,6 +153,7 @@ function asIsoDate(value) {
  * Chaves alinhadas aos GSIs:
  * - gsi_zoho → idZoho
  * - gsi_consultor → consultorId (PK) + entradaEm (SK)
+ * - gsi_sla → slaStatus (PK) + slaDeadline (SK)
  */
 export function mapZohoPayloadToLead(payload) {
   const source = payload?.data && typeof payload.data === "object" ? payload.data : payload;
@@ -1221,6 +1224,9 @@ export async function markLeadSemInteresse(leadId, user, { observacao } = {}) {
     observacao: note,
     round,
   });
+  if (isSlaAccepted(raw)) {
+    void decrementCargaAceita(raw.consultorId);
+  }
   return toLeadDetail(updated);
 }
 
@@ -1246,6 +1252,9 @@ export async function markLeadSemContato(leadId, user) {
 
   const updated = await updateLeadItem(leadId, { ...updates, historico });
   syncZohoLeadSemContato(updated, { at: now });
+  if (isSlaAccepted(raw)) {
+    void decrementCargaAceita(raw.consultorId);
+  }
   return toLeadDetail(updated);
 }
 
@@ -1349,6 +1358,7 @@ export async function checkinLead(leadId, user) {
   );
 
   syncZohoLeadAccepted(updated);
+  void incrementCargaAceita(updated.consultorId);
   return toLeadDetail(updated);
 }
 
@@ -1460,6 +1470,10 @@ export async function markLeadConvertedFromZoho(payload) {
     updatedAt: now,
     historico,
   });
+
+  if (isSlaAccepted(existing)) {
+    void decrementCargaAceita(existing.consultorId);
+  }
 
   return {
     updated: true,

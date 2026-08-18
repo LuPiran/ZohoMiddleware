@@ -152,21 +152,119 @@ export async function listActiveConsultores() {
   return items;
 }
 
+function normalizeRegiao(regiao) {
+  return String(regiao || "").trim().toUpperCase();
+}
+
+function isMissingRegiaoIndex(error) {
+  return (
+    error?.name === "ValidationException" ||
+    error?.name === "ResourceNotFoundException"
+  );
+}
+
+async function queryConsultoresByRegiao(regiao) {
+  const indexName = ENV.DYNAMODB_CONSULTORES_REGIAO_INDEX || "gsi_regiao";
+  const regiaoAttr = ENV.DYNAMODB_CONSULTORES_REGIAO_ATTR || "regiao";
+  const target = normalizeRegiao(regiao);
+  const items = [];
+  let lastKey;
+
+  do {
+    const page = await dynamoDocClient.send(
+      new QueryCommand({
+        TableName: TABLE(),
+        IndexName: indexName,
+        KeyConditionExpression: "#regiao = :regiao",
+        FilterExpression: "#ativo = :ativo",
+        ExpressionAttributeNames: {
+          "#regiao": regiaoAttr,
+          "#ativo": "ativo",
+        },
+        ExpressionAttributeValues: {
+          ":regiao": target,
+          ":ativo": true,
+        },
+        ExclusiveStartKey: lastKey,
+      }),
+    );
+    items.push(...(page.Items || []));
+    lastKey = page.LastEvaluatedKey;
+  } while (lastKey);
+
+  return items;
+}
+
 /**
- * Busca consultores ativos por região.
+ * Busca consultores ativos por região (GSI gsi_regiao).
  */
 export async function findConsultoresByRegiao(regiao) {
   if (!regiao) return [];
-  const target = String(regiao).trim().toUpperCase();
-  const items = await listActiveConsultores();
-  return items.filter(
-    (consultor) => String(consultor.regiao || "").trim().toUpperCase() === target,
-  );
+  const target = normalizeRegiao(regiao);
+
+  try {
+    return await queryConsultoresByRegiao(target);
+  } catch (error) {
+    if (!isMissingRegiaoIndex(error)) throw error;
+    console.warn(
+      "[CONSULTORES] gsi_regiao indisponível — fallback Scan + filtro em memória.",
+    );
+    const items = await listActiveConsultores();
+    return items.filter(
+      (consultor) => normalizeRegiao(consultor.regiao) === target,
+    );
+  }
 }
 
 export async function findConsultoresGestao() {
   const items = await listActiveConsultores();
   return items.filter(isPerfilGestao);
+}
+
+export function getConsultorCargaAceita(consultor) {
+  const n = Number(consultor?.cargaAceita);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+/**
+ * Incrementa carteira ativa após aceite de lead.
+ */
+export async function incrementCargaAceita(consultorId) {
+  if (!consultorId) return;
+  try {
+    await dynamoDocClient.send(
+      new UpdateCommand({
+        TableName: TABLE(),
+        Key: { id: String(consultorId) },
+        UpdateExpression: "ADD cargaAceita :one",
+        ExpressionAttributeValues: { ":one": 1 },
+      }),
+    );
+  } catch (error) {
+    console.warn("[CONSULTORES] Falha ao incrementar cargaAceita:", error.message);
+  }
+}
+
+/**
+ * Decrementa carteira quando o lead sai do funil ativo.
+ */
+export async function decrementCargaAceita(consultorId) {
+  if (!consultorId) return;
+  try {
+    await dynamoDocClient.send(
+      new UpdateCommand({
+        TableName: TABLE(),
+        Key: { id: String(consultorId) },
+        UpdateExpression: "ADD cargaAceita :minus",
+        ConditionExpression: "attribute_exists(cargaAceita) AND cargaAceita > :zero",
+        ExpressionAttributeValues: { ":minus": -1, ":zero": 0 },
+      }),
+    );
+  } catch (error) {
+    if (error.name !== "ConditionalCheckFailedException") {
+      console.warn("[CONSULTORES] Falha ao decrementar cargaAceita:", error.message);
+    }
+  }
 }
 
 /**
