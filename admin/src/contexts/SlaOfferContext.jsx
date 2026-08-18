@@ -17,6 +17,21 @@ export function SlaOfferProvider({ children }) {
   const [submittingId, setSubmittingId] = useState(null);
   const busyRef = useRef(false);
 
+  const dismissOffer = useCallback((offerId) => {
+    if (!offerId) return;
+    setOffers((prev) => prev.filter((item) => item.id !== offerId));
+    setSelectedOffer((current) => (current?.id === offerId ? null : current));
+  }, []);
+
+  useEffect(() => {
+    function onOptimisticRefuse(event) {
+      dismissOffer(event.detail?.id);
+    }
+    window.addEventListener("sla-offer-optimistic-refuse", onOptimisticRefuse);
+    return () =>
+      window.removeEventListener("sla-offer-optimistic-refuse", onOptimisticRefuse);
+  }, [dismissOffer]);
+
   const loadOffers = useCallback(async () => {
     if (busyRef.current) return;
     try {
@@ -75,17 +90,21 @@ export function SlaOfferProvider({ children }) {
   const refuseOffer = useCallback(
     async (offer) => {
       if (!offer?.id || busyRef.current) return false;
-      setSubmittingId(offer.id);
+      const offerId = offer.id;
+
+      dismissOffer(offerId);
+
+      if (location.pathname === `/leads-medicos/${offerId}`) {
+        navigate(ROUTES.LEADS_MEDICOS);
+      }
+
+      setSubmittingId(offerId);
       busyRef.current = true;
       try {
-        await leadsMedicosService.recusarOferta(offer.id);
+        await leadsMedicosService.recusarOferta(offerId);
         showToast("Oferta recusada. O lead segue para o próximo consultor.", "success", 2800);
-        notifyChanged(offer.id, "recusar");
-        if (location.pathname === `/leads-medicos/${offer.id}`) {
-          navigate(ROUTES.LEADS_MEDICOS);
-        }
-        setSelectedOffer(null);
-        await loadOffers();
+        notifyChanged(offerId, "recusar");
+        void loadOffers();
         return true;
       } catch (err) {
         const message =
@@ -98,7 +117,7 @@ export function SlaOfferProvider({ children }) {
         setSubmittingId(null);
       }
     },
-    [loadOffers, location.pathname, navigate, showToast],
+    [dismissOffer, loadOffers, location.pathname, navigate, showToast],
   );
 
   const value = useMemo(

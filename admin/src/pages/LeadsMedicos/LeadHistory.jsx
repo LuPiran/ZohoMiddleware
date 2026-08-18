@@ -19,6 +19,8 @@ const ACTION_ICONS = {
   sla_recusado: MdThumbDown,
   sla_prazo_expirado: MdPhoneMissed,
   sla_ciclo_encerrado: MdInfo,
+  sla_ciclo_reiniciado: MdHistory,
+  sla_escalado_gestao: MdInfo,
   primeira_tentativa: MdPhoneInTalk,
   segunda_tentativa: MdPhoneInTalk,
   terceira_tentativa: MdPhoneInTalk,

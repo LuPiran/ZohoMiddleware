@@ -378,6 +378,8 @@ export function mapZohoPayloadToLead(payload) {
     slaCheckinAt: undefined,
     slaRecusados: [],
     slaOfertaRound: 0,
+    slaCicloRegional: regiao ? 1 : 0,
+    slaFaseGestao: !regiao,
     createdAt: now,
     updatedAt: now,
     source: "zoho",
@@ -388,7 +390,7 @@ export function mapZohoPayloadToLead(payload) {
         action: "lead_criado",
         label: "Lead recebido do Zoho",
         detail: regiao
-          ? `Lead qualificado e enviado ao portal. Região ${regiao} — fila 24h (consultores primeiro, gerência por último).`
+          ? `Lead qualificado e enviado ao portal. Região ${regiao} — fila 24h (2 ciclos regionais; depois Gestão).`
           : "Lead sem UF/região. Encaminhado à fila da Gestão.",
         by: "zoho",
       },

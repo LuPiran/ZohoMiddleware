@@ -204,10 +204,16 @@ export default function LeadDetail() {
 
   const handleRefuse = async () => {
     setSubmitting(true);
+    window.dispatchEvent(
+      new CustomEvent("sla-offer-optimistic-refuse", { detail: { id } }),
+    );
+    navigate(ROUTES.LEADS_MEDICOS);
     try {
       await leadsMedicosService.recusarOferta(id);
       showToast("Oferta recusada. O lead segue para o próximo consultor.", "success", 2500);
-      navigate(ROUTES.LEADS_MEDICOS);
+      window.dispatchEvent(
+        new CustomEvent("sla-offer-changed", { detail: { id, action: "recusar" } }),
+      );
     } catch (err) {
       const message =
         err?.response?.data?.error ||
