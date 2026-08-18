@@ -45,6 +45,7 @@ import {
   timeoutAttemptUpdates,
   treatedAttemptUpdates,
 } from "../domain/leadAttempts.js";
+import { buildDynamoUpdateParts } from "../utils/dynamoUpdate.js";
 
 // Mapa UF → Região (fallback quando Zoho não envia Dist_Regiao)
 const UF_REGIAO = {
@@ -1020,19 +1021,9 @@ export async function getLeadForUser(leadId, user = {}) {
 }
 
 async function updateLeadItem(leadId, updates, condition) {
-  const names = { ...(condition?.names || {}) };
-  const values = { ...(condition?.values || {}) };
-  const parts = [];
-  let i = 0;
-
-  for (const [key, value] of Object.entries(updates)) {
-    const nk = `#k${i}`;
-    const vk = `:v${i}`;
-    names[nk] = key;
-    values[vk] = value;
-    parts.push(`${nk} = ${vk}`);
-    i += 1;
-  }
+  const built = buildDynamoUpdateParts(updates);
+  const names = { ...built.names, ...(condition?.names || {}) };
+  const values = { ...built.values, ...(condition?.values || {}) };
 
   const exists = "attribute_exists(id)";
   const conditionExpression = condition?.expression
@@ -1044,9 +1035,9 @@ async function updateLeadItem(leadId, updates, condition) {
       new UpdateCommand({
         TableName: TABLE(),
         Key: { id: leadId },
-        UpdateExpression: `SET ${parts.join(", ")}`,
+        UpdateExpression: built.updateExpression,
         ExpressionAttributeNames: names,
-        ExpressionAttributeValues: values,
+        ExpressionAttributeValues: Object.keys(values).length ? values : undefined,
         ConditionExpression: conditionExpression,
         ReturnValues: "ALL_NEW",
       }),
@@ -1345,6 +1336,7 @@ export async function checkinLead(leadId, user) {
     {
       slaStatus: "aceito",
       slaCheckinAt: now,
+      slaDeadline: null,
       status: ZOHO_LEAD_STATUS.QUALIFICACAO,
       dataQualificado: now,
       updatedAt: now,

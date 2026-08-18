@@ -14,6 +14,7 @@ import {
   updateConsultorUltimaAtribuicao,
 } from "./consultores.js";
 import { notifyLeadOffer } from "./emailService.js";
+import { buildDynamoUpdateParts } from "../utils/dynamoUpdate.js";
 
 const TABLE = () => ENV.DYNAMODB_LEADS_TABLE;
 
@@ -139,7 +140,7 @@ export function applyOfferToLead(lead, consultor, { reason } = {}) {
   lead.gerencia = lead.gerencia || getConsultorGerencia(consultor);
   lead.slaStatus = "ofertado";
   lead.slaDeadline = offerDeadlineIso();
-  lead.slaCheckinAt = null;
+  delete lead.slaCheckinAt;
   lead.slaOfertaRound = Number(lead.slaOfertaRound || 0) + 1;
   lead.updatedAt = now;
 
@@ -172,7 +173,7 @@ export async function offerLeadOnCreate(lead) {
   const chosen = await resolveOfferTarget(lead, refusedSet(lead));
   if (!chosen) {
     lead.slaStatus = "expirado_ciclo";
-    lead.slaDeadline = null;
+    delete lead.slaDeadline;
     const semRegiao = !lead.regiao;
     appendCreateHistory(lead, {
       action: "sla_ciclo_encerrado",
@@ -217,17 +218,12 @@ async function persistOfferSwitch(lead, extraUpdates, historicoEntries, conditio
     updatedAt: now,
   };
 
-  const names = { ...(condition?.names || {}) };
-  const values = { ...(condition?.values || {}) };
-  const parts = [];
-  let i = 0;
-  for (const [key, value] of Object.entries(updates)) {
-    const nk = `#k${i}`;
-    const vk = `:v${i}`;
-    names[nk] = key;
-    values[vk] = value;
-    parts.push(`${nk} = ${vk}`);
-    i += 1;
+  const built = buildDynamoUpdateParts(updates);
+  const names = { ...built.names, ...(condition?.names || {}) };
+  const values = { ...built.values, ...(condition?.values || {}) };
+
+  if (!built.updateExpression) {
+    return null;
   }
 
   try {
@@ -235,9 +231,9 @@ async function persistOfferSwitch(lead, extraUpdates, historicoEntries, conditio
       new UpdateCommand({
         TableName: TABLE(),
         Key: { id: lead.id },
-        UpdateExpression: `SET ${parts.join(", ")}`,
+        UpdateExpression: built.updateExpression,
         ExpressionAttributeNames: names,
-        ExpressionAttributeValues: values,
+        ExpressionAttributeValues: Object.keys(values).length ? values : undefined,
         ConditionExpression: condition?.expression,
         ReturnValues: "ALL_NEW",
       }),
