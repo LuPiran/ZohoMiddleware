@@ -238,8 +238,6 @@ router.get(
   },
 );
 
-);
-
 /**
  * Stream autenticado da evidência armazenada no WorkDrive.
  * GET /v1/leads-medicos/:id/evidencias/:evidenciaId/arquivo
