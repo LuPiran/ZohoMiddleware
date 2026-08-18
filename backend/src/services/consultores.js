@@ -19,6 +19,47 @@ function normalizeEmail(value) {
     .trim();
 }
 
+export function normalizeConsultorPerfil(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+export function getConsultorPerfil(consultor) {
+  return normalizeConsultorPerfil(
+    consultor?.perfil ||
+      consultor?.Perfil ||
+      consultor?.role ||
+      consultor?.cargo ||
+      consultor?.Cargo,
+  );
+}
+
+export function isPerfilGerencia(consultor) {
+  const perfil = getConsultorPerfil(consultor);
+  return perfil.includes("gerencia") || perfil.includes("gerente");
+}
+
+export function isPerfilGestao(consultor) {
+  const perfil = getConsultorPerfil(consultor);
+  return perfil.includes("gestao");
+}
+
+export function isPerfilAdminPainel(consultor) {
+  const perfil = getConsultorPerfil(consultor);
+  return perfil.includes("admin");
+}
+
+export function isPerfilConsultorFila(consultor) {
+  return (
+    !isPerfilGerencia(consultor) &&
+    !isPerfilGestao(consultor) &&
+    !isPerfilAdminPainel(consultor)
+  );
+}
+
 /**
  * Busca consultor em portal_consultores pelo e-mail (GSI gsi_email).
  */
@@ -88,20 +129,16 @@ export function getConsultorDisplayName(consultor) {
 }
 
 /**
- * Busca consultores ativos por região (ScanCommand com filtro).
- * Retorna lista ordenada por ultimaAtribuicao (mais antigo primeiro = round-robin).
+ * Consultores ativos (Scan). Usado pela fila SLA.
  */
-export async function findConsultoresByRegiao(regiao) {
-  if (!regiao) return [];
-
-  const target = String(regiao).trim().toUpperCase();
+export async function listActiveConsultores() {
   const items = [];
   let lastKey;
 
   do {
     const page = await dynamoDocClient.send(
       new ScanCommand({
-        TableName: ENV.DYNAMODB_CONSULTORES_TABLE,
+        TableName: TABLE(),
         FilterExpression: "#ativo = :ativo",
         ExpressionAttributeNames: { "#ativo": "ativo" },
         ExpressionAttributeValues: { ":ativo": true },
@@ -112,17 +149,24 @@ export async function findConsultoresByRegiao(regiao) {
     lastKey = page.LastEvaluatedKey;
   } while (lastKey);
 
-  const matched = items.filter(
-    (c) => String(c.regiao || "").trim().toUpperCase() === target,
+  return items;
+}
+
+/**
+ * Busca consultores ativos por região.
+ */
+export async function findConsultoresByRegiao(regiao) {
+  if (!regiao) return [];
+  const target = String(regiao).trim().toUpperCase();
+  const items = await listActiveConsultores();
+  return items.filter(
+    (consultor) => String(consultor.regiao || "").trim().toUpperCase() === target,
   );
+}
 
-  matched.sort((a, b) => {
-    const ta = a.ultimaAtribuicao ? new Date(a.ultimaAtribuicao).getTime() : 0;
-    const tb = b.ultimaAtribuicao ? new Date(b.ultimaAtribuicao).getTime() : 0;
-    return ta - tb;
-  });
-
-  return matched;
+export async function findConsultoresGestao() {
+  const items = await listActiveConsultores();
+  return items.filter(isPerfilGestao);
 }
 
 /**

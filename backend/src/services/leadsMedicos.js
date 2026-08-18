@@ -14,16 +14,12 @@ import {
   getConsultorGerencia,
 } from "./consultores.js";
 import {
-  applyOfferToLead,
-  isBusinessHours,
   isSlaAccepted,
   isSlaOffered,
   offerLeadOnCreate,
   offeredStatusCondition,
   reofferLead,
-  slaOfferMinutes,
 } from "./slaOffers.js";
-import { notifyLeadOffer } from "./emailService.js";
 import {
   ZOHO_LEAD_STATUS,
   canonicalizeLeadStatus,
@@ -374,7 +370,7 @@ export function mapZohoPayloadToLead(payload) {
     dataTerceiraTentativa: null,
     statusTerceiraTentativa: null,
     slaDeadline: undefined,
-    slaStatus: isBusinessHours() ? undefined : "aguardando_horario",
+    slaStatus: undefined,
     slaCheckinAt: undefined,
     slaRecusados: [],
     slaOfertaRound: 0,
@@ -387,7 +383,9 @@ export function mapZohoPayloadToLead(payload) {
         at: now,
         action: "lead_criado",
         label: "Lead recebido do Zoho",
-        detail: "Lead qualificado e enviado ao portal",
+        detail: regiao
+          ? `Lead qualificado e enviado ao portal. Região ${regiao} — fila 24h (consultores primeiro, gerência por último).`
+          : "Lead sem UF/região. Encaminhado à fila da Gestão.",
         by: "zoho",
       },
     ],
@@ -400,7 +398,9 @@ export function validateCreateLeadInput(lead) {
   if (!lead.idZoho) errors.push("idZoho é obrigatório");
   if (!lead.nome) errors.push("Nome é obrigatório");
   if (!lead.consultorId && !lead.consultor && !lead.emailConsultor && !lead.regiao) {
-    errors.push("consultor, emailConsultor ou regiao (round-robin) é obrigatório");
+    if (lead.slaStatus !== "expirado_ciclo" && lead.slaStatus !== "ofertado") {
+      errors.push("consultor, emailConsultor ou regiao (round-robin) é obrigatório");
+    }
   }
   if (!lead.entradaEm) errors.push("entradaEm é obrigatório");
 
@@ -434,7 +434,8 @@ function resolveViewerRole(perfil) {
   ) {
     return "admin";
   }
-  if (p.includes("gerente")) return "gerente";
+  if (p.includes("gestao")) return "admin";
+  if (p.includes("gerente") || p.includes("gerencia")) return "gerente";
   return "consultor";
 }
 
@@ -516,76 +517,13 @@ async function findLeadByZohoId(idZoho) {
 /**
  * Cria lead médico no DynamoDB a partir do payload Zoho.
  * Idempotente por idZoho (GSI gsi_zoho). id da tabela = UUID próprio.
- */
-async function offerLeadWithoutRegion(lead) {
-  if (!lead.consultorId) return lead;
-
-  try {
-    const record = lead.emailConsultor
-      ? await findConsultorByEmail(lead.emailConsultor)
-      : null;
-    if (!record?.id) {
-      lead.slaStatus = isBusinessHours() ? "ofertado" : "aguardando_horario";
-      if (isBusinessHours()) {
-        lead.slaDeadline = new Date(
-          Date.now() + slaOfferMinutes() * 60 * 1000,
-        ).toISOString();
-        lead.consultorIdOferta = String(lead.consultorId);
-      }
-      return lead;
-    }
-
-    if (!isBusinessHours()) {
-      lead.consultorId = String(record.id);
-      lead.consultor = getConsultorDisplayName(record) || lead.consultor;
-      lead.emailConsultor = record.email || lead.emailConsultor;
-      lead.gerencia = lead.gerencia || getConsultorGerencia(record);
-      lead.slaStatus = "aguardando_horario";
-      lead.slaDeadline = null;
-      return lead;
-    }
-
-    applyOfferToLead(lead, record, {
-      reason: "Oferecido pelo e-mail do consultor (lead sem região).",
-    });
-    void notifyLeadOffer(lead, record);
-  } catch (error) {
-    console.warn("[SLA] Oferta por e-mail falhou:", error.message);
-  }
-
-  return lead;
-}
-
-/**
- * Cria lead médico no DynamoDB a partir do payload Zoho.
- * Idempotente por idZoho (GSI gsi_zoho). id da tabela = UUID próprio.
  *
- * Com região: entra na fila SLA (menor carteira). O consultor do Zoho não vira dono.
- * Sem região: fallback por e-mail do consultor.
+ * Com região: fila 24h (consultores, gerência por último).
+ * Sem região: fila da Gestão.
  */
 export async function createLeadFromZoho(payload) {
   let lead = mapZohoPayloadToLead(payload);
-
-  if (lead.regiao) {
-    lead.consultorId = undefined;
-    if (isBusinessHours()) {
-      lead = await offerLeadOnCreate(lead);
-    } else {
-      lead.slaStatus = "aguardando_horario";
-      lead.slaDeadline = null;
-    }
-  } else {
-    lead = await enrichLeadWithPortalConsultor(lead, payload);
-    lead = await offerLeadWithoutRegion(lead);
-  }
-
-  const errors = validateCreateLeadInput(lead);
-  if (errors.length) {
-    const err = new Error(errors.join("; "));
-    err.status = 400;
-    err.code = "VALIDATION_ERROR";
-    throw err;
-  }
+  lead.consultorId = undefined;
 
   const existing = await findLeadByZohoId(lead.idZoho);
   if (existing) {
@@ -594,6 +532,16 @@ export async function createLeadFromZoho(payload) {
       alreadyExists: true,
       lead: existing,
     };
+  }
+
+  lead = await offerLeadOnCreate(lead);
+
+  const errors = validateCreateLeadInput(lead);
+  if (errors.length) {
+    const err = new Error(errors.join("; "));
+    err.status = 400;
+    err.code = "VALIDATION_ERROR";
+    throw err;
   }
 
   try {
@@ -954,13 +902,35 @@ function daysBetween(fromIso, toDate = new Date()) {
   return Math.floor(ms / (24 * 60 * 60 * 1000));
 }
 
-function appendHistorico(lead, entry) {
+function normalizeHistoricoEntry(entry) {
+  if (!entry || typeof entry !== "object") return null;
+  const action = entry.action || entry.tipo || "";
+  const at = entry.at || entry.data || null;
+  const by = entry.by || entry.autor || null;
+  const label = entry.label || entry.descricao || action || "Ação no lead";
+  const detail =
+    entry.detail ||
+    (entry.label && entry.descricao ? entry.descricao : undefined);
+  return {
+    id: entry.id,
+    action,
+    at,
+    by,
+    label,
+    detail,
+  };
+}
+
+function appendHistorico(lead, entries) {
   const historico = Array.isArray(lead.historico) ? [...lead.historico] : [];
-  historico.unshift({
-    id: randomUUID(),
-    at: new Date().toISOString(),
-    ...entry,
-  });
+  const list = (Array.isArray(entries) ? entries : [entries]).filter(Boolean);
+  for (let i = 0; i < list.length; i += 1) {
+    historico.unshift({
+      id: randomUUID(),
+      at: new Date(Date.now() + i).toISOString(),
+      ...list[i],
+    });
+  }
   return historico.slice(0, 200);
 }
 
@@ -992,7 +962,9 @@ export function toLeadDetail(lead) {
     statusTerceiraTentativa: lead.statusTerceiraTentativa || null,
     createdAt: lead.createdAt || null,
     updatedAt: lead.updatedAt || null,
-    historico: Array.isArray(lead.historico) ? lead.historico : [],
+    historico: (Array.isArray(lead.historico) ? lead.historico : [])
+      .map(normalizeHistoricoEntry)
+      .filter(Boolean),
     timeline: buildLeadTimeline(lead),
     attempt: {
       ...attempt,
@@ -1105,12 +1077,32 @@ export async function registerContactAttempt(leadId, user, round, { observacao }
     at: now,
   });
   const meta = ATTEMPT_ROUNDS[n];
-  const historico = appendHistorico(raw, {
-    action: n === 1 ? "primeira_tentativa" : n === 2 ? "segunda_tentativa" : "terceira_tentativa",
-    label: `${meta.label} — tratado pelo consultor`,
-    detail: note,
-    by: user.email || user.id || "usuario",
-  });
+  const actor = user.email || user.id || "usuario";
+  const alreadyInteresse =
+    normalizeText(raw.status).includes("interesse") &&
+    !normalizeText(raw.status).includes("sem");
+  const historico = appendHistorico(raw, [
+    {
+      action:
+        n === 1
+          ? "primeira_tentativa"
+          : n === 2
+            ? "segunda_tentativa"
+            : "terceira_tentativa",
+      label: `${meta.label} — tratado pelo consultor`,
+      detail: note,
+      by: actor,
+    },
+    alreadyInteresse
+      ? null
+      : {
+          action: "lead_com_interesse",
+          label: "Lead com interesse",
+          detail:
+            "Status atualizado para Lead com interesse após a tentativa tratada.",
+          by: actor,
+        },
+  ]);
 
   const updated = await updateLeadItem(leadId, { ...updates, historico });
   syncZohoLeadAttemptTreated(updated, n, { observacao: note, at: now });
@@ -1333,7 +1325,8 @@ export async function checkinLead(leadId, user) {
   const historico = appendHistorico(raw, {
     action: "sla_aceito",
     label: "Lead aceito",
-    detail: "Consultor aceitou a oferta e passou a ser o dono do lead.",
+    detail:
+      "Consultor aceitou a oferta e assumiu o lead. Status atualizado para Lead em Qualificação.",
     by: user.email || user.id || "usuario",
   });
 

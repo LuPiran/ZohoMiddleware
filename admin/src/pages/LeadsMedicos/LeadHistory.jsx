@@ -7,19 +7,46 @@ import {
   MdPhoneMissed,
   MdEmojiEvents,
   MdCheckCircle,
+  MdFavorite,
 } from "react-icons/md";
 
 const ACTION_ICONS = {
   lead_criado: MdPersonAdd,
+  lead_recebido: MdPersonAdd,
   sla_aceito: MdCheckCircle,
+  sla_ofertado: MdPersonAdd,
+  sla_reatribuido: MdPersonAdd,
+  sla_recusado: MdThumbDown,
+  sla_prazo_expirado: MdPhoneMissed,
+  sla_ciclo_encerrado: MdInfo,
   primeira_tentativa: MdPhoneInTalk,
   segunda_tentativa: MdPhoneInTalk,
   terceira_tentativa: MdPhoneInTalk,
   tentativa_sem_retorno: MdPhoneMissed,
   sem_contato: MdPhoneMissed,
   sem_interesse: MdThumbDown,
+  lead_com_interesse: MdFavorite,
   lead_convertido: MdEmojiEvents,
 };
+
+function normalizeHistoryEntry(entry) {
+  if (!entry || typeof entry !== "object") return null;
+  const action = entry.action || entry.tipo || "";
+  const at = entry.at || entry.data || null;
+  const by = entry.by || entry.autor || null;
+  const label = entry.label || entry.descricao || action || "Ação no lead";
+  const detail =
+    entry.detail ||
+    (entry.label && entry.descricao ? entry.descricao : undefined);
+  return {
+    id: entry.id,
+    action,
+    at,
+    by,
+    label,
+    detail,
+  };
+}
 
 function formatDateTime(dateString) {
   if (!dateString) return "—";
@@ -39,7 +66,9 @@ function formatDateTime(dateString) {
 const VISIBLE_HISTORY_ITEMS = 5;
 
 export default function LeadHistory({ historico = [] }) {
-  const items = Array.isArray(historico) ? historico : [];
+  const items = (Array.isArray(historico) ? historico : [])
+    .map(normalizeHistoryEntry)
+    .filter(Boolean);
   const needsScroll = items.length > VISIBLE_HISTORY_ITEMS;
 
   return (

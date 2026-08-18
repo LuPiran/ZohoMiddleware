@@ -2,7 +2,6 @@ import { ScanCommand } from "@aws-sdk/lib-dynamodb";
 import { dynamoDocClient } from "../config/dynamodb.js";
 import { ENV } from "../config/env.js";
 import {
-  isBusinessHours,
   isSlaOffered,
   reofferLead,
   startOfferCycle,
@@ -84,22 +83,20 @@ async function runSweep() {
       );
     }
 
-    if (!isBusinessHours()) return;
-
     const waiting = await scanByStatus("aguardando_horario");
-    if (!waiting.length) return;
-
-    console.log(
-      `[SWEEPER] ${waiting.length} lead(s) aguardando horário comercial — iniciando ofertas...`,
-    );
-    await Promise.allSettled(
-      waiting.map((lead) =>
-        startOfferCycle(lead, {
-          reason: "Horário comercial iniciado. Oferta liberada.",
-          by: "sweeper",
-        }),
-      ),
-    );
+    if (waiting.length) {
+      console.log(
+        `[SWEEPER] ${waiting.length} lead(s) legado(s) aguardando horário — ofertando agora...`,
+      );
+      await Promise.allSettled(
+        waiting.map((lead) =>
+          startOfferCycle(lead, {
+            reason: "Oferta 24h liberada para lead que aguardava horário comercial.",
+            by: "sweeper",
+          }),
+        ),
+      );
+    }
   } catch (err) {
     console.error("[SWEEPER] Erro no ciclo de varredura:", err.message);
   }

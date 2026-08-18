@@ -4,8 +4,12 @@ import { dynamoDocClient } from "../config/dynamodb.js";
 import { ENV } from "../config/env.js";
 import {
   findConsultoresByRegiao,
+  findConsultoresGestao,
   getConsultorDisplayName,
   getConsultorGerencia,
+  isPerfilConsultorFila,
+  isPerfilGerencia,
+  isPerfilGestao,
   updateConsultorUltimaAtribuicao,
 } from "./consultores.js";
 import { notifyLeadOffer } from "./emailService.js";
@@ -15,12 +19,6 @@ const TABLE = () => ENV.DYNAMODB_LEADS_TABLE;
 export function slaOfferMinutes() {
   const n = Number(ENV.SLA_OFFER_MINUTES);
   return Number.isFinite(n) && n > 0 ? n : 10;
-}
-
-/** Horário comercial 8h–18h (Brasília, UTC-3). */
-export function isBusinessHours(date = new Date()) {
-  const brasiliaHour = (date.getUTCHours() - 3 + 24) % 24;
-  return brasiliaHour >= 8 && brasiliaHour < 18;
 }
 
 export function isSlaOffered(lead) {
@@ -57,6 +55,10 @@ function toExcludeIdList(excludeIds) {
   return [];
 }
 
+function consultorNome(consultor) {
+  return getConsultorDisplayName(consultor) || consultor?.email || consultor?.id;
+}
+
 async function countAcceptedLeads(consultorId) {
   const indexName = ENV.DYNAMODB_LEADS_CONSULTOR_INDEX || "gsi_consultor";
   const pkAttr = ENV.DYNAMODB_LEADS_CONSULTOR_ATTR || "consultorId";
@@ -87,30 +89,80 @@ async function countAcceptedLeads(consultorId) {
   return count;
 }
 
-/**
- * Escolhe o consultor ativo da região com menor número de leads aceitos.
- */
-export async function pickConsultorForOffer(regiao, excludeIds = []) {
-  const excluded = new Set(toExcludeIdList(excludeIds).map((id) => String(id)));
-  const consultores = await findConsultoresByRegiao(regiao);
-  const candidates = consultores.filter((c) => c?.id && !excluded.has(String(c.id)));
-  if (!candidates.length) return null;
-
+async function scoreCandidates(candidates) {
   const scored = await Promise.all(
-    candidates.map(async (c) => ({
-      consultor: c,
-      carga: await countAcceptedLeads(c.id),
-      ultima: c.ultimaAtribuicao ? new Date(c.ultimaAtribuicao).getTime() : 0,
+    candidates.map(async (consultor) => ({
+      consultor,
+      carga: await countAcceptedLeads(consultor.id),
+      ultima: consultor.ultimaAtribuicao
+        ? new Date(consultor.ultimaAtribuicao).getTime()
+        : 0,
     })),
   );
-
   scored.sort((a, b) => a.carga - b.carga || a.ultima - b.ultima);
-  return scored[0].consultor;
+  return scored[0]?.consultor || null;
+}
+
+function availablePeople(people, excludeIds) {
+  const excluded = new Set(toExcludeIdList(excludeIds).map((id) => String(id)));
+  return people.filter((person) => person?.id && !excluded.has(String(person.id)));
+}
+
+/**
+ * Consultores da região primeiro (menor carga).
+ * Gerência só entra quando não resta consultor — sempre por último.
+ */
+export async function pickConsultorForOffer(regiao, excludeIds = []) {
+  const people = availablePeople(await findConsultoresByRegiao(regiao), excludeIds);
+  if (!people.length) return null;
+
+  const consultores = people.filter(isPerfilConsultorFila);
+  if (consultores.length) return scoreCandidates(consultores);
+
+  const gerentes = people.filter(isPerfilGerencia);
+  if (gerentes.length) return scoreCandidates(gerentes);
+
+  return null;
+}
+
+export async function pickConsultorGestao(excludeIds = []) {
+  const people = availablePeople(await findConsultoresGestao(), excludeIds);
+  if (!people.length) return null;
+  return scoreCandidates(people);
+}
+
+export async function resolveOfferTarget(lead, excludeIds = []) {
+  if (lead?.regiao) return pickConsultorForOffer(lead.regiao, excludeIds);
+  return pickConsultorGestao(excludeIds);
+}
+
+function offerHistoryCopy(lead, consultor, { reoffer = false } = {}) {
+  const nome = consultorNome(consultor);
+  const minutos = slaOfferMinutes();
+  const verbo = reoffer ? "Reofertado" : "Oferecido";
+  const verboLabel = reoffer ? "reofertado" : "oferecido";
+  if (isPerfilGestao(consultor)) {
+    return {
+      label: `Lead ${verboLabel} à Gestão`,
+      detail: `Lead sem UF/região. ${verbo} à Gestão (${nome}). ${minutos} min para aceitar.`,
+    };
+  }
+  if (isPerfilGerencia(consultor)) {
+    return {
+      label: `Lead ${verboLabel} à gerência`,
+      detail: `Fila regional ${lead.regiao || "—"}: consultores esgotados. ${verbo} à gerência (${nome}). ${minutos} min para aceitar.`,
+    };
+  }
+  return {
+    label: `Lead ${verboLabel} ao consultor`,
+    detail: `Fila regional ${lead.regiao || "—"}: menor carteira (${nome}). ${minutos} min para aceitar.`,
+  };
 }
 
 export function applyOfferToLead(lead, consultor, { reason } = {}) {
   const now = new Date().toISOString();
-  const nome = getConsultorDisplayName(consultor) || consultor.email || consultor.id;
+  const nome = consultorNome(consultor);
+  const copy = offerHistoryCopy(lead, consultor);
   lead.consultorId = String(consultor.id);
   lead.consultorIdOferta = String(consultor.id);
   lead.consultor = nome;
@@ -127,40 +179,68 @@ export function applyOfferToLead(lead, consultor, { reason } = {}) {
     id: randomUUID(),
     at: now,
     action: "sla_ofertado",
-    label: "Lead oferecido ao consultor",
-    detail: reason || `Oferecido a ${nome} (${lead.regiao || "sem região"}). ${slaOfferMinutes()} min para aceitar.`,
+    label: copy.label,
+    detail: reason || copy.detail,
     by: "sistema",
   });
   lead.historico = historico.slice(0, 200);
   return lead;
 }
 
+function appendCreateHistory(lead, entry) {
+  const now = new Date().toISOString();
+  const historico = Array.isArray(lead.historico) ? lead.historico : [];
+  historico.unshift({ id: randomUUID(), at: now, ...entry });
+  lead.historico = historico.slice(0, 200);
+  return lead;
+}
+
 /**
- * Aplica a primeira oferta (lead ainda em memória, antes do Put).
+ * Primeira oferta na criação (24h). Com região: consultores, depois gerência.
+ * Sem região: Gestão.
  */
 export async function offerLeadOnCreate(lead) {
-  if (!lead.regiao) return lead;
-
-  const chosen = await pickConsultorForOffer(lead.regiao, refusedSet(lead));
+  const chosen = await resolveOfferTarget(lead, refusedSet(lead));
   if (!chosen) {
     lead.slaStatus = "expirado_ciclo";
     lead.slaDeadline = null;
-    console.warn(`[SLA] Sem consultor ativo na região ${lead.regiao}`);
+    const semRegiao = !lead.regiao;
+    appendCreateHistory(lead, {
+      action: "sla_ciclo_encerrado",
+      label: semRegiao
+        ? "Nenhum perfil Gestão disponível"
+        : "Nenhum consultor ativo na regional",
+      detail: semRegiao
+        ? "Lead sem UF/região e não há consultor com perfil Gestão ativo."
+        : `Sem consultor ou gerência ativos em ${lead.regiao}.`,
+      by: "sistema",
+    });
+    console.warn(
+      `[SLA] Sem destinatário para oferta (${lead.regiao || "sem região"})`,
+    );
     return lead;
   }
 
-  applyOfferToLead(lead, chosen, {
-    reason: `Fila regional ${lead.regiao}: menor carteira.`,
-  });
+  applyOfferToLead(lead, chosen);
   await updateConsultorUltimaAtribuicao(chosen.id, new Date().toISOString());
   void notifyLeadOffer(lead, chosen);
   return lead;
 }
 
-async function persistOfferSwitch(lead, extraUpdates, historicoEntry, condition) {
+async function persistOfferSwitch(lead, extraUpdates, historicoEntries, condition) {
   const now = new Date().toISOString();
   const historico = Array.isArray(lead.historico) ? [...lead.historico] : [];
-  historico.unshift({ id: randomUUID(), at: now, ...historicoEntry });
+  const list = (Array.isArray(historicoEntries)
+    ? historicoEntries
+    : [historicoEntries]
+  ).filter(Boolean);
+  for (let i = 0; i < list.length; i += 1) {
+    historico.unshift({
+      id: randomUUID(),
+      at: new Date(Date.now() + i).toISOString(),
+      ...list[i],
+    });
+  }
 
   const updates = {
     ...extraUpdates,
@@ -200,16 +280,30 @@ async function persistOfferSwitch(lead, extraUpdates, historicoEntry, condition)
   }
 }
 
+function previousOfferHistory(reason, by) {
+  const sweeper = String(by || "") === "sweeper";
+  return {
+    action: sweeper ? "sla_prazo_expirado" : "sla_recusado",
+    label: sweeper ? "Prazo de aceite encerrado" : "Oferta recusada",
+    detail: reason || (sweeper
+      ? "Ninguém aceitou no prazo. Seguindo a fila."
+      : "Consultor recusou a oferta."),
+    by: by || "sistema",
+  };
+}
+
 /**
- * Recusa ou timeout → próximo consultor da região.
+ * Recusa ou timeout → próximo da fila (consultor → gerência, ou Gestão).
  */
 export async function reofferLead(lead, { reason, by } = {}) {
   const previousId = lead.consultorId || lead.consultorIdOferta;
   const recusados = refusedSet(lead);
   if (previousId) recusados.add(String(previousId));
 
-  const next = await pickConsultorForOffer(lead.regiao, [...recusados]);
+  const next = await resolveOfferTarget(lead, [...recusados]);
   const stillOffered = offeredStatusCondition();
+  const closedEntry = previousOfferHistory(reason, by);
+
   if (!next) {
     return persistOfferSwitch(
       lead,
@@ -218,28 +312,32 @@ export async function reofferLead(lead, { reason, by } = {}) {
         slaDeadline: null,
         slaRecusados: [...recusados],
       },
-      {
-        action: "sla_ciclo_encerrado",
-        label: "Nenhum consultor restante na regional",
-        detail: reason || "Todos recusaram ou o prazo expirou.",
-        by: by || "sistema",
-      },
+      [
+        closedEntry,
+        {
+          action: "sla_ciclo_encerrado",
+          label: "Fila de aceite encerrada",
+          detail: lead.regiao
+            ? "Todos os consultores e a gerência da regional recusaram ou deixaram expirar."
+            : "Gestão recusou ou deixou expirar a oferta do lead sem região.",
+          by: by || "sistema",
+        },
+      ],
       stillOffered,
     );
   }
 
   const now = new Date().toISOString();
   await updateConsultorUltimaAtribuicao(next.id, now);
-  const nome = getConsultorDisplayName(next) || next.email || next.id;
+  const copy = offerHistoryCopy(lead, next, { reoffer: true });
   const deadline = offerDeadlineIso();
 
-  const condition = offeredStatusCondition();
   const updated = await persistOfferSwitch(
     lead,
     {
       consultorId: String(next.id),
       consultorIdOferta: String(next.id),
-      consultor: nome,
+      consultor: consultorNome(next),
       emailConsultor: next.email || lead.emailConsultor,
       gerencia: getConsultorGerencia(next) || lead.gerencia,
       slaStatus: "ofertado",
@@ -248,13 +346,16 @@ export async function reofferLead(lead, { reason, by } = {}) {
       slaOfertaRound: Number(lead.slaOfertaRound || 0) + 1,
       slaRecusados: [...recusados],
     },
-    {
-      action: "sla_reatribuido",
-      label: "Lead oferecido ao próximo consultor",
-      detail: reason || `Oferecido a ${nome}.`,
-      by: by || "sistema",
-    },
-    condition,
+    [
+      closedEntry,
+      {
+        action: "sla_reatribuido",
+        label: copy.label,
+        detail: copy.detail,
+        by: by || "sistema",
+      },
+    ],
+    stillOffered,
   );
 
   if (updated) void notifyLeadOffer(updated, next);
@@ -262,7 +363,7 @@ export async function reofferLead(lead, { reason, by } = {}) {
 }
 
 /**
- * Inicia o ciclo de oferta em um lead já persistido (ex.: saiu de aguardando_horario).
+ * Libera leads que ficaram em aguardando_horario (legado).
  */
 export async function startOfferCycle(lead, { reason, by } = {}) {
   const waitingCondition = {
@@ -270,7 +371,7 @@ export async function startOfferCycle(lead, { reason, by } = {}) {
     names: { "#ssWait": "slaStatus" },
     values: { ":wait": "aguardando_horario" },
   };
-  const chosen = await pickConsultorForOffer(lead.regiao, refusedSet(lead));
+  const chosen = await resolveOfferTarget(lead, refusedSet(lead));
   if (!chosen) {
     return persistOfferSwitch(
       lead,
@@ -280,8 +381,8 @@ export async function startOfferCycle(lead, { reason, by } = {}) {
       },
       {
         action: "sla_ciclo_encerrado",
-        label: "Nenhum consultor ativo na regional",
-        detail: reason || `Sem consultor ativo em ${lead.regiao || "—"}.`,
+        label: "Nenhum destinatário para a oferta",
+        detail: reason || `Sem consultor, gerência ou Gestão para ${lead.regiao || "lead sem região"}.`,
         by: by || "sistema",
       },
       waitingCondition,
@@ -290,7 +391,7 @@ export async function startOfferCycle(lead, { reason, by } = {}) {
 
   const now = new Date().toISOString();
   await updateConsultorUltimaAtribuicao(chosen.id, now);
-  const nome = getConsultorDisplayName(chosen) || chosen.email || chosen.id;
+  const copy = offerHistoryCopy(lead, chosen);
   const deadline = offerDeadlineIso();
 
   const updated = await persistOfferSwitch(
@@ -298,7 +399,7 @@ export async function startOfferCycle(lead, { reason, by } = {}) {
     {
       consultorId: String(chosen.id),
       consultorIdOferta: String(chosen.id),
-      consultor: nome,
+      consultor: consultorNome(chosen),
       emailConsultor: chosen.email || lead.emailConsultor,
       gerencia: getConsultorGerencia(chosen) || lead.gerencia,
       slaStatus: "ofertado",
@@ -308,8 +409,8 @@ export async function startOfferCycle(lead, { reason, by } = {}) {
     },
     {
       action: "sla_ofertado",
-      label: "Lead oferecido ao consultor",
-      detail: reason || `Oferecido a ${nome} (${lead.regiao}). ${slaOfferMinutes()} min para aceitar.`,
+      label: copy.label,
+      detail: reason || copy.detail,
       by: by || "sistema",
     },
     waitingCondition,

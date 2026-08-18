@@ -56,7 +56,7 @@ function SlaTimer({ lead, onAccept, onRefuse, submitting }) {
         <span className="text-red-500 text-lg">✕</span>
         <p className="text-sm font-semibold text-red-700">
           {slaStatus === "expirado_ciclo"
-            ? "Ciclo encerrado — nenhum consultor restante na regional"
+            ? "Ciclo encerrado — ninguém restou na fila para aceitar este lead"
             : "Oferta expirada ou redistribuída"}
         </p>
       </div>

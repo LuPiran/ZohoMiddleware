@@ -9,7 +9,10 @@ function offerEmailContent(lead, consultorNome) {
   const minutos = ENV.SLA_OFFER_MINUTES || 10;
   const link = `${portalBaseUrl()}/leads-medicos/${lead.id}`;
   const cidade = [lead.cidade, lead.estado || lead.ufCrm].filter(Boolean).join(" / ");
-  const subject = `Novo lead ${lead.regiao || ""} — ${minutos} min para aceitar`.replace(
+  const fila = lead.regiao
+    ? `da regional ${lead.regiao}`
+    : "sem UF/região (fila da Gestão)";
+  const subject = `Novo lead ${lead.regiao || "Gestão"} — ${minutos} min para aceitar`.replace(
     /\s+/g,
     " ",
   ).trim();
@@ -17,7 +20,7 @@ function offerEmailContent(lead, consultorNome) {
   const text = [
     `Olá${consultorNome ? `, ${consultorNome}` : ""},`,
     "",
-    `Um lead da regional ${lead.regiao || "—"} foi oferecido a você.`,
+    `Um lead ${fila} foi oferecido a você.`,
     "",
     `Nome: ${lead.nome || "—"}`,
     `Cidade: ${cidade || "—"}`,
@@ -28,7 +31,7 @@ function offerEmailContent(lead, consultorNome) {
 
   const html = `
     <p>Olá${consultorNome ? `, <strong>${consultorNome}</strong>` : ""},</p>
-    <p>Um lead da regional <strong>${lead.regiao || "—"}</strong> foi oferecido a você.</p>
+    <p>Um lead <strong>${fila}</strong> foi oferecido a você.</p>
     <ul>
       <li><strong>Nome:</strong> ${lead.nome || "—"}</li>
       <li><strong>Cidade:</strong> ${cidade || "—"}</li>
