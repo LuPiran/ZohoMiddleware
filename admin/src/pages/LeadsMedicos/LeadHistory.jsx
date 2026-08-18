@@ -8,6 +8,7 @@ import {
   MdEmojiEvents,
   MdCheckCircle,
   MdFavorite,
+  MdTag,
 } from "react-icons/md";
 
 const ACTION_ICONS = {
@@ -29,6 +30,7 @@ const ACTION_ICONS = {
   sem_interesse: MdThumbDown,
   lead_com_interesse: MdFavorite,
   lead_convertido: MdEmojiEvents,
+  protocolo_gerado: MdTag,
 };
 
 function normalizeHistoryEntry(entry) {

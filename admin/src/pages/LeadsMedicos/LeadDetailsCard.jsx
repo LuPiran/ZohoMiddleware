@@ -12,6 +12,7 @@ import {
   MdPinDrop,
   MdLocationCity,
   MdMarkunreadMailbox,
+  MdTag,
 } from "react-icons/md";
 import { canonicalizeLeadStatus, getLeadStatusMeta } from "./leadStatus";
 
@@ -83,6 +84,13 @@ export default function LeadDetailsCard({ lead }) {
       <div className="px-4 sm:px-5 py-4 border-b border-tegra-gray-medium bg-gradient-to-r from-tegra-blue-dark/5 to-transparent">
         <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs tabular-nums">
           <p>
+            <span className="font-medium text-tegra-text-secondary">Protocolo</span>
+            {" "}
+            <span className="font-semibold tracking-[0.18em] text-tegra-blue-dark">
+              {lead.protocolo || "—"}
+            </span>
+          </p>
+          <p>
             <span className="font-medium text-tegra-text-secondary">ID do portal</span>
             {" "}
             <span className="font-semibold text-tegra-text-primary break-all">
@@ -100,6 +108,12 @@ export default function LeadDetailsCard({ lead }) {
         <h2 className="mt-1 text-xl font-bold text-tegra-blue-dark">
           {lead.nome || "Lead sem nome"}
         </h2>
+        {lead.protocolo && (
+          <p className="mt-1 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-tegra-teal">
+            <MdTag aria-hidden />
+            {lead.nome ? `${String(lead.nome).split(" ")[0]}_${lead.protocolo}` : lead.protocolo}
+          </p>
+        )}
         <p className="mt-1 text-sm text-tegra-text-secondary flex flex-wrap items-center gap-2">
           <LeadStatusChip status={lead.status} />
         </p>

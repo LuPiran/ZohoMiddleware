@@ -22,10 +22,18 @@ export async function getLeadMedico(id) {
   };
 }
 
-export async function registrarTentativa(id, round, observacao) {
+export function buildEvidenceFormData({ observacao, files }) {
+  const form = new FormData();
+  if (observacao) form.append("observacao", observacao);
+  (files || []).forEach((file) => form.append("evidencias", file));
+  return form;
+}
+
+export async function registrarTentativa(id, round, observacao, files = []) {
   const response = await api.post(
     API_ENDPOINTS.LEADS_MEDICOS.TENTATIVA(id, round),
-    { observacao },
+    buildEvidenceFormData({ observacao, files }),
+    { timeout: 120000 },
   );
   return {
     success: Boolean(response.data?.success),
@@ -48,10 +56,11 @@ export async function marcarTentativaSemRetorno(id, round, observacao) {
   };
 }
 
-export async function marcarLeadSemInteresse(id, observacao) {
+export async function marcarLeadSemInteresse(id, observacao, files = []) {
   const response = await api.post(
     API_ENDPOINTS.LEADS_MEDICOS.SEM_INTERESSE(id),
-    { observacao },
+    buildEvidenceFormData({ observacao, files }),
+    { timeout: 120000 },
   );
   return {
     success: Boolean(response.data?.success),
@@ -59,8 +68,12 @@ export async function marcarLeadSemInteresse(id, observacao) {
   };
 }
 
-export async function marcarLeadSemContato(id) {
-  const response = await api.post(API_ENDPOINTS.LEADS_MEDICOS.SEM_CONTATO(id));
+export async function marcarLeadSemContato(id, files = []) {
+  const response = await api.post(
+    API_ENDPOINTS.LEADS_MEDICOS.SEM_CONTATO(id),
+    buildEvidenceFormData({ files }),
+    { timeout: 120000 },
+  );
   return {
     success: Boolean(response.data?.success),
     data: response.data?.data || null,

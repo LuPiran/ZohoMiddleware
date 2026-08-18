@@ -130,6 +130,13 @@ export function syncZohoLead(idZoho, fields) {
   });
 }
 
+export function syncZohoLeadProtocolo(lead) {
+  if (!lead?.protocolo) return;
+  syncZohoLead(lead.idZoho, {
+    ...field(ENV.ZOHO_LEAD_PROTOCOLO_FIELD, lead.protocolo),
+  });
+}
+
 export function syncZohoLeadAccepted(lead) {
   const now =
     lead.slaCheckinAt || lead.dataQualificado || new Date().toISOString();

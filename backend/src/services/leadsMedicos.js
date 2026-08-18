@@ -30,6 +30,7 @@ import {
   syncZohoLeadAttemptTreated,
   syncZohoLeadSemContato,
   syncZohoLeadSemInteresse,
+  syncZohoLeadProtocolo,
 } from "./zohoLeadSync.js";
 import {
   ATTEMPT_ROUNDS,
@@ -45,6 +46,13 @@ import {
   timeoutAttemptUpdates,
   treatedAttemptUpdates,
 } from "../domain/leadAttempts.js";
+import {
+  generateProtocolo,
+  isValidProtocolo,
+  normalizeProtocolo,
+} from "../domain/leadProtocol.js";
+import { persistLeadEvidencias } from "./leadEvidencias.js";
+import { downloadWorkDriveFile } from "./workdrive.js";
 import { buildDynamoUpdateParts } from "../utils/dynamoUpdate.js";
 
 // Mapa UF → Região (fallback quando Zoho não envia Dist_Regiao)
@@ -324,6 +332,16 @@ export function mapZohoPayloadToLead(payload) {
     ]),
   );
 
+  const protocolo = normalizeProtocolo(
+    pick(source, [
+      "protocolo",
+      "Protocolo",
+      "Protocolo_Portal",
+      "protocoloPortal",
+      "protocolo_portal",
+    ]),
+  );
+
   const now = new Date().toISOString();
   const entradaEm =
     asIsoDate(pick(source, ["entradaEm", "Entrada_Em"])) ||
@@ -380,6 +398,10 @@ export function mapZohoPayloadToLead(payload) {
     slaOfertaRound: 0,
     slaCicloRegional: regiao ? 1 : 0,
     slaFaseGestao: !regiao,
+    protocolo: protocolo && isValidProtocolo(protocolo) ? protocolo : undefined,
+    evidencias: [],
+    workdriveFolderId: undefined,
+    workdriveFolderName: undefined,
     createdAt: now,
     updatedAt: now,
     source: "zoho",
@@ -520,6 +542,73 @@ async function findLeadByZohoId(idZoho) {
   }
 }
 
+async function findLeadByProtocolo(protocolo) {
+  const code = normalizeProtocolo(protocolo);
+  if (!code) return null;
+
+  const indexName = ENV.DYNAMODB_LEADS_PROTOCOLO_INDEX || "gsi_protocolo";
+  const attr = ENV.DYNAMODB_LEADS_PROTOCOLO_ATTR || "protocolo";
+
+  try {
+    const byGsi = await dynamoDocClient.send(
+      new QueryCommand({
+        TableName: TABLE(),
+        IndexName: indexName,
+        KeyConditionExpression: "#pk = :pk",
+        ExpressionAttributeNames: { "#pk": attr },
+        ExpressionAttributeValues: { ":pk": code },
+        Limit: 1,
+      }),
+    );
+    if (byGsi.Items?.length) return byGsi.Items[0];
+    return null;
+  } catch (error) {
+    if (
+      error.name !== "ValidationException" &&
+      error.name !== "ResourceNotFoundException"
+    ) {
+      throw error;
+    }
+  }
+
+  let lastKey;
+  do {
+    const page = await dynamoDocClient.send(
+      new ScanCommand({
+        TableName: TABLE(),
+        FilterExpression: "#pk = :pk",
+        ExpressionAttributeNames: { "#pk": attr },
+        ExpressionAttributeValues: { ":pk": code },
+        ExclusiveStartKey: lastKey,
+        Limit: 1,
+      }),
+    );
+    if (page.Items?.length) return page.Items[0];
+    lastKey = page.LastEvaluatedKey;
+  } while (lastKey);
+
+  return null;
+}
+
+async function assignUniqueProtocolo(preferred) {
+  const candidate = normalizeProtocolo(preferred);
+  if (candidate && isValidProtocolo(candidate)) {
+    const existing = await findLeadByProtocolo(candidate);
+    if (!existing) return candidate;
+  }
+
+  for (let i = 0; i < 40; i += 1) {
+    const generated = generateProtocolo();
+    const existing = await findLeadByProtocolo(generated);
+    if (!existing) return generated;
+  }
+
+  const err = new Error("Não foi possível gerar um protocolo único para o lead.");
+  err.status = 503;
+  err.code = "PROTOCOL_GENERATION_FAILED";
+  throw err;
+}
+
 /**
  * Cria lead médico no DynamoDB a partir do payload Zoho.
  * Idempotente por idZoho (GSI gsi_zoho). id da tabela = UUID próprio.
@@ -539,6 +628,20 @@ export async function createLeadFromZoho(payload) {
       lead: existing,
     };
   }
+
+  const protocolo = await assignUniqueProtocolo(lead.protocolo);
+  lead.protocolo = protocolo;
+  lead.historico = [
+    {
+      id: randomUUID(),
+      at: new Date().toISOString(),
+      action: "protocolo_gerado",
+      label: `Protocolo ${protocolo}`,
+      detail: `Protocolo do portal atribuído: ${protocolo}.`,
+      by: "sistema",
+    },
+    ...(lead.historico || []),
+  ];
 
   lead = await offerLeadOnCreate(lead);
 
@@ -574,6 +677,8 @@ export async function createLeadFromZoho(payload) {
     }
     throw error;
   }
+
+  syncZohoLeadProtocolo(lead);
 
   return {
     created: true,
@@ -707,6 +812,7 @@ export function toLeadListItem(lead) {
     slaDeadline: lead.slaDeadline || null,
     slaStatus: lead.slaStatus || null,
     slaCheckinAt: lead.slaCheckinAt || null,
+    protocolo: lead.protocolo || null,
   };
 }
 
@@ -940,6 +1046,27 @@ function appendHistorico(lead, entries) {
   return historico.slice(0, 200);
 }
 
+function publicEvidencias(lead) {
+  const items = Array.isArray(lead?.evidencias) ? lead.evidencias : [];
+  return items.map((item) => ({
+    id: item.id,
+    n: item.n,
+    acao: item.acao || null,
+    round: item.round || null,
+    fileName: item.fileName,
+    mimeType: item.mimeType,
+    url: item.url || null,
+    uploadedAt: item.uploadedAt || null,
+    uploadedBy: item.uploadedBy || null,
+  }));
+}
+
+function evidenceHistoryDetail(note, uploaded) {
+  const names = (uploaded || []).map((item) => item.fileName).join(", ");
+  if (!note) return names ? `Evidências: ${names}` : "";
+  return names ? `${note}\n\nEvidências: ${names}` : note;
+}
+
 export { buildLeadTimeline };
 
 export function toLeadDetail(lead) {
@@ -971,6 +1098,9 @@ export function toLeadDetail(lead) {
     historico: (Array.isArray(lead.historico) ? lead.historico : [])
       .map(normalizeHistoricoEntry)
       .filter(Boolean),
+    evidencias: publicEvidencias(lead),
+    workdriveFolderId: lead.workdriveFolderId || null,
+    protocolo: lead.protocolo || null,
     timeline: buildLeadTimeline(lead),
     attempt: {
       ...attempt,
@@ -1022,6 +1152,45 @@ export async function getLeadForUser(leadId, user = {}) {
   };
 }
 
+export async function getEvidenceFileForUser(leadId, evidenciaId, user = {}) {
+  const { role, viewer } = await resolveViewerContext(user);
+  const result = await dynamoDocClient.send(
+    new GetCommand({
+      TableName: TABLE(),
+      Key: { id: String(leadId || "").trim() },
+    }),
+  );
+  if (!result.Item) {
+    const err = new Error("Lead não encontrado");
+    err.status = 404;
+    err.code = "NOT_FOUND";
+    throw err;
+  }
+  if (!userCanAccessLead(result.Item, role, viewer)) {
+    const err = new Error("Você não tem permissão para ver este lead");
+    err.status = 403;
+    err.code = "FORBIDDEN";
+    throw err;
+  }
+
+  const evidencia = (result.Item.evidencias || []).find(
+    (item) => String(item.id) === String(evidenciaId),
+  );
+  if (!evidencia?.workdriveFileId) {
+    const err = new Error("Evidência não encontrada");
+    err.status = 404;
+    err.code = "NOT_FOUND";
+    throw err;
+  }
+
+  const file = await downloadWorkDriveFile(evidencia.workdriveFileId);
+  return {
+    ...file,
+    fileName: evidencia.fileName || "evidencia.jpg",
+    mimeType: evidencia.mimeType || file.contentType,
+  };
+}
+
 async function updateLeadItem(leadId, updates, condition) {
   const built = buildDynamoUpdateParts(updates);
   const names = { ...built.names, ...(condition?.names || {}) };
@@ -1059,7 +1228,7 @@ async function updateLeadItem(leadId, updates, condition) {
 /**
  * Registra tentativa de contato (1, 2 ou 3) como "Tratado Pelo Consultor".
  */
-export async function registerContactAttempt(leadId, user, round, { observacao } = {}) {
+export async function registerContactAttempt(leadId, user, round, { observacao, files } = {}) {
   await getLeadForUser(leadId, user);
   const now = new Date().toISOString();
   const raw = (
@@ -1071,6 +1240,11 @@ export async function registerContactAttempt(leadId, user, round, { observacao }
   const { n, note, updates } = treatedAttemptUpdates(raw, round, {
     observacao,
     at: now,
+  });
+  const evidence = await persistLeadEvidencias(raw, files, {
+    acao: "tentativa",
+    round: n,
+    user,
   });
   const meta = ATTEMPT_ROUNDS[n];
   const actor = user.email || user.id || "usuario";
@@ -1086,7 +1260,7 @@ export async function registerContactAttempt(leadId, user, round, { observacao }
             ? "segunda_tentativa"
             : "terceira_tentativa",
       label: `${meta.label} — tratado pelo consultor`,
-      detail: note,
+      detail: evidenceHistoryDetail(note, evidence.uploaded),
       by: actor,
     },
     alreadyInteresse
@@ -1100,7 +1274,17 @@ export async function registerContactAttempt(leadId, user, round, { observacao }
         },
   ]);
 
-  const updated = await updateLeadItem(leadId, { ...updates, historico });
+  const updated = await updateLeadItem(leadId, {
+    ...updates,
+    historico,
+    evidencias: evidence.evidencias,
+    workdriveFolderId: evidence.workdriveFolderId,
+    workdriveFolderName: evidence.workdriveFolderName,
+    protocolo: evidence.protocolo,
+  });
+  if (!raw.protocolo && evidence.protocolo) {
+    syncZohoLeadProtocolo(updated);
+  }
   syncZohoLeadAttemptTreated(updated, n, { observacao: note, at: now });
   return toLeadDetail(updated);
 }
@@ -1188,7 +1372,7 @@ export async function expireOverdueAttempts() {
  * Marca lead como sem interesse.
  * Se houver tentativa aberta (1, 2 ou 3), grava também status/data/observação dela.
  */
-export async function markLeadSemInteresse(leadId, user, { observacao } = {}) {
+export async function markLeadSemInteresse(leadId, user, { observacao, files } = {}) {
   await getLeadForUser(leadId, user);
   const now = new Date().toISOString();
   const raw = (
@@ -1201,17 +1385,32 @@ export async function markLeadSemInteresse(leadId, user, { observacao } = {}) {
     observacao,
     at: now,
   });
+  const evidence = await persistLeadEvidencias(raw, files, {
+    acao: "sem_interesse",
+    round,
+    user,
+  });
   const meta = round ? ATTEMPT_ROUNDS[round] : null;
   const historico = appendHistorico(raw, {
     action: "sem_interesse",
     label: meta
       ? `Lead sem interesse — ${meta.label.toLowerCase()}`
       : "Lead sem interesse",
-    detail: note,
+    detail: evidenceHistoryDetail(note, evidence.uploaded),
     by: user.email || user.id || "usuario",
   });
 
-  const updated = await updateLeadItem(leadId, { ...updates, historico });
+  const updated = await updateLeadItem(leadId, {
+    ...updates,
+    historico,
+    evidencias: evidence.evidencias,
+    workdriveFolderId: evidence.workdriveFolderId,
+    workdriveFolderName: evidence.workdriveFolderName,
+    protocolo: evidence.protocolo,
+  });
+  if (!raw.protocolo && evidence.protocolo) {
+    syncZohoLeadProtocolo(updated);
+  }
   syncZohoLeadSemInteresse(updated, {
     at: now,
     observacao: note,
@@ -1226,7 +1425,7 @@ export async function markLeadSemInteresse(leadId, user, { observacao } = {}) {
 /**
  * Consultor marca o lead como sem contato (status do lead + data).
  */
-export async function markLeadSemContato(leadId, user) {
+export async function markLeadSemContato(leadId, user, { files } = {}) {
   await getLeadForUser(leadId, user);
   const now = new Date().toISOString();
   const raw = (
@@ -1236,14 +1435,31 @@ export async function markLeadSemContato(leadId, user) {
   ).Item;
 
   const { updates } = semContatoUpdates(raw, { at: now });
+  const evidence = await persistLeadEvidencias(raw, files, {
+    acao: "sem_contato",
+    user,
+  });
   const historico = appendHistorico(raw, {
     action: "sem_contato",
     label: "Lead sem contato",
-    detail: "Consultor registrou que não foi possível contato com o lead.",
+    detail: evidenceHistoryDetail(
+      "Consultor registrou que não foi possível contato com o lead.",
+      evidence.uploaded,
+    ),
     by: user.email || user.id || "usuario",
   });
 
-  const updated = await updateLeadItem(leadId, { ...updates, historico });
+  const updated = await updateLeadItem(leadId, {
+    ...updates,
+    historico,
+    evidencias: evidence.evidencias,
+    workdriveFolderId: evidence.workdriveFolderId,
+    workdriveFolderName: evidence.workdriveFolderName,
+    protocolo: evidence.protocolo,
+  });
+  if (!raw.protocolo && evidence.protocolo) {
+    syncZohoLeadProtocolo(updated);
+  }
   syncZohoLeadSemContato(updated, { at: now });
   if (isSlaAccepted(raw)) {
     void decrementCargaAceita(raw.consultorId);

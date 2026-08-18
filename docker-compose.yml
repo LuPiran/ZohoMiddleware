@@ -12,7 +12,7 @@ services:
       SERVE_FRONTEND: "false"
       TRUST_PROXY: "1"
       JSON_BODY_LIMIT: 2mb
-      UPLOAD_BODY_LIMIT: 6mb
+      UPLOAD_BODY_LIMIT: 25mb
     volumes:
       - zoho_uploads:/app/uploads
       - zoho_logs:/app/logs

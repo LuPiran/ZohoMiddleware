@@ -103,6 +103,24 @@ export const ENV = {
     process.env.ZOHO_LEAD_ADD_2A_FIELD || "Adicionar_2_Tentativa",
   ZOHO_LEAD_ADD_3A_FIELD:
     process.env.ZOHO_LEAD_ADD_3A_FIELD || "Adicionar_3_Tentativa",
+  ZOHO_LEAD_PROTOCOLO_FIELD:
+    process.env.ZOHO_LEAD_PROTOCOLO_FIELD || "Protocolo_Portal",
+
+  DYNAMODB_LEADS_PROTOCOLO_INDEX:
+    process.env.DYNAMODB_LEADS_PROTOCOLO_INDEX || "gsi_protocolo",
+  DYNAMODB_LEADS_PROTOCOLO_ATTR:
+    process.env.DYNAMODB_LEADS_PROTOCOLO_ATTR || "protocolo",
+
+  ZOHO_WORKDRIVE_CLIENT_ID: process.env.ZOHO_WORKDRIVE_CLIENT_ID,
+  ZOHO_WORKDRIVE_CLIENT_SECRET: process.env.ZOHO_WORKDRIVE_CLIENT_SECRET,
+  ZOHO_WORKDRIVE_SCOPE: process.env.ZOHO_WORKDRIVE_SCOPE,
+  ZOHO_WORKDRIVE_SOID: process.env.ZOHO_WORKDRIVE_SOID,
+  ZOHO_WORKDRIVE_FOLDER_ID:
+    process.env.ZOHO_WORKDRIVE_FOLDER_ID || "8uwd527d3a78def86494e8fd6b959cbb2bc8d",
+  ZOHO_WORKDRIVE_API_BASE:
+    process.env.ZOHO_WORKDRIVE_API_BASE || "https://www.zohoapis.com/workdrive/api/v1",
+  ZOHO_WORKDRIVE_ACCOUNTS_URL: process.env.ZOHO_WORKDRIVE_ACCOUNTS_URL,
+  ZOHO_WORKDRIVE_DOWNLOAD_BASE: process.env.ZOHO_WORKDRIVE_DOWNLOAD_BASE,
 
   // E-mail transacional: none | microsoft | resend
   MAIL_PROVIDER: (process.env.MAIL_PROVIDER || "none").toLowerCase(),

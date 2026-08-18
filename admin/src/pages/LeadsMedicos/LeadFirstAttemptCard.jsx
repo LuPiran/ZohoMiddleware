@@ -3,6 +3,7 @@ import { MdPhoneMissed, MdSchedule, MdSend, MdThumbDown } from "react-icons/md";
 import Button from "../../components/ui/Button";
 import Textarea from "../../components/ui/Textarea";
 import { useToast } from "../../components/feedback/auth/ToastContainer";
+import EvidenceUploader, { EvidenceGallery } from "./EvidenceUploader";
 
 const MIN_OBSERVACAO = 10;
 
@@ -26,7 +27,7 @@ function formatDeadline(iso) {
   });
 }
 
-function RoundHistory({ title, date, status, description }) {
+function RoundHistory({ title, date, status, description, evidencias, leadId }) {
   const noReturn = String(status || "").toLowerCase().includes("retorno");
   return (
     <div className="rounded-lg border border-tegra-gray-medium/70 bg-white px-3 py-3">
@@ -47,6 +48,11 @@ function RoundHistory({ title, date, status, description }) {
         <p className="mt-2 text-sm text-tegra-text-primary whitespace-pre-wrap">
           {description}
         </p>
+      ) : null}
+      {evidencias?.length ? (
+        <div className="mt-3">
+          <EvidenceGallery evidencias={evidencias} leadId={leadId} />
+        </div>
       ) : null}
     </div>
   );
@@ -104,6 +110,8 @@ export default function LeadFirstAttemptCard({
   const { showToast } = useToast();
   const [observacao, setObservacao] = useState("");
   const [error, setError] = useState("");
+  const [files, setFiles] = useState([]);
+  const [fileError, setFileError] = useState("");
 
   const attempt = lead?.attempt || {};
   const round = attempt.currentRound;
@@ -131,21 +139,41 @@ export default function LeadFirstAttemptCard({
     return note;
   };
 
+  const validateEvidencias = () => {
+    if (!files.length) {
+      const message = "Envie pelo menos 1 imagem de evidência (máximo 5).";
+      setFileError(message);
+      showToast(message, "error", 3500);
+      return false;
+    }
+    setFileError("");
+    return true;
+  };
+
+  const resetForm = () => {
+    setObservacao("");
+    setFiles([]);
+    setFileError("");
+  };
+
   const handleAttempt = async () => {
     const note = validateObservacao();
-    if (!note) return;
-    await onSubmitAttempt(round, note);
-    setObservacao("");
+    if (!note || !validateEvidencias()) return;
+    await onSubmitAttempt(round, note, files);
+    resetForm();
   };
 
   const handleSemInteresse = async () => {
     const note = validateObservacao();
-    if (!note) return;
-    await onSemInteresse(note);
+    if (!note || !validateEvidencias()) return;
+    await onSemInteresse(note, files);
+    resetForm();
   };
 
   const handleSemContato = async () => {
-    await onSemContato();
+    if (!validateEvidencias()) return;
+    await onSemContato(files);
+    resetForm();
   };
 
   if (attempt.converted) {
@@ -159,6 +187,9 @@ export default function LeadFirstAttemptCard({
             : "—"}
           .
         </p>
+        <div className="mt-4">
+          <EvidenceGallery evidencias={lead.evidencias} leadId={lead.id} />
+        </div>
       </section>
     );
   }
@@ -174,6 +205,9 @@ export default function LeadFirstAttemptCard({
             : "—"}
           .
         </p>
+        <div className="mt-4">
+          <EvidenceGallery evidencias={lead.evidencias} leadId={lead.id} />
+        </div>
       </section>
     );
   }
@@ -194,24 +228,31 @@ export default function LeadFirstAttemptCard({
     );
   }
 
+  const evidencias = Array.isArray(lead?.evidencias) ? lead.evidencias : [];
+  const evidenciasByRound = (n) =>
+    evidencias.filter((item) => Number(item.round) === n && item.acao === "tentativa");
+
   const history = [
     attempt.hasFirstAttempt && {
       title: "Primeira tentativa",
       date: lead.dataPrimeiraTentativa,
       status: lead.statusPrimeiraTentativa,
       description: lead.descricaoPrimeiraTentativa,
+      evidencias: evidenciasByRound(1),
     },
     attempt.hasSecondAttempt && {
       title: "Segunda tentativa",
       date: lead.dataSegundaTentativa,
       status: lead.statusSegundaTentativa,
       description: lead.descricaoSegundaTentativa,
+      evidencias: evidenciasByRound(2),
     },
     attempt.hasThirdAttempt && {
       title: "Terceira tentativa",
       date: lead.dataTerceiraTentativa,
       status: lead.statusTerceiraTentativa,
       description: lead.descricaoTerceiraTentativa,
+      evidencias: evidenciasByRound(3),
     },
   ].filter(Boolean);
 
@@ -245,7 +286,7 @@ export default function LeadFirstAttemptCard({
         {history.length > 0 && (
           <div className="space-y-2">
             {history.map((item) => (
-              <RoundHistory key={item.title} {...item} />
+              <RoundHistory key={item.title} leadId={lead.id} {...item} />
             ))}
           </div>
         )}
@@ -261,6 +302,13 @@ export default function LeadFirstAttemptCard({
               required
               error={error}
               disabled={submitting}
+            />
+
+            <EvidenceUploader
+              files={files}
+              onChange={setFiles}
+              disabled={submitting}
+              error={fileError}
             />
 
             <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 sm:justify-end">
@@ -298,16 +346,24 @@ export default function LeadFirstAttemptCard({
             </div>
           </>
         ) : attempt.canMarkSemContato ? (
-          <div className="flex justify-end">
-            <Button
-              variant="warning"
-              className="inline-flex items-center justify-center gap-2"
+          <div className="space-y-4">
+            <EvidenceUploader
+              files={files}
+              onChange={setFiles}
               disabled={submitting}
-              onClick={handleSemContato}
-            >
-              <MdPhoneMissed aria-hidden />
-              Lead sem contato
-            </Button>
+              error={fileError}
+            />
+            <div className="flex justify-end">
+              <Button
+                variant="warning"
+                className="inline-flex items-center justify-center gap-2"
+                disabled={submitting}
+                onClick={handleSemContato}
+              >
+                <MdPhoneMissed aria-hidden />
+                Lead sem contato
+              </Button>
+            </div>
           </div>
         ) : null}
       </div>

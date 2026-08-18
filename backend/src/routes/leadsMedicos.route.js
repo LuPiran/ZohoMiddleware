@@ -12,11 +12,13 @@ import {
   recusarLead,
   registerContactAttempt,
   registerFirstAttempt,
+  getEvidenceFileForUser,
 } from "../services/leadsMedicos.js";
 import { authenticateLeadsWebhook } from "../middleware/leadsWebhookAuth.js";
 import { authenticateToken } from "../services/jwtService.js";
 import { requireSafeResourceId } from "../middleware/authz.js";
 import { writeRateLimiter } from "../middleware/rateLimiter.js";
+import { evidenceUploadMiddleware } from "../middleware/leadEvidenceUpload.js";
 
 const router = express.Router();
 
@@ -46,6 +48,18 @@ function dynamoErrorResponse(res, error) {
     return res.status(409).json({
       success: false,
       error: error.message || "Oferta não está mais disponível",
+    });
+  }
+
+  if (
+    error.code === "WORKDRIVE_ERROR" ||
+    error.code === "WORKDRIVE_AUTH_FAILED" ||
+    error.code === "WORKDRIVE_NOT_CONFIGURED" ||
+    error.status === 502
+  ) {
+    return res.status(error.status || 502).json({
+      success: false,
+      error: error.message || "Falha ao enviar evidência para o WorkDrive",
     });
   }
 
@@ -224,6 +238,42 @@ router.get(
   },
 );
 
+);
+
+/**
+ * Stream autenticado da evidência armazenada no WorkDrive.
+ * GET /v1/leads-medicos/:id/evidencias/:evidenciaId/arquivo
+ */
+router.get(
+  "/:id/evidencias/:evidenciaId/arquivo",
+  authenticateToken,
+  requireSafeResourceId("id"),
+  async (req, res) => {
+    try {
+      const file = await getEvidenceFileForUser(
+        req.params.id,
+        req.params.evidenciaId,
+        req.user,
+      );
+      res.setHeader("Content-Type", file.mimeType || "image/jpeg");
+      res.setHeader(
+        "Content-Disposition",
+        `inline; filename="${encodeURIComponent(file.fileName || "evidencia.jpg")}"`,
+      );
+      res.setHeader("Cache-Control", "private, max-age=300");
+      return res.send(file.buffer);
+    } catch (error) {
+      console.error("[LEADS] Erro ao baixar evidência:", error);
+      const handled = dynamoErrorResponse(res, error);
+      if (handled) return handled;
+      return res.status(500).json({
+        success: false,
+        error: error.message || "Erro ao carregar evidência",
+      });
+    }
+  },
+);
+
 /**
  * Registra primeira tentativa de contato.
  * POST /v1/leads-medicos/:id/primeira-tentativa
@@ -233,10 +283,12 @@ router.post(
   authenticateToken,
   requireSafeResourceId("id"),
   writeRateLimiter,
+  evidenceUploadMiddleware,
   async (req, res) => {
     try {
       const lead = await registerFirstAttempt(req.params.id, req.user, {
         observacao: req.body?.observacao || req.body?.descricao,
+        files: req.files,
       });
       return res.json({ success: true, data: lead });
     } catch (error) {
@@ -261,13 +313,17 @@ router.post(
   authenticateToken,
   requireSafeResourceId("id"),
   writeRateLimiter,
+  evidenceUploadMiddleware,
   async (req, res) => {
     try {
       const lead = await registerContactAttempt(
         req.params.id,
         req.user,
         req.params.round,
-        { observacao: req.body?.observacao || req.body?.descricao },
+        {
+          observacao: req.body?.observacao || req.body?.descricao,
+          files: req.files,
+        },
       );
       return res.json({ success: true, data: lead });
     } catch (error) {
@@ -316,10 +372,12 @@ router.post(
   authenticateToken,
   requireSafeResourceId("id"),
   writeRateLimiter,
+  evidenceUploadMiddleware,
   async (req, res) => {
     try {
       const lead = await markLeadSemInteresse(req.params.id, req.user, {
         observacao: req.body?.observacao || req.body?.descricao,
+        files: req.files,
       });
       return res.json({ success: true, data: lead });
     } catch (error) {
@@ -344,9 +402,12 @@ router.post(
   authenticateToken,
   requireSafeResourceId("id"),
   writeRateLimiter,
+  evidenceUploadMiddleware,
   async (req, res) => {
     try {
-      const lead = await markLeadSemContato(req.params.id, req.user);
+      const lead = await markLeadSemContato(req.params.id, req.user, {
+        files: req.files,
+      });
       return res.json({ success: true, data: lead });
     } catch (error) {
       console.error("[LEADS] Erro sem contato:", error);

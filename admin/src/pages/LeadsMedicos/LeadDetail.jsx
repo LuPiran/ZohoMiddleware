@@ -164,13 +164,14 @@ export default function LeadDetail() {
     return () => window.removeEventListener("sla-offer-changed", onOfferChanged);
   }, [id, loadLead]);
 
-  const handleAttempt = async (round, observacao) => {
+  const handleAttempt = async (round, observacao, files) => {
     setSubmitting(true);
     try {
       const result = await leadsMedicosService.registrarTentativa(
         id,
         round,
         observacao,
+        files,
       );
       setLead(result.data);
       showToast("Tentativa registrada e enviada ao Zoho", "success", 2500);
@@ -225,7 +226,7 @@ export default function LeadDetail() {
     }
   };
 
-  const handleSemInteresse = async (observacao) => {
+  const handleSemInteresse = async (observacao, files) => {
     const ok = window.confirm(
       "Confirmar que este lead não tem interesse? Esta ação encerra o funil.",
     );
@@ -236,6 +237,7 @@ export default function LeadDetail() {
       const result = await leadsMedicosService.marcarSemInteresse(
         id,
         observacao,
+        files,
       );
       setLead(result.data);
       showToast("Lead marcado como sem interesse", "success", 2500);
@@ -250,7 +252,7 @@ export default function LeadDetail() {
     }
   };
 
-  const handleSemContato = async () => {
+  const handleSemContato = async (files) => {
     const ok = window.confirm(
       "Confirmar que não foi possível contato com este lead? O status passará a Lead Sem Contato.",
     );
@@ -258,7 +260,7 @@ export default function LeadDetail() {
 
     setSubmitting(true);
     try {
-      const result = await leadsMedicosService.marcarSemContato(id);
+      const result = await leadsMedicosService.marcarSemContato(id, files);
       setLead(result.data);
       showToast("Lead marcado como sem contato", "success", 2500);
     } catch (err) {
