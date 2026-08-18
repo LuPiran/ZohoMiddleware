@@ -174,7 +174,11 @@ export default function LeadDetail() {
         files,
       );
       setLead(result.data);
-      showToast("Tentativa registrada e enviada ao Zoho", "success", 2500);
+      showToast(
+        "Compra registrada e tentativa enviada ao Zoho",
+        "success",
+        3000,
+      );
     } catch (err) {
       const message =
         err?.response?.data?.error ||

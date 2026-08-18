@@ -46,7 +46,15 @@ import {
   MdCloudUpload,
 } from "react-icons/md";
 
-export default function Compra() {
+export default function Compra({
+  embedded = false,
+  onSuccess,
+  onCancel,
+  draftKey: draftKeyProp,
+  leadPrefill,
+  submitLabel = "Enviar",
+  showSaveDraft = true,
+} = {}) {
   const navigate = useNavigate();
   const { setLoading, isLoading } = useLoading();
   const { showToast } = useToast();
@@ -54,7 +62,7 @@ export default function Compra() {
   const [showReview, setShowReview] = useState(false);
     const [showDraftBanner, setShowDraftBanner] = useState(false);
 
-    const DRAFT_KEY = "zoho_draft_compra";
+    const DRAFT_KEY = draftKeyProp || "zoho_draft_compra";
 
   // Estados do formulário do paciente
   const [nomePaciente, setNomePaciente] = useState("");
@@ -178,12 +186,28 @@ export default function Compra() {
   const [documentosCompletos, setDocumentosCompletos] = useState(false);
 
     useEffect(() => {
+      if (embedded) return;
       if (localStorage.getItem(DRAFT_KEY)) setShowDraftBanner(true);
       if (sessionStorage.getItem("auto_restaurar_rascunho") === "true") {
         sessionStorage.removeItem("auto_restaurar_rascunho");
         handleRestaurarRascunho();
       }
-    }, []);
+    }, [embedded, DRAFT_KEY]);
+
+  useEffect(() => {
+    if (!leadPrefill) return;
+    if (leadPrefill.temNovoMedicoPrescritor) {
+      setTemNovoMedicoPrescritor(true);
+    }
+    if (leadPrefill.nomeMedico) setNomeMedico(leadPrefill.nomeMedico);
+    if (leadPrefill.crmMedico) setCrmMedico(leadPrefill.crmMedico);
+    if (leadPrefill.ufCrm) setUfCrm(leadPrefill.ufCrm);
+    if (leadPrefill.celularMedico) setCelularMedico(leadPrefill.celularMedico);
+    if (leadPrefill.emailMedico) setEmailMedico(leadPrefill.emailMedico);
+    if (leadPrefill.especialidadeMedico) {
+      setEspecialidadeMedico(leadPrefill.especialidadeMedico);
+    }
+  }, [leadPrefill]);
 
   useEffect(() => {
     if (!authService.isAuthenticated()) {
@@ -879,8 +903,16 @@ export default function Compra() {
           totalCompra,
         };
 
-        // Oculta splash screen antes de navegar
         setShowSplash(false);
+
+        if (embedded && onSuccess) {
+          onSuccess({
+            compra: response,
+            dadosComprovante,
+            protocolo: response.protocolo,
+          });
+          return;
+        }
 
         // Navega para a página de agradecimento com os dados necessários
         navigate(ROUTES.AGRADECIMENTO, {
@@ -934,36 +966,22 @@ export default function Compra() {
     }
   };
 
-  return (
-    <>
-      {showSplash && <SplashScreen message="Criando compra..." />}
-      <MainLayout>
-        <div 
-          className="fixed inset-0 z-0"
-          style={{
-            backgroundImage: 'url(/painel_consultor_compra.png)',
-            backgroundSize: 'cover',
-            backgroundPosition: '40% center',
-            backgroundRepeat: 'no-repeat',
-            filter: 'blur(3px)'
-          }}
-        />
-        <div 
-          className="fixed inset-0 z-0"
-          style={{
-            background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.85) 0%, rgba(248, 250, 252, 0.8) 50%, rgba(255, 255, 255, 0.85) 100%)'
-          }}
-        />
-        <div className="relative z-10 max-w-5xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
-          <h1 className="text-xl sm:text-2xl font-bold text-tegra-text-primary mb-4 sm:mb-6">
-            Nova Compra
-          </h1>
-          <p className="text-xs sm:text-sm text-tegra-text-secondary mb-3 sm:mb-4">
-            <span className="text-tegra-error font-semibold">*</span> indica campo obrigatório.
-          </p>
+  function renderFormBody() {
+    return (
+      <>
+        {!embedded && (
+          <>
+            <h1 className="text-xl sm:text-2xl font-bold text-tegra-text-primary mb-4 sm:mb-6">
+              Nova Compra
+            </h1>
+            <p className="text-xs sm:text-sm text-tegra-text-secondary mb-3 sm:mb-4">
+              <span className="text-tegra-error font-semibold">*</span> indica campo
+              obrigatório.
+            </p>
+          </>
+        )}
 
-          {/* Banner de rascunho salvo */}
-          {showDraftBanner && (
+        {!embedded && showDraftBanner && (
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-tegra-bg-accent border border-tegra-blue-light rounded-lg px-4 py-3 mb-2">
               <div>
                 <p className="text-sm font-semibold text-tegra-blue-dark">💾 Você tem um rascunho salvo para este formulário.</p>
@@ -1790,7 +1808,13 @@ export default function Compra() {
               <Button
                 type="button"
                 variant="secondary"
-                onClick={limparFormulario}
+                onClick={() => {
+                  if (embedded && onCancel) {
+                    onCancel();
+                    return;
+                  }
+                  limparFormulario();
+                }}
                 className="w-full sm:w-auto"
               >
                 Cancelar
@@ -1803,6 +1827,7 @@ export default function Compra() {
               >
                 Rever formulário
               </Button>
+              {showSaveDraft && (
                 <Button
                   type="button"
                   variant="secondary"
@@ -1811,18 +1836,56 @@ export default function Compra() {
                 >
                   Salvar formulario
                 </Button>
+              )}
               <Button
                 type="submit"
                 variant="primary"
                 loading={false}
                 className="w-full sm:w-auto"
               >
-                Enviar
+                {submitLabel}
               </Button>
             </div>
           </form>
-        </div>
-      </MainLayout>
+      </>
+    );
+  }
+
+  return (
+    <>
+      {showSplash && (
+        <SplashScreen
+          message={
+            embedded ? "Registrando compra e tentativa..." : "Criando compra..."
+          }
+        />
+      )}
+      {embedded ? (
+        <div className="px-1 sm:px-2 pb-6">{renderFormBody()}</div>
+      ) : (
+        <MainLayout>
+          <div
+            className="fixed inset-0 z-0"
+            style={{
+              backgroundImage: "url(/painel_consultor_compra.png)",
+              backgroundSize: "cover",
+              backgroundPosition: "40% center",
+              backgroundRepeat: "no-repeat",
+              filter: "blur(3px)",
+            }}
+          />
+          <div
+            className="fixed inset-0 z-0"
+            style={{
+              background:
+                "linear-gradient(135deg, rgba(255, 255, 255, 0.85) 0%, rgba(248, 250, 252, 0.8) 50%, rgba(255, 255, 255, 0.85) 100%)",
+            }}
+          />
+          <div className="relative z-10 max-w-5xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
+            {renderFormBody()}
+          </div>
+        </MainLayout>
+      )}
 
       {/* Modal: Rever formulário */}
       {showReview && (

@@ -1,16 +1,29 @@
 import { useState } from "react";
-import { MdPhoneMissed, MdSchedule, MdSend, MdThumbDown } from "react-icons/md";
+import { MdPhoneMissed, MdSchedule, MdSend, MdShoppingCart, MdThumbDown } from "react-icons/md";
 import Button from "../../components/ui/Button";
 import Textarea from "../../components/ui/Textarea";
 import { useToast } from "../../components/feedback/auth/ToastContainer";
 import EvidenceUploader, { EvidenceGallery } from "./EvidenceUploader";
+import LeadAttemptCompraModal from "./LeadAttemptCompraModal";
 
 const MIN_OBSERVACAO = 10;
 
 const ROUND_COPY = {
-  1: { title: "Primeira tentativa", send: "Enviar primeira tentativa" },
-  2: { title: "Segunda tentativa", send: "Enviar segunda tentativa" },
-  3: { title: "Terceira tentativa", send: "Enviar terceira tentativa" },
+  1: {
+    title: "Primeira tentativa",
+    send: "Continuar para compra",
+    hint: "Observação, evidência e compra são obrigatórias.",
+  },
+  2: {
+    title: "Segunda tentativa",
+    send: "Continuar para compra",
+    hint: "Observação, evidência e compra são obrigatórias.",
+  },
+  3: {
+    title: "Terceira tentativa",
+    send: "Continuar para compra",
+    hint: "Observação, evidência e compra são obrigatórias.",
+  },
 };
 
 function formatWhen(iso) {
@@ -112,6 +125,7 @@ export default function LeadFirstAttemptCard({
   const [error, setError] = useState("");
   const [files, setFiles] = useState([]);
   const [fileError, setFileError] = useState("");
+  const [compraModalOpen, setCompraModalOpen] = useState(false);
 
   const attempt = lead?.attempt || {};
   const round = attempt.currentRound;
@@ -156,10 +170,16 @@ export default function LeadFirstAttemptCard({
     setFileError("");
   };
 
-  const handleAttempt = async () => {
+  const handleAttempt = () => {
     const note = validateObservacao();
     if (!note || !validateEvidencias()) return;
+    setCompraModalOpen(true);
+  };
+
+  const handleCompraComplete = async () => {
+    const note = observacao.trim();
     await onSubmitAttempt(round, note, files);
+    setCompraModalOpen(false);
     resetForm();
   };
 
@@ -311,6 +331,13 @@ export default function LeadFirstAttemptCard({
               error={fileError}
             />
 
+            {attempt.canRegisterAttempt && copy.hint && (
+              <p className="flex items-start gap-2 rounded-lg border border-tegra-teal/25 bg-tegra-teal/5 px-3 py-2.5 text-xs text-tegra-text-secondary">
+                <MdShoppingCart className="mt-0.5 shrink-0 text-tegra-teal" aria-hidden />
+                <span>{copy.hint} Ao continuar, abriremos o formulário de compra.</span>
+              </p>
+            )}
+
             <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 sm:justify-end">
               {attempt.canMarkSemContato && (
                 <Button
@@ -367,6 +394,18 @@ export default function LeadFirstAttemptCard({
           </div>
         ) : null}
       </div>
+
+      <LeadAttemptCompraModal
+        open={compraModalOpen}
+        onClose={() => !submitting && setCompraModalOpen(false)}
+        lead={lead}
+        round={round}
+        roundLabel={copy.title}
+        observacao={observacao.trim()}
+        evidenceCount={files.length}
+        onComplete={handleCompraComplete}
+        submitting={submitting}
+      />
     </section>
   );
 }

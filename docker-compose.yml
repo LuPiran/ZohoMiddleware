@@ -59,7 +59,7 @@ services:
         VITE_ENTRA_REDIRECT_URI: ${VITE_ENTRA_REDIRECT_URI:-http://localhost:8081}
     container_name: zoho-admin
     ports:
-      - "8081:80"
+      - "80:80"
     depends_on:
       zoho-backend:
         condition: service_healthy
