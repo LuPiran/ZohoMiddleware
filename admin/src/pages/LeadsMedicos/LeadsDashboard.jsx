@@ -42,12 +42,12 @@ function AccordionCard({ id, openId, onToggle, title, subtitle, badge, children 
   const open = openId === id;
 
   return (
-    <div className="bg-tegra-bg-primary rounded-xl border border-tegra-gray-medium/80 shadow-sm overflow-hidden">
+    <div className="h-full bg-tegra-bg-primary rounded-xl border border-tegra-gray-medium/80 shadow-sm overflow-hidden flex flex-col">
       {/* Header clicável — só mobile */}
       <button
         type="button"
         onClick={() => onToggle(id)}
-        className="sm:hidden w-full flex items-center justify-between px-4 py-3.5 text-left"
+        className="sm:hidden w-full flex items-center justify-between px-4 py-3.5 text-left shrink-0"
         aria-expanded={open}
       >
         <div className="flex items-center gap-2 min-w-0">
@@ -60,7 +60,7 @@ function AccordionCard({ id, openId, onToggle, title, subtitle, badge, children 
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {subtitle && !open && (
-            <span className="text-xs text-tegra-text-secondary">{subtitle}</span>
+            <span className="text-xs text-tegra-text-secondary truncate max-w-[120px]">{subtitle}</span>
           )}
           {open
             ? <MdExpandLess className="text-lg text-tegra-text-secondary" />
@@ -69,12 +69,12 @@ function AccordionCard({ id, openId, onToggle, title, subtitle, badge, children 
       </button>
 
       {/* Conteúdo: sempre visível no desktop, toggle no mobile */}
-      <div className={`sm:block ${open ? "block" : "hidden"}`}>
-        <div className="hidden sm:flex items-baseline justify-between gap-3 px-5 pt-5 pb-0">
-          <h2 className="text-base sm:text-lg font-semibold text-tegra-text-primary">{title}</h2>
-          {subtitle && <span className="text-xs text-tegra-text-secondary">{subtitle}</span>}
+      <div className={`flex-1 flex flex-col sm:flex sm:flex-col ${open ? "flex" : "hidden"}`}>
+        <div className="hidden sm:flex items-baseline justify-between gap-2 px-5 pt-5 pb-0 shrink-0">
+          <h2 className="text-base font-semibold text-tegra-text-primary shrink-0">{title}</h2>
+          {subtitle && <span className="text-xs text-tegra-text-secondary text-right leading-tight">{subtitle}</span>}
         </div>
-        <div className="px-4 sm:px-5 pb-4 sm:pb-5 pt-3 sm:pt-4">
+        <div className="flex-1 px-4 sm:px-5 pb-4 sm:pb-5 pt-3 sm:pt-4">
           {children}
         </div>
       </div>
@@ -105,7 +105,7 @@ export default function LeadsDashboard({
       className="grid grid-cols-1 xl:grid-cols-12 gap-3 sm:gap-5 mb-6 sm:mb-8"
     >
       {/* ── Leads por mês ── */}
-      <div className="xl:col-span-5">
+      <div className="xl:col-span-5 flex flex-col">
         <AccordionCard
           id="mensal"
           openId={openId}
@@ -156,7 +156,7 @@ export default function LeadsDashboard({
       </div>
 
       {/* ── Por status ── */}
-      <div className="xl:col-span-4">
+      <div className="xl:col-span-4 flex flex-col">
         <AccordionCard
           id="status"
           openId={openId}
@@ -213,19 +213,19 @@ export default function LeadsDashboard({
       </div>
 
       {/* ── Conversão ── */}
-      <div className="xl:col-span-3">
+      <div className="xl:col-span-3 flex flex-col">
         <AccordionCard
           id="conversao"
           openId={openId}
           onToggle={handleToggle}
           title="Conversão"
-          subtitle="Leads convertidos sobre o total"
+          subtitle="Leads convertidos"
           badge={`${conversionRate}%`}
         >
-          <div className="flex flex-col justify-between h-52 sm:h-64">
-            <p className="text-4xl sm:text-5xl font-bold text-tegra-blue-dark tabular-nums tracking-tight mt-2">
+          <div className="h-full flex flex-col justify-between">
+            <p className="text-5xl font-bold text-tegra-blue-dark tabular-nums tracking-tight">
               {conversionRate}
-              <span className="text-2xl sm:text-3xl font-semibold ml-0.5">%</span>
+              <span className="text-3xl font-semibold ml-0.5">%</span>
             </p>
             <div>
               <p className="mb-3 text-sm text-tegra-text-secondary flex items-center gap-1.5">
