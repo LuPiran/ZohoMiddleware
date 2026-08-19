@@ -156,6 +156,35 @@ function asIsoDate(value) {
   return Number.isNaN(parsed.getTime()) ? raw : parsed.toISOString();
 }
 
+function extractZohoStatusUpdateFields(source) {
+  const rawStatus = pick(source, ["status", "Status", "Stage"]);
+  const statusProvided = rawStatus !== undefined && rawStatus !== null && String(rawStatus).trim() !== "";
+
+  const status = statusProvided
+    ? canonicalizeLeadStatus(asString(rawStatus), ZOHO_LEAD_STATUS.NOVO)
+    : undefined;
+
+  const rawDataConversao = pick(source, [
+    "dataConversao",
+    "Data_Conversao",
+    "convertedAt",
+    "Converted_Date",
+  ]);
+  const dataConversaoProvided =
+    rawDataConversao !== undefined &&
+    rawDataConversao !== null &&
+    String(rawDataConversao).trim() !== "";
+
+  const dataConversao = dataConversaoProvided ? asIsoDate(rawDataConversao) : undefined;
+
+  return {
+    statusProvided,
+    status,
+    dataConversaoProvided,
+    dataConversao,
+  };
+}
+
 /**
  * Mapeia o payload do Zoho para o item DynamoDB (portal_leads_medicos).
  *
@@ -654,18 +683,71 @@ export async function createLeadFromZoho(payload) {
   let lead = mapZohoPayloadToLead(payload);
   lead.consultorId = undefined;
 
+  const source = payload?.data && typeof payload.data === "object" ? payload.data : payload;
+  const zohoStatusUpdate = extractZohoStatusUpdateFields(source);
+  const now = new Date().toISOString();
+
   const existing = await findLeadByZohoId(lead.idZoho);
   if (existing) {
+    const updates = {};
+
+    const statusIsConverted =
+      zohoStatusUpdate.statusProvided &&
+      zohoStatusUpdate.status === ZOHO_LEAD_STATUS.CONVERTIDO;
+
+    if (statusIsConverted && zohoStatusUpdate.status !== existing.status) {
+      updates.status = zohoStatusUpdate.status;
+    } else if (zohoStatusUpdate.dataConversaoProvided) {
+      // Se veio data de conversão, assume que o lead deve estar como convertido.
+      if (ZOHO_LEAD_STATUS.CONVERTIDO !== existing.status) {
+        updates.status = ZOHO_LEAD_STATUS.CONVERTIDO;
+      }
+    }
+
+    if (zohoStatusUpdate.dataConversaoProvided) {
+      if (zohoStatusUpdate.dataConversao && zohoStatusUpdate.dataConversao !== existing.dataConversao) {
+        updates.dataConversao = zohoStatusUpdate.dataConversao;
+      }
+    } else if (statusIsConverted && !existing.dataConversao) {
+      // Fallback para não deixar o campo vazio quando o Zoho informa conversão sem data.
+      updates.dataConversao = now;
+    }
+
+    const hasAnyUpdate = Object.keys(updates).length > 0;
+    if (!hasAnyUpdate) {
+      return {
+        created: false,
+        alreadyExists: true,
+        lead: existing,
+      };
+    }
+
+    const newStatus = updates.status ?? existing.status;
+    const newConvertedAt = updates.dataConversao ?? existing.dataConversao ?? null;
+
+    const historico = appendHistorico(existing, {
+      action: "status_zoho_atualizado",
+      label: "Status atualizado pelo Zoho",
+      detail: `Status recebido do Zoho CRM: ${newStatus}. Data de conversão: ${newConvertedAt || "—"}.`,
+      by: "zoho",
+    });
+
+    const updated = await updateLeadItem(existing.id, {
+      ...updates,
+      updatedAt: now,
+      historico,
+    });
+
     return {
       created: false,
       alreadyExists: true,
-      lead: existing,
+      statusUpdated: true,
+      lead: updated,
     };
   }
 
   const duplicateByRegistro = await findLeadByRegistroUf(lead.numeroRegistro, lead.ufCrm);
   if (duplicateByRegistro) {
-    const now = new Date().toISOString();
     const novoEvento = {
       id: randomUUID(),
       nome: lead.evento || "Sem evento",
@@ -687,25 +769,63 @@ export async function createLeadFromZoho(payload) {
       by: "sistema",
     };
 
-    await dynamoDocClient.send(
-      new UpdateCommand({
-        TableName: TABLE(),
-        Key: { id: duplicateByRegistro.id },
-        UpdateExpression: "SET eventos = :ev, historico = list_append(if_not_exists(historico, :empty), :hist), updatedAt = :now",
-        ExpressionAttributeValues: {
-          ":ev": eventos,
-          ":hist": [historicoEntry],
-          ":empty": [],
-          ":now": now,
-        },
-      }),
-    );
+    const updates = {
+      eventos,
+      updatedAt: now,
+    };
+
+    const statusUpdatesToApply = {};
+    const statusIsConverted =
+      zohoStatusUpdate.statusProvided &&
+      zohoStatusUpdate.status === ZOHO_LEAD_STATUS.CONVERTIDO;
+
+    if (statusIsConverted && zohoStatusUpdate.status !== duplicateByRegistro.status) {
+      statusUpdatesToApply.status = zohoStatusUpdate.status;
+    } else if (zohoStatusUpdate.dataConversaoProvided) {
+      if (ZOHO_LEAD_STATUS.CONVERTIDO !== duplicateByRegistro.status) {
+        statusUpdatesToApply.status = ZOHO_LEAD_STATUS.CONVERTIDO;
+      }
+    }
+
+    if (zohoStatusUpdate.dataConversaoProvided) {
+      if (
+        zohoStatusUpdate.dataConversao &&
+        zohoStatusUpdate.dataConversao !== duplicateByRegistro.dataConversao
+      ) {
+        statusUpdatesToApply.dataConversao = zohoStatusUpdate.dataConversao;
+      }
+    } else if (statusIsConverted && !duplicateByRegistro.dataConversao) {
+      statusUpdatesToApply.dataConversao = now;
+    }
+
+    const shouldAddStatusHistorico = Object.keys(statusUpdatesToApply).length > 0;
+    if (shouldAddStatusHistorico) {
+      updates.status = statusUpdatesToApply.status ?? duplicateByRegistro.status;
+      updates.dataConversao =
+        statusUpdatesToApply.dataConversao ?? duplicateByRegistro.dataConversao ?? null;
+    }
+
+    const historicoEntries = [historicoEntry];
+    if (shouldAddStatusHistorico) {
+      historicoEntries.push({
+        action: "status_zoho_atualizado",
+        label: "Status atualizado pelo Zoho",
+        detail: `Status recebido do Zoho CRM: ${updates.status}. Data de conversão: ${
+          updates.dataConversao || "—"
+        }.`,
+        by: "zoho",
+      });
+    }
+
+    updates.historico = appendHistorico(duplicateByRegistro, historicoEntries);
+
+    const updated = await updateLeadItem(duplicateByRegistro.id, updates);
 
     return {
       created: false,
       alreadyExists: true,
       eventAdded: true,
-      lead: { ...duplicateByRegistro, eventos, updatedAt: now },
+      lead: updated,
     };
   }
 
