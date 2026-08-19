@@ -164,7 +164,7 @@ export default function MessagesBell() {
         <div
           role="dialog"
           aria-label="Atualizações de formulários"
-          className="absolute right-0 top-full z-50 mt-3 w-[min(22rem,calc(100vw-1rem))] origin-top-right"
+          className="absolute top-full z-50 mt-3 origin-top-right left-2 right-2 sm:left-auto sm:right-0 sm:w-80"
           style={{ animation: "confirm-modal-in 0.18s cubic-bezier(0.34,1.56,0.64,1)" }}
         >
           {/* Seta */}
