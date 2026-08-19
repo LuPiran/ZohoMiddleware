@@ -1,55 +1,30 @@
+import { useState } from "react";
 import {
   MdEmail,
   MdPhone,
   MdSmartphone,
   MdBadge,
-  MdPlace,
-  MdEvent,
   MdPerson,
   MdBusiness,
+  MdLocationOn,
   MdCategory,
-  MdHome,
-  MdPinDrop,
-  MdLocationCity,
-  MdMarkunreadMailbox,
+  MdEvent,
+  MdExpandMore,
+  MdExpandLess,
   MdTag,
-  MdCalendarToday,
+  MdHome,
 } from "react-icons/md";
 import { canonicalizeLeadStatus, getLeadStatusMeta } from "./leadStatus";
 
-function DetailItem({ icon: Icon, label, value }) {
-  return (
-    <div className="flex gap-3 min-w-0">
-      <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-tegra-gray-light text-tegra-blue-dark">
-        <Icon className="text-lg" aria-hidden />
-      </span>
-      <div className="min-w-0">
-        <dt className="text-[11px] uppercase tracking-wide text-tegra-text-secondary font-medium">
-          {label}
-        </dt>
-        <dd className="text-sm font-semibold text-tegra-text-primary break-words">
-          {value || "—"}
-        </dd>
-      </div>
-    </div>
-  );
-}
-
-function formatCep(cep) {
-  if (!cep) return "";
-  const digits = String(cep).replace(/\D/g, "");
-  if (digits.length === 8) {
-    return `${digits.slice(0, 5)}-${digits.slice(5)}`;
-  }
-  return String(cep);
-}
-
+/* ─────────────────────────────────────────
+   Componente de status (igual ao original)
+───────────────────────────────────────── */
 function LeadStatusChip({ status }) {
   const label = canonicalizeLeadStatus(status) || status || "—";
   const meta = getLeadStatusMeta(label);
   return (
     <span
-      className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold"
+      className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold"
       style={{
         color: meta.color,
         backgroundColor: meta.soft,
@@ -66,165 +41,233 @@ function LeadStatusChip({ status }) {
   );
 }
 
+/* ─────────────────────────────────────────
+   Item de detalhe — desktop (grade original)
+───────────────────────────────────────── */
+function DetailItem({ icon: Icon, label, value }) {
+  if (!value) return null;
+  return (
+    <div className="flex items-start gap-2.5">
+      <span className="mt-0.5 shrink-0 text-tegra-teal">
+        <Icon className="text-base" aria-hidden />
+      </span>
+      <div className="min-w-0">
+        <p className="text-xs font-medium text-tegra-text-secondary mb-0.5">
+          {label}
+        </p>
+        <p className="text-sm font-semibold text-tegra-blue-dark break-words">
+          {value}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────
+   Item de detalhe — mobile (linha com ícone)
+───────────────────────────────────────── */
+function MobileInfoRow({ icon: Icon, label, value, highlight }) {
+  if (!value) return null;
+  return (
+    <div className="flex items-center gap-3 py-2.5 border-b border-slate-100 last:border-0">
+      <span
+        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
+          highlight ? "bg-teal-50 text-teal-600" : "bg-slate-50 text-slate-400"
+        }`}
+      >
+        <Icon className="text-base" aria-hidden />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+          {label}
+        </p>
+        <p
+          className={`text-sm font-semibold break-all ${
+            highlight ? "text-teal-700" : "text-slate-700"
+          }`}
+        >
+          {value}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────
+   Formata endereço numa linha legível
+───────────────────────────────────────── */
+function formatEndereco(lead) {
+  const parts = [
+    lead.rua && lead.numero
+      ? `${lead.rua}, ${lead.numero}`
+      : lead.rua,
+    lead.complemento,
+    lead.bairro,
+    lead.cidade && lead.estado
+      ? `${lead.cidade} — ${lead.estado}`
+      : lead.cidade || lead.estado,
+    lead.cep
+      ? `CEP ${String(lead.cep)
+          .replace(/\D/g, "")
+          .replace(/(\d{5})(\d{3})/, "$1-$2")}`
+      : null,
+  ].filter(Boolean);
+  return parts.join(", ");
+}
+
+/* ─────────────────────────────────────────
+   Componente principal
+───────────────────────────────────────── */
 export default function LeadDetailsCard({ lead }) {
   if (!lead) return null;
 
-  const eventos = Array.isArray(lead.eventos) ? lead.eventos : [];
+  const [showEndereco, setShowEndereco] = useState(false);
 
-  const enderecoLinha = [
-    [lead.rua, lead.numero].filter(Boolean).join(", "),
-    lead.complemento,
-    lead.bairro,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  const eventos = Array.isArray(lead.eventos) ? lead.eventos : [];
+  const enderecoCompleto = formatEndereco(lead);
+  const evento = eventos[0]?.nome || lead.evento || lead.origem;
+  const crm = lead.numeroRegistro
+    ? `${lead.numeroRegistro}${lead.ufCrm ? ` (${lead.ufCrm})` : ""}`
+    : null;
 
   return (
     <section
       aria-label="Detalhes do lead"
       className="bg-tegra-bg-primary rounded-xl border border-tegra-gray-medium/80 shadow-sm overflow-hidden"
     >
-      <div className="px-4 sm:px-5 py-4 border-b border-tegra-gray-medium bg-gradient-to-r from-tegra-blue-dark/5 to-transparent">
-        <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs tabular-nums">
-          <p>
-            <span className="font-medium text-tegra-text-secondary">Protocolo</span>
-            {" "}
-            <span className="font-semibold tracking-[0.18em] text-tegra-blue-dark">
-              {lead.protocolo || "—"}
-            </span>
-          </p>
-          <p>
-            <span className="font-medium text-tegra-text-secondary">ID do portal</span>
-            {" "}
-            <span className="font-semibold text-tegra-text-primary break-all">
-              {lead.id || "—"}
-            </span>
-          </p>
-          <p>
-            <span className="font-medium text-tegra-text-secondary">ID Zoho</span>
-            {" "}
-            <span className="font-semibold text-tegra-text-primary break-all">
-              {lead.idZoho || "—"}
-            </span>
-          </p>
-        </div>
-        <h2 className="mt-1 text-xl font-bold text-tegra-blue-dark">
-          {lead.nome || "Lead sem nome"}
-        </h2>
-        {lead.protocolo && (
-          <p className="mt-1 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-tegra-teal">
-            <MdTag aria-hidden />
-            {lead.nome ? `${String(lead.nome).split(" ")[0]}_${lead.protocolo}` : lead.protocolo}
-          </p>
-        )}
-        <p className="mt-1 text-sm text-tegra-text-secondary flex flex-wrap items-center gap-2">
-          <LeadStatusChip status={lead.status} />
-        </p>
-      </div>
-
-      <dl className="p-4 sm:p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-        <DetailItem icon={MdEmail} label="E-mail" value={lead.email} />
-        <DetailItem icon={MdPhone} label="Telefone" value={lead.telefone} />
-        <DetailItem icon={MdSmartphone} label="Celular" value={lead.celular} />
-        <DetailItem
-          icon={MdBadge}
-          label="Registro (CRM/CRO)"
-          value={lead.numeroRegistro}
-        />
-        <DetailItem
-          icon={MdCategory}
-          label="Tipo de lead"
-          value={lead.tipoLead || lead.especialidade}
-        />
-        {eventos.length === 0 && (
-          <DetailItem
-            icon={MdEvent}
-            label="Evento / origem"
-            value={lead.evento || lead.origem}
-          />
-        )}
-        <DetailItem icon={MdPerson} label="Consultor" value={lead.consultor} />
-        <DetailItem icon={MdBusiness} label="Gerência" value={lead.gerencia} />
-        <DetailItem
-          icon={MdPlace}
-          label="UF CRM"
-          value={lead.ufCrm || lead.uf}
-        />
-      </dl>
-
-      {eventos.length > 0 && (
-        <div className="px-4 sm:px-5 pb-3">
-          <h3 className="text-xs font-bold uppercase tracking-wide text-tegra-text-secondary border-t border-tegra-gray-medium pt-4 mb-3">
-            Eventos ({eventos.length})
-          </h3>
-          <div className="flex flex-wrap gap-2">
-            {eventos.map((ev, idx) => {
-              const isPrincipal = idx === 0;
-              return (
-                <div
-                  key={ev.id}
-                  className={`flex items-center gap-2 rounded-lg border px-3 py-2 ${
-                    isPrincipal
-                      ? "border-tegra-blue-dark/40 bg-tegra-blue-dark/5 ring-1 ring-tegra-blue-dark/20"
-                      : "border-tegra-gray-medium/80 bg-tegra-gray-light"
-                  }`}
-                >
-                  <MdEvent className={`shrink-0 ${isPrincipal ? "text-tegra-blue-dark" : "text-tegra-text-secondary"}`} />
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-tegra-text-primary truncate flex items-center gap-1.5">
-                      {ev.nome}
-                      {isPrincipal && (
-                        <span className="inline-flex items-center rounded-full bg-tegra-blue-dark px-1.5 py-px text-[9px] font-bold uppercase tracking-wider text-white">
-                          Principal
-                        </span>
-                      )}
-                    </p>
-                    <p className="flex items-center gap-1 text-[11px] text-tegra-text-secondary">
-                      <MdCalendarToday className="text-[10px]" />
-                      {ev.dataEntrada
-                        ? new Date(ev.dataEntrada).toLocaleDateString("pt-BR")
-                        : "—"}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
+      {/* ── Cabeçalho: nome + protocolo + status ────── */}
+      <div className="px-4 sm:px-6 pt-4 sm:pt-5 pb-3 sm:pb-4 border-b border-tegra-gray-medium/60">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="text-lg font-bold text-tegra-blue-dark leading-snug">
+              {lead.nome || "Lead sem nome"}
+            </h2>
+            {lead.protocolo && (
+              <p className="mt-0.5 text-xs font-semibold text-tegra-text-secondary tracking-widest uppercase">
+                <MdTag className="inline -mt-0.5 mr-0.5" aria-hidden />
+                {lead.protocolo}
+              </p>
+            )}
           </div>
+          <LeadStatusChip status={lead.status} />
         </div>
-      )}
+      </div>
 
-      <div className="px-4 sm:px-5 pb-2">
-        <h3 className="text-xs font-bold uppercase tracking-wide text-tegra-text-secondary border-t border-tegra-gray-medium pt-4">
-          Endereço
-        </h3>
-        {enderecoLinha && (
-          <p className="mt-2 text-sm text-tegra-text-primary font-medium">
-            {enderecoLinha}
+      {/* ══════════════════════════════════════════════
+          MOBILE (< sm): seções em lista priorizadas
+      ══════════════════════════════════════════════ */}
+      <div className="sm:hidden">
+        {/* Contato — prioridade máxima */}
+        <div className="px-4 pt-3 pb-1">
+          <p className="pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            Contato
           </p>
+          <MobileInfoRow icon={MdSmartphone} label="Celular"   value={lead.celular}   highlight />
+          <MobileInfoRow icon={MdPhone}      label="Telefone"  value={lead.telefone}  highlight />
+          <MobileInfoRow icon={MdEmail}      label="E-mail"    value={lead.email} />
+        </div>
+
+        {/* Dados profissionais */}
+        <div className="px-4 pt-3 pb-1 border-t border-slate-100">
+          <p className="pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            Dados profissionais
+          </p>
+          <MobileInfoRow icon={MdBadge}    label="CRM / CRO"       value={crm} />
+          <MobileInfoRow icon={MdCategory} label="Especialidade"    value={lead.tipoLead || lead.especialidade} />
+          <MobileInfoRow icon={MdEvent}    label="Evento / origem"  value={evento} />
+        </div>
+
+        {/* Atribuição */}
+        <div className="px-4 pt-3 pb-1 border-t border-slate-100">
+          <p className="pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            Atribuição
+          </p>
+          <MobileInfoRow icon={MdPerson}   label="Consultor" value={lead.consultor} />
+          <MobileInfoRow icon={MdBusiness} label="Gerência"  value={lead.gerencia} />
+        </div>
+
+        {/* Endereço — colapsável no mobile */}
+        {enderecoCompleto && (
+          <div className="border-t border-slate-100">
+            <button
+              type="button"
+              onClick={() => setShowEndereco((v) => !v)}
+              className="w-full flex items-center justify-between px-4 py-3 text-left text-sm font-semibold text-slate-500 hover:bg-slate-50 transition"
+            >
+              <span className="flex items-center gap-2">
+                <MdLocationOn className="text-slate-400" />
+                Endereço
+              </span>
+              {showEndereco
+                ? <MdExpandLess className="text-slate-400" />
+                : <MdExpandMore className="text-slate-400" />}
+            </button>
+            {showEndereco && (
+              <div className="px-4 pb-4">
+                <p className="text-sm text-slate-600 leading-relaxed">
+                  {enderecoCompleto}
+                </p>
+              </div>
+            )}
+          </div>
         )}
       </div>
 
-      <dl className="px-4 sm:px-5 pb-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-        <DetailItem icon={MdHome} label="Rua" value={lead.rua} />
-        <DetailItem icon={MdPinDrop} label="Número" value={lead.numero} />
-        <DetailItem
-          icon={MdHome}
-          label="Complemento"
-          value={lead.complemento}
-        />
-        <DetailItem icon={MdLocationCity} label="Bairro" value={lead.bairro} />
-        <DetailItem icon={MdLocationCity} label="Cidade" value={lead.cidade} />
-        <DetailItem
-          icon={MdPlace}
-          label="Estado"
-          value={lead.estado || lead.uf}
-        />
-        <DetailItem
-          icon={MdMarkunreadMailbox}
-          label="CEP"
-          value={formatCep(lead.cep)}
-        />
-      </dl>
+      {/* ══════════════════════════════════════════════
+          DESKTOP (sm+): grade original com 3 colunas
+      ══════════════════════════════════════════════ */}
+      <div className="hidden sm:block px-6 py-5 space-y-6">
+        {/* Grade principal */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
+          <DetailItem icon={MdEmail}      label="E-mail"           value={lead.email} />
+          <DetailItem icon={MdPhone}      label="Telefone"         value={lead.telefone} />
+          <DetailItem icon={MdSmartphone} label="Celular"          value={lead.celular} />
+          <DetailItem icon={MdBadge}      label="CRM / CRO"        value={crm} />
+          <DetailItem icon={MdCategory}   label="Tipo de lead"     value={lead.tipoLead} />
+          <DetailItem icon={MdEvent}      label="Evento / origem"  value={evento} />
+          <DetailItem icon={MdPerson}     label="Consultor"        value={lead.consultor} />
+          <DetailItem icon={MdBusiness}   label="Gerência"         value={lead.gerencia} />
+        </div>
+
+        {/* Endereço */}
+        {enderecoCompleto && (
+          <div className="border-t border-tegra-gray-medium/40 pt-4">
+            <div className="flex items-start gap-2.5">
+              <span className="mt-0.5 shrink-0 text-tegra-teal">
+                <MdHome className="text-base" aria-hidden />
+              </span>
+              <div>
+                <p className="text-xs font-medium text-tegra-text-secondary mb-0.5">
+                  Endereço
+                </p>
+                <p className="text-sm font-semibold text-tegra-blue-dark">
+                  {enderecoCompleto}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Outros eventos */}
+        {eventos.length > 1 && (
+          <div className="border-t border-tegra-gray-medium/40 pt-4">
+            <p className="text-xs font-medium text-tegra-text-secondary mb-2">
+              Outros eventos
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {eventos.slice(1).map((ev) => (
+                <span
+                  key={ev.id}
+                  className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600"
+                >
+                  <MdEvent className="text-slate-400 text-xs" />
+                  {ev.nome}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </section>
   );
 }
