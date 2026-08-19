@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { MdClose, MdFactCheck, MdImage, MdNotes, MdShoppingCart } from "react-icons/md";
+import { MdClose, MdImage, MdNotes, MdShoppingCart, MdCheckCircle } from "react-icons/md";
 import Compra from "../Compra/Compra";
 import { useToast } from "../../components/feedback/auth/ToastContainer";
 
@@ -36,9 +36,7 @@ export default function LeadAttemptCompraModal({
     if (!open) return undefined;
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previous;
-    };
+    return () => { document.body.style.overflow = previous; };
   }, [open]);
 
   if (!open) return null;
@@ -60,25 +58,37 @@ export default function LeadAttemptCompraModal({
 
   return (
     <div
-      className="fixed inset-0 z-[120] flex items-stretch justify-center bg-[#0B2340]/55 backdrop-blur-[2px] p-0 sm:p-4"
+      className="fixed inset-0 z-[120] flex items-stretch justify-center bg-[#0B2340]/60 backdrop-blur-[2px] p-0 sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="lead-attempt-compra-title"
+      style={{ animation: "sla-overlay-in 0.18s ease-out" }}
     >
-      <div className="flex h-full w-full max-w-6xl flex-col overflow-hidden rounded-none border border-tegra-gray-medium/80 bg-tegra-bg-primary shadow-2xl sm:my-auto sm:h-[92vh] sm:rounded-2xl">
-        <header className="shrink-0 border-b border-tegra-gray-medium bg-gradient-to-r from-tegra-blue-dark to-tegra-teal px-4 py-3 sm:py-4 text-white sm:px-6">
+      <style>{`
+        @keyframes sla-overlay-in { from { opacity:0 } to { opacity:1 } }
+        @keyframes modal-slide-up { from { opacity:0; transform:translateY(12px) } to { opacity:1; transform:translateY(0) } }
+      `}</style>
+
+      <div
+        className="flex h-full w-full max-w-3xl flex-col overflow-hidden rounded-none bg-[#f8fafc] shadow-2xl sm:my-auto sm:h-[92vh] sm:rounded-2xl"
+        style={{ animation: "modal-slide-up 0.22s cubic-bezier(0.34,1.56,0.64,1)" }}
+      >
+        {/* ── Header gradient ── */}
+        <header className="shrink-0 bg-gradient-to-br from-[#1b346c] to-[#3da2b8] px-4 pt-4 pb-4 sm:px-6 text-white">
+
+          {/* Linha topo: label + fechar */}
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/70">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/60">
                 Tentativa + 1ª compra
               </p>
               <h2
                 id="lead-attempt-compra-title"
-                className="mt-0.5 text-base font-bold sm:text-xl truncate"
+                className="mt-1 text-lg font-bold leading-snug sm:text-xl"
               >
                 {roundLabel || "Registrar tentativa"}
               </h2>
-              <p className="mt-0.5 text-xs sm:text-sm text-white/80 truncate">
+              <p className="mt-0.5 text-xs text-white/75 truncate">
                 {lead?.nome || "Lead"} · Protocolo {lead?.protocolo || "—"}
               </p>
             </div>
@@ -86,56 +96,77 @@ export default function LeadAttemptCompraModal({
               type="button"
               onClick={onClose}
               disabled={submitting}
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white/20 bg-white/10 text-white transition hover:bg-white/20 disabled:opacity-50"
+              className="shrink-0 rounded-lg p-1.5 text-white/60 transition hover:bg-white/10 hover:text-white disabled:opacity-40"
               aria-label="Fechar"
             >
               <MdClose className="text-xl" />
             </button>
           </div>
 
-          {/* Pills de status — todas as telas */}
-          <div className="mt-3 flex flex-wrap gap-2">
-            <span className="flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1.5">
-              <MdNotes className="text-sm shrink-0" aria-hidden />
-              <span className="text-xs font-semibold">Obs. validada</span>
-            </span>
-            <span className="flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1.5">
-              <MdImage className="text-sm shrink-0" aria-hidden />
-              <span className="text-xs font-semibold">
-                {evidenceCount} imagem{evidenceCount === 1 ? "" : "ns"}
+          {/* Checklist de etapas concluídas */}
+          <div className="mt-4 grid grid-cols-3 gap-2">
+            {/* Observação */}
+            <div className="flex flex-col items-center gap-1.5 rounded-xl border border-white/15 bg-white/10 px-2 py-2.5 text-center">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15">
+                <MdNotes className="text-base" aria-hidden />
               </span>
-            </span>
-            <span className="flex items-center gap-1.5 rounded-full border border-emerald-400/40 bg-emerald-400/15 px-3 py-1.5">
-              <MdShoppingCart className="text-sm shrink-0 text-emerald-300" aria-hidden />
-              <span className="text-xs font-semibold text-emerald-200">Preencher compra abaixo</span>
-            </span>
+              <div>
+                <p className="text-[9px] font-semibold uppercase tracking-wide text-white/60">Observação</p>
+                <p className="text-[11px] font-bold text-emerald-300">✓ Validada</p>
+              </div>
+            </div>
+
+            {/* Evidências */}
+            <div className="flex flex-col items-center gap-1.5 rounded-xl border border-white/15 bg-white/10 px-2 py-2.5 text-center">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15">
+                <MdImage className="text-base" aria-hidden />
+              </span>
+              <div>
+                <p className="text-[9px] font-semibold uppercase tracking-wide text-white/60">Evidências</p>
+                <p className="text-[11px] font-bold text-emerald-300">
+                  ✓ {evidenceCount} imagem{evidenceCount === 1 ? "" : "ns"}
+                </p>
+              </div>
+            </div>
+
+            {/* Compra */}
+            <div className="flex flex-col items-center gap-1.5 rounded-xl border border-amber-300/30 bg-amber-400/10 px-2 py-2.5 text-center">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-400/20">
+                <MdShoppingCart className="text-base text-amber-300" aria-hidden />
+              </span>
+              <div>
+                <p className="text-[9px] font-semibold uppercase tracking-wide text-white/60">Compra</p>
+                <p className="text-[11px] font-bold text-amber-300">Preencher abaixo</p>
+              </div>
+            </div>
           </div>
+
+          {/* Observação registrada */}
+          {observacao && (
+            <div className="mt-3 flex items-start gap-2 rounded-xl border border-white/10 bg-black/20 px-3 py-2.5">
+              <MdCheckCircle className="mt-0.5 shrink-0 text-sm text-emerald-400" aria-hidden />
+              <p className="text-xs text-white/80 line-clamp-2 italic">"{observacao}"</p>
+            </div>
+          )}
         </header>
 
-        <div className="shrink-0 border-b border-tegra-gray-medium bg-[#F7FAFC] px-4 py-2.5 sm:py-3 sm:px-6">
-          <div className="flex items-start gap-2">
-            <MdFactCheck className="mt-0.5 shrink-0 text-tegra-teal text-sm" aria-hidden />
-            <p className="text-xs text-tegra-text-secondary">
-              Preencha o formulário abaixo e envie — a tentativa{" "}
-              <strong className="text-tegra-blue-dark">#{round}</strong> será registrada automaticamente.
-            </p>
-          </div>
-          <p className="mt-2 line-clamp-2 rounded-lg border border-tegra-gray-medium/70 bg-white px-3 py-2 text-xs text-tegra-text-primary">
-            {observacao}
+        {/* ── Aviso tentativa ── */}
+        <div className="shrink-0 border-b border-slate-200 bg-white px-4 py-2.5 sm:px-6">
+          <p className="text-xs text-slate-500">
+            Após o envio, a tentativa{" "}
+            <strong className="font-bold text-[#1b346c]">#{round}</strong>{" "}
+            será registrada automaticamente neste lead.
           </p>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 sm:px-5 sm:py-5">
+        {/* ── Formulário de compra ── */}
+        <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:px-5 sm:py-5">
           <Compra
             embedded
             leadPrefill={leadPrefill}
             draftKey={`zoho_draft_compra_lead_${lead?.id || "temp"}_${round || 1}`}
             showSaveDraft={false}
-            submitLabel={
-              submitting
-                ? "Registrando..."
-                : "Registrar compra e tentativa"
-            }
+            submitLabel={submitting ? "Registrando..." : "Registrar compra e tentativa"}
             onCancel={onClose}
             onSuccess={handleCompraSuccess}
           />
