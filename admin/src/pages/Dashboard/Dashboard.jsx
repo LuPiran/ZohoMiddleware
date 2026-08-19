@@ -1,5 +1,17 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import {
   MdLocalShipping,
   MdLanguage,
@@ -12,11 +24,24 @@ import {
   MdChevronRight,
   MdOpenInNew,
   MdWarningAmber,
+  MdTrendingUp,
+  MdCalendarToday,
+  MdPeople,
 } from "react-icons/md";
 import { authService } from "../../services/auth";
 import { useLoading } from "../../contexts/LoadingContext";
 import MainLayout from "../../components/layout/MainLayout";
 import { obterContagemFormulariosSalvos } from "../../services/savedForms";
+import { leadsMedicosService } from "../../services/leadsMedicos";
+import {
+  aggregateLeadsByMonth,
+  aggregateLeadsByStatus,
+  computeConversionRate,
+} from "../LeadsMedicos/mockLeads";
+import {
+  getLeadStatusColor,
+  isConvertedLeadStatus,
+} from "../LeadsMedicos/leadStatus";
 import {
   EXTERNAL_LINKS,
   ROUTES,
@@ -27,7 +52,7 @@ import {
   podeVerTrackingPedido,
 } from "../../utils/constants";
 
-/* ── Saudação contextual ── */
+/* ── Helpers ── */
 function getSaudacao() {
   const h = new Date().getHours();
   if (h < 12) return "Bom dia";
@@ -42,6 +67,51 @@ function getDataFormatada() {
     month: "long",
     year: "numeric",
   });
+}
+
+/* ── Tooltip dos gráficos ── */
+function ChartTooltip({ active, payload, label }) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-md text-xs">
+      {label && <p className="font-medium text-slate-700 mb-1">{label}</p>}
+      {payload.map((entry) => (
+        <p key={entry.name} className="text-slate-500">
+          <span
+            className="inline-block w-2 h-2 rounded-full mr-1.5 align-middle"
+            style={{ backgroundColor: entry.color || entry.payload?.fill }}
+          />
+          {entry.name}:{" "}
+          <span className="font-semibold text-slate-800">
+            {entry.value}
+            {entry.unit || ""}
+          </span>
+        </p>
+      ))}
+    </div>
+  );
+}
+
+/* ── KPI card ── */
+function KpiCard({ icon: Icon, label, value, sub, iconBg, loading }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-sm font-medium text-slate-500 leading-snug">{label}</p>
+        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${iconBg}`}>
+          <Icon className="text-lg" aria-hidden />
+        </span>
+      </div>
+      {loading ? (
+        <div className="mt-3 h-8 w-24 animate-pulse rounded-md bg-slate-100" />
+      ) : (
+        <p className="mt-3 text-3xl font-bold text-slate-800 tabular-nums leading-none">
+          {value}
+        </p>
+      )}
+      {sub && <p className="mt-1.5 text-xs text-slate-400">{sub}</p>}
+    </div>
+  );
 }
 
 /* ── Card de atalho ── */
@@ -72,49 +142,37 @@ function ActionCard({ icon: Icon, label, description, onClick, variant, badge, e
       type="button"
       onClick={onClick}
       aria-label={external ? `Abrir ${label} em nova aba` : `Ir para ${label}`}
-      className={`group relative flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm transition-all duration-150 hover:shadow-md hover:-translate-y-0.5 ${borderHover} focus:outline-none focus:ring-2 focus:ring-[#1a2f5b]/30`}
+      className={`group relative flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3.5 text-left shadow-sm transition-all duration-150 hover:shadow-md hover:-translate-y-0.5 ${borderHover} focus:outline-none focus:ring-2 focus:ring-[#1a2f5b]/30`}
     >
-      {/* Badge */}
       {badge > 0 && (
         <span className="absolute -top-2 -right-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
           {badge}
         </span>
       )}
-
-      {/* Ícone */}
-      <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${iconBg}`}>
-        <Icon className="text-xl" aria-hidden />
+      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${iconBg}`}>
+        <Icon className="text-[1.1rem]" aria-hidden />
       </span>
-
-      {/* Texto */}
       <div className="min-w-0 flex-1">
-        <p className="font-semibold text-slate-800 leading-tight truncate">{label}</p>
+        <p className="font-semibold text-slate-800 text-sm leading-tight truncate">{label}</p>
         {description && (
-          <p className="mt-0.5 text-sm text-slate-500 leading-snug truncate">{description}</p>
+          <p className="mt-0.5 text-xs text-slate-500 truncate">{description}</p>
         )}
       </div>
-
-      {/* Seta / externo */}
       {external ? (
-        <MdOpenInNew className={`shrink-0 text-lg transition-colors ${chevronColor}`} aria-hidden />
+        <MdOpenInNew className={`shrink-0 text-base transition-colors ${chevronColor}`} aria-hidden />
       ) : (
-        <MdChevronRight className={`shrink-0 text-xl transition-colors ${chevronColor}`} aria-hidden />
+        <MdChevronRight className={`shrink-0 text-lg transition-colors ${chevronColor}`} aria-hidden />
       )}
     </button>
   );
 }
 
-/* ── Seção de cards ── */
-function Section({ title, children }) {
+/* ── Skeleton do gráfico ── */
+function ChartSkeleton() {
   return (
-    <section>
-      <h2 className="mb-3 text-[11px] font-bold uppercase tracking-widest text-slate-400">
-        {title}
-      </h2>
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-        {children}
-      </div>
-    </section>
+    <div className="flex items-center justify-center h-52 sm:h-60">
+      <div className="w-full h-full animate-pulse rounded-lg bg-slate-100" />
+    </div>
   );
 }
 
@@ -122,6 +180,9 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const user = authService.getUser();
   const { setLoading } = useLoading();
+
+  const [leads, setLeads] = useState([]);
+  const [leadsLoading, setLeadsLoading] = useState(true);
   const [savedFormsCount, setSavedFormsCount] = useState(0);
 
   const mostrarCompra = podeVerCompra(user);
@@ -135,51 +196,59 @@ export default function Dashboard() {
       navigate("/login");
       return;
     }
-    const carregar = async () => {
-      try {
-        const count = await obterContagemFormulariosSalvos();
-        setSavedFormsCount(count);
-      } catch {
-        // silencioso
-      } finally {
-        setLoading(false);
-      }
-    };
-    carregar();
+
+    // Busca paralela: leads + formulários salvos
+    Promise.all([
+      leadsMedicosService.list().then((r) => setLeads(r.data || [])).catch(() => {}),
+      obterContagemFormulariosSalvos().then(setSavedFormsCount).catch(() => {}),
+    ]).finally(() => {
+      setLeadsLoading(false);
+      setLoading(false);
+    });
   }, [navigate, setLoading]);
 
-  const nomeUsuario =
-    user?.nome ||
-    user?.Nome ||
-    user?.Name ||
-    user?.nome_completo ||
-    user?.Nome_Completo ||
-    "Usuário";
+  /* Dados derivados */
+  const statusData = useMemo(() => aggregateLeadsByStatus(leads), [leads]);
+  const monthlyData = useMemo(() => aggregateLeadsByMonth(leads), [leads]);
+  const conversionRate = useMemo(() => computeConversionRate(leads), [leads]);
+  const convertedCount = useMemo(
+    () => leads.filter((l) => isConvertedLeadStatus(l.status)).length,
+    [leads],
+  );
+  const thisMonthCount = useMemo(() => {
+    const now = new Date();
+    return leads.filter((l) => {
+      const d = new Date(l.criadoEm);
+      return (
+        d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
+      );
+    }).length;
+  }, [leads]);
 
+  /* Identidade do usuário */
+  const nomeUsuario =
+    user?.nome || user?.Nome || user?.Name || user?.nome_completo || "Usuário";
   const primeiroNome = nomeUsuario.split(" ")[0];
   const emailUsuario = user?.email || user?.Email || "";
 
-  const saudacao = getSaudacao();
-  const dataHoje = getDataFormatada();
-
-  const goTo = (route) => navigate(route);
-  const openExternal = (url) => window.open(url, "_blank", "noopener,noreferrer");
+  const goTo = (r) => navigate(r);
+  const openExt = (url) => window.open(url, "_blank", "noopener,noreferrer");
 
   return (
     <MainLayout>
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-8">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6 sm:space-y-8">
 
         {/* ── Saudação ── */}
-        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-1">
           <div>
             <p className="text-2xl sm:text-3xl font-bold text-slate-800">
-              {saudacao}, {primeiroNome}! 👋
+              {getSaudacao()}, {primeiroNome}! 👋
             </p>
             {emailUsuario && (
               <p className="mt-1 text-sm text-slate-500">{emailUsuario}</p>
             )}
           </div>
-          <p className="text-sm text-slate-400 capitalize">{dataHoje}</p>
+          <p className="text-sm text-slate-400 capitalize shrink-0">{getDataFormatada()}</p>
         </div>
 
         {/* ── Alerta formulários pendentes ── */}
@@ -201,19 +270,182 @@ export default function Dashboard() {
           </button>
         )}
 
-        {/* ── Principal ── */}
-        <Section title="Principal">
-          <ActionCard
-            icon={MdMedicalServices}
-            label="Leads Médicos"
-            description="Gerencie e acompanhe seus leads"
-            onClick={() => goTo(ROUTES.LEADS_MEDICOS)}
+        {/* ── KPIs ── */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <KpiCard
+            icon={MdPeople}
+            label="Total de leads"
+            value={leadsLoading ? "—" : leads.length}
+            sub="na sua carteira"
+            iconBg="bg-[#1a2f5b]/8 text-[#1a2f5b]"
+            loading={leadsLoading}
           />
-        </Section>
+          <KpiCard
+            icon={MdTrendingUp}
+            label="Taxa de conversão"
+            value={leadsLoading ? "—" : `${conversionRate}%`}
+            sub={leadsLoading ? "" : `${convertedCount} convertido${convertedCount !== 1 ? "s" : ""}`}
+            iconBg="bg-emerald-100 text-emerald-700"
+            loading={leadsLoading}
+          />
+          <KpiCard
+            icon={MdCalendarToday}
+            label="Criados este mês"
+            value={leadsLoading ? "—" : thisMonthCount}
+            sub="novos leads"
+            iconBg="bg-blue-100 text-blue-700"
+            loading={leadsLoading}
+          />
+          <KpiCard
+            icon={MdBookmarks}
+            label="Form. pendentes"
+            value={savedFormsCount}
+            sub="aguardando envio"
+            iconBg={savedFormsCount > 0 ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-500"}
+          />
+        </div>
 
-        {/* ── Comercial ── */}
-        {(mostrarCompra || mostrarRecompra || mostrarProposta) && (
-          <Section title="Comercial">
+        {/* ── Gráficos ── */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+          {/* Por status */}
+          <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <div className="px-5 pt-5 pb-0">
+              <h2 className="text-base font-semibold text-slate-800">Por status</h2>
+              <p className="text-xs text-slate-400 mt-0.5">Distribuição dos seus leads</p>
+            </div>
+            <div className="px-4 pb-4 pt-3">
+              {leadsLoading ? (
+                <ChartSkeleton />
+              ) : statusData.length === 0 ? (
+                <div className="flex items-center justify-center h-52 text-sm text-slate-400">
+                  Nenhum dado disponível
+                </div>
+              ) : (
+                <div className="flex flex-col sm:flex-row items-center gap-4 h-52 sm:h-60">
+                  {/* Donut */}
+                  <div className="w-full sm:w-1/2 h-44 sm:h-full shrink-0">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={statusData}
+                          dataKey="value"
+                          nameKey="name"
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={52}
+                          outerRadius={76}
+                          paddingAngle={2}
+                          stroke="#ffffff"
+                          strokeWidth={2}
+                        >
+                          {statusData.map((entry) => (
+                            <Cell
+                              key={entry.name}
+                              fill={getLeadStatusColor(entry.name)}
+                            />
+                          ))}
+                        </Pie>
+                        <Tooltip content={<ChartTooltip />} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  {/* Legenda */}
+                  <ul className="w-full sm:w-1/2 space-y-2 text-sm overflow-y-auto max-h-44 sm:max-h-full pr-1">
+                    {statusData.map((entry) => (
+                      <li
+                        key={entry.name}
+                        className="flex items-center justify-between gap-2 text-slate-500"
+                      >
+                        <span className="flex items-center gap-2 min-w-0">
+                          <span
+                            className="w-2.5 h-2.5 rounded-full shrink-0"
+                            style={{ backgroundColor: getLeadStatusColor(entry.name) }}
+                          />
+                          <span className="truncate text-xs">{entry.name}</span>
+                        </span>
+                        <span className="font-semibold text-slate-700 tabular-nums shrink-0">
+                          {entry.value}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Leads por mês */}
+          <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <div className="px-5 pt-5 pb-0">
+              <h2 className="text-base font-semibold text-slate-800">Leads por mês</h2>
+              <p className="text-xs text-slate-400 mt-0.5">Criação nos últimos períodos</p>
+            </div>
+            <div className="px-4 pb-4 pt-3 h-52 sm:h-[calc(100%-72px)]">
+              {leadsLoading ? (
+                <ChartSkeleton />
+              ) : monthlyData.length === 0 ? (
+                <div className="flex items-center justify-center h-full text-sm text-slate-400">
+                  Nenhum dado disponível
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart
+                    data={monthlyData}
+                    margin={{ top: 8, right: 8, left: -20, bottom: 0 }}
+                  >
+                    <defs>
+                      <linearGradient id="dashMonthFill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#1a2f5b" stopOpacity={0.22} />
+                        <stop offset="100%" stopColor="#1a2f5b" stopOpacity={0.02} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                    <XAxis
+                      dataKey="label"
+                      tick={{ fill: "#94a3b8", fontSize: 11 }}
+                      axisLine={{ stroke: "#e2e8f0" }}
+                      tickLine={false}
+                    />
+                    <YAxis
+                      allowDecimals={false}
+                      tick={{ fill: "#94a3b8", fontSize: 11 }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <Tooltip content={<ChartTooltip />} />
+                    <Area
+                      type="monotone"
+                      dataKey="total"
+                      name="Leads"
+                      stroke="#1a2f5b"
+                      strokeWidth={2}
+                      fill="url(#dashMonthFill)"
+                      activeDot={{ r: 4, strokeWidth: 0 }}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* ── Acesso rápido ── */}
+        <div>
+          <h2 className="mb-3 text-[11px] font-bold uppercase tracking-widest text-slate-400">
+            Acesso rápido
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+
+            {/* Principal */}
+            <ActionCard
+              icon={MdMedicalServices}
+              label="Leads Médicos"
+              description="Gerencie e acompanhe seus leads"
+              onClick={() => goTo(ROUTES.LEADS_MEDICOS)}
+            />
+
+            {/* Comercial */}
             {mostrarCompra && (
               <ActionCard
                 icon={MdAssignment}
@@ -238,55 +470,49 @@ export default function Dashboard() {
                 onClick={() => goTo(ROUTES.PROPOSTA)}
               />
             )}
-          </Section>
-        )}
 
-        {/* ── Externo ── */}
-        {(mostrarTrackingPedido || true) && (
-          <Section title="Plataformas externas">
+            {/* Externo */}
             <ActionCard
               icon={MdLanguage}
               label="Central Comercial"
               description="Acesse o portal de vendas"
-              onClick={() => openExternal(EXTERNAL_LINKS.CENTRAL_CONSULTOR)}
+              onClick={() => openExt(EXTERNAL_LINKS.CENTRAL_CONSULTOR)}
               variant="amber"
               external
             />
             {mostrarTrackingPedido && (
               <ActionCard
                 icon={MdLocalShipping}
-                label="Rastreamento de Pedido"
+                label="Rastreamento"
                 description="Rastreie pedidos enviados"
-                onClick={() => openExternal(EXTERNAL_LINKS.TRACKING_PEDIDO)}
+                onClick={() => openExt(EXTERNAL_LINKS.TRACKING_PEDIDO)}
                 variant="teal"
                 external
               />
             )}
-          </Section>
-        )}
 
-        {/* ── Suporte ── */}
-        <Section title="Suporte">
-          {mostrarOcorrencia && (
+            {/* Suporte */}
+            {mostrarOcorrencia && (
+              <ActionCard
+                icon={MdReport}
+                label="Ocorrência"
+                description="Registrar ou acompanhar ocorrências"
+                onClick={() => goTo(ROUTES.OCORRENCIA)}
+              />
+            )}
             <ActionCard
-              icon={MdReport}
-              label="Ocorrência"
-              description="Registrar ou acompanhar ocorrências"
-              onClick={() => goTo(ROUTES.OCORRENCIA)}
+              icon={MdBookmarks}
+              label="Formulários Salvos"
+              description={
+                savedFormsCount > 0
+                  ? `${savedFormsCount} formulário${savedFormsCount > 1 ? "s" : ""} pendente${savedFormsCount > 1 ? "s" : ""}`
+                  : "Formulários salvos localmente"
+              }
+              onClick={() => goTo(ROUTES.SAVED_FORMS)}
+              badge={savedFormsCount}
             />
-          )}
-          <ActionCard
-            icon={MdBookmarks}
-            label="Formulários Salvos"
-            description={
-              savedFormsCount > 0
-                ? `${savedFormsCount} formulário${savedFormsCount > 1 ? "s" : ""} pendente${savedFormsCount > 1 ? "s" : ""}`
-                : "Formulários salvos localmente"
-            }
-            onClick={() => goTo(ROUTES.SAVED_FORMS)}
-            badge={savedFormsCount}
-          />
-        </Section>
+          </div>
+        </div>
 
       </div>
     </MainLayout>
