@@ -11,7 +11,6 @@ import {
   MdBookmarks,
   MdChevronRight,
   MdOpenInNew,
-  MdWarningAmber,
   MdTrendingUp,
   MdCalendarToday,
   MdPeople,
@@ -197,25 +196,6 @@ export default function Dashboard() {
           </div>
           <p className="text-sm text-slate-400 capitalize shrink-0">{getDataFormatada()}</p>
         </div>
-
-        {/* ── Alerta formulários pendentes ── */}
-        {savedFormsCount > 0 && (
-          <button
-            type="button"
-            onClick={() => goTo(ROUTES.SAVED_FORMS)}
-            className="w-full flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-left transition hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-400"
-          >
-            <MdWarningAmber className="shrink-0 text-xl text-amber-600" aria-hidden />
-            <p className="flex-1 text-sm font-medium text-amber-800">
-              Você tem{" "}
-              <span className="font-bold">
-                {savedFormsCount} formulário{savedFormsCount > 1 ? "s" : ""}
-              </span>{" "}
-              salvo{savedFormsCount > 1 ? "s" : ""} aguardando envio.
-            </p>
-            <MdChevronRight className="shrink-0 text-amber-400" aria-hidden />
-          </button>
-        )}
 
         {/* ── KPIs ── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
