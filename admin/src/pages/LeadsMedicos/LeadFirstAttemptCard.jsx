@@ -77,39 +77,70 @@ function DaysRemainingChip({ days, expired, deadlineAt }) {
   const deadlineLabel = formatDeadline(deadlineAt);
 
   return (
-    <div
-      className={`inline-flex items-center gap-2.5 rounded-2xl border px-3 py-2 ${
-        urgent
-          ? "border-[#E5989B]/55 bg-[#FBE9EA]"
-          : "border-[#E5989B]/35 bg-[#F7F1F2]"
-      }`}
-    >
-      <span
-        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
-          urgent ? "bg-[#E07076]" : "bg-[#E5989B]"
+    <>
+      {/* Mobile: pill compacto */}
+      <div
+        className={`sm:hidden inline-flex items-center gap-2 rounded-xl border px-2.5 py-1.5 ${
+          urgent
+            ? "border-[#E5989B]/55 bg-[#FBE9EA]"
+            : "border-[#E5989B]/35 bg-[#F7F1F2]"
         }`}
-        aria-hidden
       >
-        <MdSchedule className="text-lg text-white" />
-      </span>
-      <div>
-        <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-tegra-text-secondary">
-          Dias até o fim da tentativa
-        </p>
-        <p className="text-lg font-bold tabular-nums leading-none text-tegra-blue-dark">
-          {value}
-          <span className="ml-1 text-xs font-medium text-tegra-text-secondary">
-            dias
+        <span
+          className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
+            urgent ? "bg-[#E07076]" : "bg-[#E5989B]"
+          }`}
+          aria-hidden
+        >
+          <MdSchedule className="text-xs text-white" />
+        </span>
+        <div className="leading-none">
+          <span className="text-sm font-bold tabular-nums text-tegra-blue-dark">
+            {value} dias
           </span>
-        </p>
-        {deadlineLabel && (
-          <p className="mt-1 text-[11px] text-tegra-text-secondary">
-            {expired ? "Prazo encerrado em " : "Até "}
-            {deadlineLabel}
-          </p>
-        )}
+          {deadlineLabel && (
+            <span className="ml-1.5 text-[11px] text-tegra-text-secondary">
+              · {expired ? "encerrado em " : "até "}{deadlineLabel}
+            </span>
+          )}
+        </div>
       </div>
-    </div>
+
+      {/* Desktop: chip original */}
+      <div
+        className={`hidden sm:inline-flex items-center gap-2.5 rounded-2xl border px-3 py-2 ${
+          urgent
+            ? "border-[#E5989B]/55 bg-[#FBE9EA]"
+            : "border-[#E5989B]/35 bg-[#F7F1F2]"
+        }`}
+      >
+        <span
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+            urgent ? "bg-[#E07076]" : "bg-[#E5989B]"
+          }`}
+          aria-hidden
+        >
+          <MdSchedule className="text-lg text-white" />
+        </span>
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-tegra-text-secondary">
+            Dias até o fim da tentativa
+          </p>
+          <p className="text-lg font-bold tabular-nums leading-none text-tegra-blue-dark">
+            {value}
+            <span className="ml-1 text-xs font-medium text-tegra-text-secondary">
+              dias
+            </span>
+          </p>
+          {deadlineLabel && (
+            <p className="mt-1 text-[11px] text-tegra-text-secondary">
+              {expired ? "Prazo encerrado em " : "Até "}
+              {deadlineLabel}
+            </p>
+          )}
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -283,7 +314,7 @@ export default function LeadFirstAttemptCard({
       aria-label="Tentativas de contato"
       className="bg-tegra-bg-primary rounded-xl border border-tegra-gray-medium/80 shadow-sm overflow-hidden"
     >
-      <div className="px-4 sm:px-5 py-4 border-b border-tegra-gray-medium flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-tegra-gray-medium flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
         <div>
           <h2 className="text-base font-bold text-tegra-blue-dark">
             {attempt.canRegisterAttempt ? copy.title : "Tentativas de contato"}
@@ -302,7 +333,7 @@ export default function LeadFirstAttemptCard({
         )}
       </div>
 
-      <div className="p-4 sm:p-5 space-y-4">
+      <div className="p-3 sm:p-5 space-y-3 sm:space-y-4">
         {history.length > 0 && (
           <div className="space-y-2">
             {history.map((item) => (
@@ -338,7 +369,45 @@ export default function LeadFirstAttemptCard({
               </p>
             )}
 
-            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 sm:justify-end">
+            {/* Mobile: botões secundários lado a lado + primário full-width */}
+            <div className="sm:hidden space-y-2">
+              <div className="flex gap-2">
+                {attempt.canMarkSemContato && (
+                  <Button
+                    variant="warning"
+                    className="flex-1 inline-flex items-center justify-center gap-1.5 text-sm"
+                    disabled={submitting}
+                    onClick={handleSemContato}
+                  >
+                    <MdPhoneMissed aria-hidden />
+                    Sem contato
+                  </Button>
+                )}
+                <Button
+                  variant="danger"
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 text-sm"
+                  disabled={submitting}
+                  onClick={handleSemInteresse}
+                >
+                  <MdThumbDown aria-hidden />
+                  Sem interesse
+                </Button>
+              </div>
+              {attempt.canRegisterAttempt && (
+                <Button
+                  variant="teal"
+                  className="w-full inline-flex items-center justify-center gap-2"
+                  loading={submitting}
+                  onClick={handleAttempt}
+                >
+                  <MdSend aria-hidden />
+                  Continuar para compra
+                </Button>
+              )}
+            </div>
+
+            {/* Desktop: botões em linha (layout original) */}
+            <div className="hidden sm:flex gap-3 justify-end">
               {attempt.canMarkSemContato && (
                 <Button
                   variant="warning"
