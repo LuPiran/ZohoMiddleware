@@ -45,21 +45,22 @@ export default function NotificationBell() {
   const panelRef = useRef(null);
 
   useEffect(() => {
+    if (!open) return undefined;
     function onPointerDown(e) {
       if (panelRef.current && !panelRef.current.contains(e.target)) setOpen(false);
     }
     function onKey(e) {
       if (e.key === "Escape") setOpen(false);
     }
-    if (open) {
-      document.addEventListener("mousedown", onPointerDown);
-      document.addEventListener("keydown", onKey);
-      return () => {
-        document.removeEventListener("mousedown", onPointerDown);
-        document.removeEventListener("keydown", onKey);
-      };
-    }
-    return undefined;
+    function onScroll() { setOpen(false); }
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKey);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", onScroll);
+    };
   }, [open]);
 
   const pendingCount = offers.length;
