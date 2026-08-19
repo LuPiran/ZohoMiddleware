@@ -269,6 +269,90 @@ export default function LeadsMedicos() {
     showToast(`Importação iniciada: ${lead.nome}`, "success", 2200);
   };
 
+  const exportToCSV = () => {
+    if (filteredLeads.length === 0) {
+      showToast("Nenhum lead para exportar.", "error", 2200);
+      return;
+    }
+
+    // Escapa campo para CSV: encapsula em aspas se contiver ; " ou quebra de linha
+    const escapeField = (value) => {
+      if (value === null || value === undefined) return "";
+      const str = String(value);
+      if (str.includes(";") || str.includes('"') || str.includes("\n")) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
+    const formatDateCSV = (isoDate) => {
+      if (!isoDate) return "";
+      const d = new Date(isoDate);
+      if (Number.isNaN(d.getTime())) return isoDate;
+      const dd = String(d.getDate()).padStart(2, "0");
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const yyyy = d.getFullYear();
+      return `${dd}/${mm}/${yyyy}`;
+    };
+
+    const headers = [
+      "ID",
+      "Nome",
+      "E-mail",
+      "Telefone",
+      "Celular",
+      "CRM",
+      "Especialidade",
+      "Cidade",
+      "UF",
+      "Origem",
+      "Status",
+      "Consultor",
+      "Gerência",
+      "Data de criação",
+      "Data de entrada",
+    ];
+
+    const rows = filteredLeads.map((lead) => [
+      escapeField(lead.id),
+      escapeField(lead.nome),
+      escapeField(lead.email),
+      escapeField(lead.telefone),
+      escapeField(lead.celular),
+      escapeField(lead.crm),
+      escapeField(lead.especialidade),
+      escapeField(lead.cidade),
+      escapeField(lead.uf),
+      escapeField(lead.origem),
+      escapeField(canonicalizeLeadStatus(lead.status) || lead.status),
+      escapeField(lead.consultor),
+      escapeField(lead.gerencia || lead.gerência),
+      escapeField(formatDateCSV(lead.criadoEm)),
+      escapeField(formatDateCSV(lead.entradaEm)),
+    ]);
+
+    const csvContent =
+      "﻿" + // BOM UTF-8 para Excel reconhecer acentuação
+      [headers.join(";"), ...rows.map((r) => r.join(";"))].join("\r\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const today = new Date().toISOString().slice(0, 10);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `leads-medicos-${today}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    showToast(
+      `${filteredLeads.length} lead${filteredLeads.length > 1 ? "s" : ""} exportado${filteredLeads.length > 1 ? "s" : ""} com sucesso.`,
+      "success",
+      2500,
+    );
+  };
+
   return (
     <MainLayout>
       <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
@@ -343,6 +427,22 @@ export default function LeadsMedicos() {
                   {activeFilterCount}
                 </span>
               )}
+            </button>
+
+            {/* Exportar CSV */}
+            <button
+              type="button"
+              onClick={exportToCSV}
+              disabled={loading || filteredLeads.length === 0}
+              title={
+                filteredLeads.length === 0
+                  ? "Nenhum lead para exportar"
+                  : `Exportar ${filteredLeads.length} lead${filteredLeads.length > 1 ? "s" : ""} para Excel`
+              }
+              aria-label="Exportar para Excel"
+              className="shrink-0 inline-flex h-9 w-9 items-center justify-center rounded-lg border border-tegra-gray-medium text-tegra-text-secondary transition hover:bg-tegra-gray-light hover:text-tegra-blue-dark disabled:opacity-40"
+            >
+              <MdFileDownload className="text-xl" aria-hidden />
             </button>
           </div>
 
