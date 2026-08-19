@@ -219,37 +219,32 @@ export default function LeadsDashboard({
           openId={openId}
           onToggle={handleToggle}
           title="Conversão"
-          subtitle="Leads convertidos"
+          subtitle="Leads convertidos sobre o total"
           badge={`${conversionRate}%`}
         >
-          <div className="flex flex-col justify-between gap-4 sm:min-h-[200px]">
+          <div className="flex flex-col justify-between h-52 sm:h-64">
+            <p className="text-4xl sm:text-5xl font-bold text-tegra-blue-dark tabular-nums tracking-tight mt-2">
+              {conversionRate}
+              <span className="text-2xl sm:text-3xl font-semibold ml-0.5">%</span>
+            </p>
             <div>
-              <p className="text-xs sm:text-sm text-tegra-text-secondary">
-                Leads convertidos sobre o total filtrado
+              <p className="mb-3 text-sm text-tegra-text-secondary flex items-center gap-1.5">
+                <MdTrendingUp className="text-tegra-success text-lg shrink-0" aria-hidden />
+                {convertedCount} de {totalLeads} leads convertidos
               </p>
-            </div>
-            <div>
-              <p className="text-4xl sm:text-5xl font-bold text-tegra-blue-dark tabular-nums tracking-tight">
-                {conversionRate}
-                <span className="text-2xl sm:text-3xl font-semibold ml-0.5">%</span>
-              </p>
-              <p className="mt-2 text-sm text-tegra-text-secondary flex items-center gap-1.5">
-                <MdTrendingUp className="text-tegra-success text-lg" aria-hidden />
-                {convertedCount} de {totalLeads} leads
-              </p>
-            </div>
-            <div
-              className="h-2 rounded-full bg-tegra-gray-medium overflow-hidden"
-              role="progressbar"
-              aria-valuenow={conversionRate}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-label="Taxa de conversão"
-            >
               <div
-                className="h-full rounded-full bg-tegra-success transition-[width] duration-300 ease-out"
-                style={{ width: `${Math.min(conversionRate, 100)}%` }}
-              />
+                className="h-2 rounded-full bg-tegra-gray-medium overflow-hidden"
+                role="progressbar"
+                aria-valuenow={conversionRate}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label="Taxa de conversão"
+              >
+                <div
+                  className="h-full rounded-full bg-tegra-success transition-[width] duration-300 ease-out"
+                  style={{ width: `${Math.min(conversionRate, 100)}%` }}
+                />
+              </div>
             </div>
           </div>
         </AccordionCard>
