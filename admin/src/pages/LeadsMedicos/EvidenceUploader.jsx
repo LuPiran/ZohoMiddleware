@@ -155,10 +155,29 @@ export default function EvidenceUploader({
   );
 }
 
-function AuthenticatedEvidenceImage({ leadId, evidencia, className }) {
-  const [src, setSrc] = useState("");
+function evidenceImageSrc(evidencia) {
+  return evidencia?.previewUrl || evidencia?.url || "";
+}
+
+function isDirectImageUrl(url) {
+  const value = String(url || "");
+  return (
+    value.includes("previewengine") ||
+    value.includes("/image/WD/") ||
+    /\.(jpe?g|png|gif|webp)(\?|$)/i.test(value)
+  );
+}
+
+function EvidenceImage({ leadId, evidencia, className }) {
+  const direct = evidenceImageSrc(evidencia);
+  const [src, setSrc] = useState(isDirectImageUrl(direct) ? direct : "");
 
   useEffect(() => {
+    if (isDirectImageUrl(direct)) {
+      setSrc(direct);
+      return undefined;
+    }
+
     let objectUrl = "";
     let cancelled = false;
     async function load() {
@@ -178,7 +197,7 @@ function AuthenticatedEvidenceImage({ leadId, evidencia, className }) {
       cancelled = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [leadId, evidencia.id]);
+  }, [leadId, evidencia.id, direct]);
 
   if (!src) {
     return <div className={`${className} animate-pulse bg-tegra-gray-medium/40`} />;
@@ -188,6 +207,7 @@ function AuthenticatedEvidenceImage({ leadId, evidencia, className }) {
       src={src}
       alt={evidencia.fileName || `Evidência ${evidencia.n}`}
       className={className}
+      referrerPolicy="no-referrer"
     />
   );
 }
@@ -202,29 +222,32 @@ export function EvidenceGallery({ evidencias = [], leadId }) {
         Evidências
       </p>
       <ul className="mt-2 grid grid-cols-2 sm:grid-cols-5 gap-2">
-        {items.map((item) => (
-          <li key={item.id}>
-            <a
-              href={item.url || "#"}
-              target={item.url ? "_blank" : undefined}
-              rel={item.url ? "noreferrer" : undefined}
-              className="block overflow-hidden rounded-lg border border-tegra-gray-medium/80 bg-tegra-gray-light"
-              onClick={(event) => {
-                if (!item.url) event.preventDefault();
-              }}
-            >
-              <AuthenticatedEvidenceImage
-                leadId={leadId}
-                evidencia={item}
-                className="h-24 w-full object-cover"
-              />
-              <p className="truncate px-1.5 py-1 text-[10px] text-tegra-text-secondary">
-                {item.n ? `${item.n} · ` : ""}
-                {item.fileName || "Imagem"}
-              </p>
-            </a>
-          </li>
-        ))}
+        {items.map((item) => {
+          const href = evidenceImageSrc(item);
+          return (
+            <li key={item.id}>
+              <a
+                href={href || "#"}
+                target={href ? "_blank" : undefined}
+                rel={href ? "noreferrer" : undefined}
+                className="block overflow-hidden rounded-lg border border-tegra-gray-medium/80 bg-tegra-gray-light"
+                onClick={(event) => {
+                  if (!href) event.preventDefault();
+                }}
+              >
+                <EvidenceImage
+                  leadId={leadId}
+                  evidencia={item}
+                  className="h-24 w-full object-cover"
+                />
+                <p className="truncate px-1.5 py-1 text-[10px] text-tegra-text-secondary">
+                  {item.n ? `${item.n} · ` : ""}
+                  {item.fileName || "Imagem"}
+                </p>
+              </a>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

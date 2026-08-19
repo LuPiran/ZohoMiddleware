@@ -57,17 +57,29 @@ function folderIdFromCreate(payload) {
   );
 }
 
+export function workDrivePreviewUrl(fileId, { width = 800, height = 800 } = {}) {
+  const id = String(fileId || "").trim();
+  if (!id) return null;
+  const base = String(
+    ENV.ZOHO_WORKDRIVE_PREVIEW_BASE ||
+      "https://previewengine-accl.zohoexternal.com/image/WD",
+  ).replace(/\/$/, "");
+  return `${base}/${encodeURIComponent(id)}?version=1.0&width=${width}&height=${height}`;
+}
+
 function fileMetaFromUpload(payload) {
   const item = Array.isArray(payload?.data) ? payload.data[0] : payload?.data;
   const attrs = item?.attributes || {};
+  const fileId = item?.id || attrs.resource_id || attrs.FileId || null;
   return {
-    fileId: item?.id || attrs.resource_id || attrs.FileId || null,
+    fileId,
     url:
       attrs.Permalink ||
       attrs.permalink ||
       attrs.Download_Url ||
       attrs.download_url ||
       null,
+    previewUrl: workDrivePreviewUrl(fileId),
     downloadUrl: attrs.Download_Url || attrs.download_url || null,
     name: attrs.name || attrs.File_Name || null,
   };
@@ -197,7 +209,8 @@ export async function uploadEvidenceFile({ folderId, fileName, buffer, mimeType 
   const shareUrl = await createShareLink(meta.fileId, fileName.replace(/\.[^.]+$/, ""));
   return {
     ...meta,
-    url: shareUrl || meta.url,
+    previewUrl: meta.previewUrl || workDrivePreviewUrl(meta.fileId),
+    url: shareUrl || meta.previewUrl || meta.url,
   };
 }
 

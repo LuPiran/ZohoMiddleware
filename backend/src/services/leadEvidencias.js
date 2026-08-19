@@ -40,6 +40,7 @@ export async function persistLeadEvidencias(lead, files, { acao, round, user } =
       size: file.size,
       workdriveFileId: remote.fileId,
       url: remote.url,
+      previewUrl: remote.previewUrl || null,
       uploadedAt: now,
       uploadedBy: actor,
     });

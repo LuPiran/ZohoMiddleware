@@ -52,7 +52,7 @@ import {
   normalizeProtocolo,
 } from "../domain/leadProtocol.js";
 import { persistLeadEvidencias } from "./leadEvidencias.js";
-import { downloadWorkDriveFile } from "./workdrive.js";
+import { downloadWorkDriveFile, workDrivePreviewUrl } from "./workdrive.js";
 import { buildDynamoUpdateParts } from "../utils/dynamoUpdate.js";
 
 // Mapa UF → Região (fallback quando Zoho não envia Dist_Regiao)
@@ -1048,17 +1048,22 @@ function appendHistorico(lead, entries) {
 
 function publicEvidencias(lead) {
   const items = Array.isArray(lead?.evidencias) ? lead.evidencias : [];
-  return items.map((item) => ({
-    id: item.id,
-    n: item.n,
-    acao: item.acao || null,
-    round: item.round || null,
-    fileName: item.fileName,
-    mimeType: item.mimeType,
-    url: item.url || null,
-    uploadedAt: item.uploadedAt || null,
-    uploadedBy: item.uploadedBy || null,
-  }));
+  return items.map((item) => {
+    const previewUrl =
+      item.previewUrl || workDrivePreviewUrl(item.workdriveFileId);
+    return {
+      id: item.id,
+      n: item.n,
+      acao: item.acao || null,
+      round: item.round || null,
+      fileName: item.fileName,
+      mimeType: item.mimeType,
+      url: previewUrl || item.url || null,
+      previewUrl: previewUrl || null,
+      uploadedAt: item.uploadedAt || null,
+      uploadedBy: item.uploadedBy || null,
+    };
+  });
 }
 
 function evidenceHistoryDetail(note, uploaded) {

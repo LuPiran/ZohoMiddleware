@@ -120,6 +120,9 @@ export const ENV = {
     process.env.ZOHO_WORKDRIVE_API_BASE || "https://www.zohoapis.com/workdrive/api/v1",
   ZOHO_WORKDRIVE_ACCOUNTS_URL: process.env.ZOHO_WORKDRIVE_ACCOUNTS_URL,
   ZOHO_WORKDRIVE_DOWNLOAD_BASE: process.env.ZOHO_WORKDRIVE_DOWNLOAD_BASE,
+  ZOHO_WORKDRIVE_PREVIEW_BASE:
+    process.env.ZOHO_WORKDRIVE_PREVIEW_BASE ||
+    "https://previewengine-accl.zohoexternal.com/image/WD",
 
   // E-mail transacional: none | microsoft | resend
   MAIL_PROVIDER: (process.env.MAIL_PROVIDER || "none").toLowerCase(),
