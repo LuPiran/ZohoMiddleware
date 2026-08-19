@@ -93,68 +93,31 @@ export default function LeadAttemptCompraModal({
             </button>
           </div>
 
-          {/* Mobile: pills horizontais compactos */}
-          <div className="mt-3 flex gap-2 sm:hidden">
-            <span className="flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-2.5 py-1">
+          {/* Pills de status — todas as telas */}
+          <div className="mt-3 flex flex-wrap gap-2">
+            <span className="flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1.5">
               <MdNotes className="text-sm shrink-0" aria-hidden />
-              <span className="text-[11px] font-semibold">Obs. validada</span>
+              <span className="text-xs font-semibold">Obs. validada</span>
             </span>
-            <span className="flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-2.5 py-1">
+            <span className="flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1.5">
               <MdImage className="text-sm shrink-0" aria-hidden />
-              <span className="text-[11px] font-semibold">
+              <span className="text-xs font-semibold">
                 {evidenceCount} imagem{evidenceCount === 1 ? "" : "ns"}
               </span>
             </span>
-            <span className="flex items-center gap-1.5 rounded-full border border-emerald-400/40 bg-emerald-400/15 px-2.5 py-1">
+            <span className="flex items-center gap-1.5 rounded-full border border-emerald-400/40 bg-emerald-400/15 px-3 py-1.5">
               <MdShoppingCart className="text-sm shrink-0 text-emerald-300" aria-hidden />
-              <span className="text-[11px] font-semibold text-emerald-200">Preencher compra</span>
+              <span className="text-xs font-semibold text-emerald-200">Preencher compra abaixo</span>
             </span>
-          </div>
-
-          {/* Desktop: cards originais em 3 colunas */}
-          <div className="mt-4 hidden sm:grid grid-cols-3 gap-2">
-            <div className="flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-3 py-2">
-              <MdNotes className="text-lg shrink-0" aria-hidden />
-              <div className="min-w-0">
-                <p className="text-[10px] uppercase tracking-wide text-white/70">Observação</p>
-                <p className="text-xs font-semibold truncate">Validada</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-3 py-2">
-              <MdImage className="text-lg shrink-0" aria-hidden />
-              <div className="min-w-0">
-                <p className="text-[10px] uppercase tracking-wide text-white/70">Evidências</p>
-                <p className="text-xs font-semibold">
-                  {evidenceCount} imagem{evidenceCount === 1 ? "" : "ns"}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-3 py-2">
-              <MdShoppingCart className="text-lg shrink-0" aria-hidden />
-              <div className="min-w-0">
-                <p className="text-[10px] uppercase tracking-wide text-white/70">Compra</p>
-                <p className="text-xs font-semibold">Obrigatória abaixo</p>
-              </div>
-            </div>
           </div>
         </header>
 
         <div className="shrink-0 border-b border-tegra-gray-medium bg-[#F7FAFC] px-4 py-2.5 sm:py-3 sm:px-6">
-          {/* Desktop: instrução completa */}
-          <div className="hidden sm:flex items-start gap-2 text-sm text-tegra-text-secondary">
-            <MdFactCheck className="mt-0.5 shrink-0 text-tegra-teal" aria-hidden />
-            <p>
-              Preencha o formulário de compra abaixo — idêntico ao menu Compra.
-              Ao enviar, a compra segue para o Zoho e a tentativa{" "}
-              <strong className="text-tegra-blue-dark">#{round}</strong> será
-              registrada automaticamente para este lead.
-            </p>
-          </div>
-          {/* Mobile: só a observação, sem instrução longa */}
-          <div className="sm:hidden flex items-start gap-2">
+          <div className="flex items-start gap-2">
             <MdFactCheck className="mt-0.5 shrink-0 text-tegra-teal text-sm" aria-hidden />
             <p className="text-xs text-tegra-text-secondary">
-              Tentativa <strong className="text-tegra-blue-dark">#{round}</strong> será registrada após o envio.
+              Preencha o formulário abaixo e envie — a tentativa{" "}
+              <strong className="text-tegra-blue-dark">#{round}</strong> será registrada automaticamente.
             </p>
           </div>
           <p className="mt-2 line-clamp-2 rounded-lg border border-tegra-gray-medium/70 bg-white px-3 py-2 text-xs text-tegra-text-primary">
