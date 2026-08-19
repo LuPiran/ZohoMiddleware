@@ -45,15 +45,32 @@ export default function MainLayout({ children }) {
       {!isFaqRoute && (
         <NavLink
           to={ROUTES.FAQ}
-          className="fixed bottom-5 right-5 sm:bottom-6 sm:right-6 z-40 inline-flex items-center gap-3 rounded-full border border-white/20 bg-gradient-to-r from-tegra-blue-dark to-tegra-blue px-4 py-3 text-sm font-semibold text-white shadow-[0_14px_32px_rgba(27,52,108,0.28)] transition-all duration-200 hover:-translate-y-0.5 hover:from-tegra-blue hover:to-tegra-blue-dark hover:shadow-[0_18px_36px_rgba(27,52,108,0.36)] focus:outline-none focus:ring-2 focus:ring-tegra-blue-light focus:ring-offset-2"
           aria-label="Abrir FAQ e Ajuda"
           title="FAQ e Ajuda"
+          className={[
+            "fixed z-40 transition-all duration-200",
+            "focus:outline-none focus:ring-2 focus:ring-tegra-blue-light focus:ring-offset-2",
+            // Mobile: ícone circular simples, canto inferior direito
+            "bottom-4 right-4 flex h-11 w-11 items-center justify-center rounded-full",
+            "bg-tegra-blue-dark text-white shadow-[0_6px_20px_rgba(27,52,108,0.35)]",
+            "hover:bg-tegra-blue active:scale-95",
+            // Desktop: pill completo com texto
+            "sm:bottom-6 sm:right-6 sm:h-auto sm:w-auto sm:inline-flex sm:items-center sm:gap-3 sm:rounded-full",
+            "sm:border sm:border-white/20 sm:bg-gradient-to-r sm:from-tegra-blue-dark sm:to-tegra-blue",
+            "sm:px-4 sm:py-3 sm:text-sm sm:font-semibold",
+            "sm:shadow-[0_14px_32px_rgba(27,52,108,0.28)]",
+            "sm:hover:-translate-y-0.5 sm:hover:from-tegra-blue sm:hover:to-tegra-blue-dark",
+            "sm:hover:shadow-[0_18px_36px_rgba(27,52,108,0.36)]",
+          ].join(" ")}
         >
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/12 ring-1 ring-white/20">
-            <MdHelpOutline className="text-lg" />
+          {/* Mobile: só ícone */}
+          <MdHelpOutline className="text-xl sm:hidden" aria-hidden />
+
+          {/* Desktop: ícone com círculo + texto */}
+          <span className="hidden sm:flex h-8 w-8 items-center justify-center rounded-full bg-white/12 ring-1 ring-white/20">
+            <MdHelpOutline className="text-lg" aria-hidden />
           </span>
           <span className="hidden sm:inline">FAQ e Ajuda</span>
-          <span className="sm:hidden">FAQ</span>
         </NavLink>
       )}
       <PlatformUpdatePopup
