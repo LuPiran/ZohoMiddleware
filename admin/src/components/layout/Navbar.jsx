@@ -144,49 +144,6 @@ export default function Navbar() {
 
   return (
     <>
-      {/* Menu desktop (sempre visível em lg+) */}
-      <nav className="hidden lg:block bg-tegra-bg-primary border-b border-tegra-gray-medium relative z-20">
-        <div className="w-full px-4">
-          <div className="flex justify-center space-x-0">
-            {navItems.map((item) => (
-              item.external ? (
-                <a
-                  key={item.path}
-                  href={item.path}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={`group flex items-center gap-1.5 px-3 py-3 text-sm font-semibold transition-all duration-200 border-b-2 whitespace-nowrap ${
-                    item.variant === "teal"
-                      ? "text-teal-600 border-teal-300/80 drop-shadow-[0_0_10px_rgba(20,184,166,0.18)] hover:text-teal-700 hover:border-teal-500 hover:drop-shadow-[0_0_14px_rgba(20,184,166,0.28)]"
-                      : "text-amber-700 border-amber-300/80 drop-shadow-[0_0_10px_rgba(245,158,11,0.18)] hover:text-amber-800 hover:border-amber-400 hover:drop-shadow-[0_0_14px_rgba(245,158,11,0.28)]"
-                  }`}
-                >
-                  <span className={`text-[1.1rem] transition-transform duration-200 group-hover:translate-x-0.5 ${item.variant === "teal" ? "text-teal-500" : "text-amber-600"}`}>
-                    {item.icon}
-                  </span>
-                  {item.label}
-                </a>
-              ) : (
-                <NavLink
-                  key={item.path}
-                  to={item.path}
-                  className={({ isActive }) =>
-                    `flex items-center gap-1.5 px-3 py-3 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${
-                      isActive
-                        ? "text-tegra-blue-dark border-tegra-blue-dark"
-                        : "text-tegra-text-secondary border-transparent hover:text-tegra-blue-dark hover:border-tegra-blue-dark"
-                    }`
-                  }
-                >
-                  {item.icon}
-                  {item.label}
-                </NavLink>
-              )
-            ))}
-          </div>
-        </div>
-      </nav>
-
       {/* Overlay transparente com blur quando menu está aberto (mobile/tablet) */}
       {isMenuOpen && (
         <div
