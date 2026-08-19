@@ -450,10 +450,10 @@ export function mapZohoPayloadToLead(payload) {
         id: randomUUID(),
         at: now,
         action: "lead_criado",
-        label: "Lead recebido do Zoho",
+        label: "Lead chegou ao portal",
         detail: regiao
-          ? `Lead qualificado e enviado ao portal. Região ${regiao} — fila 24h (2 ciclos regionais; depois Gestão).`
-          : "Lead sem UF/região. Encaminhado à fila da Gestão.",
+          ? `Lead qualificado no Zoho CRM e enviado automaticamente para atribuição na região ${regiao}.`
+          : "Lead qualificado no Zoho CRM. Sem região definida — encaminhado diretamente para a Gestão.",
         by: "zoho",
       },
     ],
@@ -727,8 +727,8 @@ export async function createLeadFromZoho(payload) {
 
     const historico = appendHistorico(existing, {
       action: "status_zoho_atualizado",
-      label: "Status atualizado pelo Zoho",
-      detail: `Status recebido do Zoho CRM: ${newStatus}. Data de conversão: ${newConvertedAt || "—"}.`,
+      label: "Status sincronizado com o CRM",
+      detail: `O Zoho CRM atualizou o status deste lead para: ${newStatus}.${newConvertedAt ? ` Data de conversão: ${newConvertedAt}.` : ""}`,
       by: "zoho",
     });
 
@@ -764,8 +764,8 @@ export async function createLeadFromZoho(payload) {
       id: randomUUID(),
       at: now,
       action: "evento_agregado",
-      label: `Evento agregado: ${novoEvento.nome}`,
-      detail: `Lead já existente (${duplicateByRegistro.numeroRegistro}/${duplicateByRegistro.ufCrm}). Novo evento "${novoEvento.nome}" adicionado (idZoho: ${lead.idZoho}).`,
+      label: `Novo evento: ${novoEvento.nome}`,
+      detail: `Este médico já tem cadastro no portal (CRM ${duplicateByRegistro.numeroRegistro}/${duplicateByRegistro.ufCrm}). O evento "${novoEvento.nome}" foi adicionado ao histórico existente.`,
       by: "sistema",
     };
 
@@ -809,10 +809,8 @@ export async function createLeadFromZoho(payload) {
     if (shouldAddStatusHistorico) {
       historicoEntries.push({
         action: "status_zoho_atualizado",
-        label: "Status atualizado pelo Zoho",
-        detail: `Status recebido do Zoho CRM: ${updates.status}. Data de conversão: ${
-          updates.dataConversao || "—"
-        }.`,
+        label: "Status sincronizado com o CRM",
+        detail: `O Zoho CRM atualizou o status deste lead para: ${updates.status}.${updates.dataConversao ? ` Data de conversão: ${updates.dataConversao}.` : ""}`,
         by: "zoho",
       });
     }
@@ -836,8 +834,8 @@ export async function createLeadFromZoho(payload) {
       id: randomUUID(),
       at: new Date().toISOString(),
       action: "protocolo_gerado",
-      label: `Protocolo ${protocolo}`,
-      detail: `Protocolo do portal atribuído: ${protocolo}.`,
+      label: `Protocolo de atendimento gerado`,
+      detail: `Código de protocolo: ${protocolo}. Use este código para identificar e rastrear este atendimento.`,
       by: "sistema",
     },
     ...(lead.historico || []),
@@ -1467,7 +1465,7 @@ export async function registerContactAttempt(leadId, user, round, { observacao, 
           : n === 2
             ? "segunda_tentativa"
             : "terceira_tentativa",
-      label: `${meta.label} — tratado pelo consultor`,
+      label: `${n}ª tentativa de contato realizada`,
       detail: evidenceHistoryDetail(note, evidence.uploaded),
       by: actor,
     },
@@ -1475,9 +1473,8 @@ export async function registerContactAttempt(leadId, user, round, { observacao, 
       ? null
       : {
           action: "lead_com_interesse",
-          label: "Lead com interesse",
-          detail:
-            "Status atualizado para Lead com interesse após a tentativa tratada.",
+          label: "Médico demonstrou interesse!",
+          detail: "O médico sinalizou interesse durante o contato. Lead avançando no funil de atendimento.",
           by: actor,
         },
   ]);
@@ -1523,7 +1520,7 @@ async function applyAttemptTimeout(raw, round) {
   const meta = ATTEMPT_ROUNDS[n];
   const historico = appendHistorico(raw, {
     action: "tentativa_sem_retorno",
-    label: `${meta.label} — sem retorno`,
+    label: `Médico não retornou (${n}ª tentativa)`,
     detail: TIMEOUT_OBSERVACAO,
     by: "sistema",
   });
@@ -1602,8 +1599,8 @@ export async function markLeadSemInteresse(leadId, user, { observacao, files } =
   const historico = appendHistorico(raw, {
     action: "sem_interesse",
     label: meta
-      ? `Lead sem interesse — ${meta.label.toLowerCase()}`
-      : "Lead sem interesse",
+      ? `Médico sem interesse (${round}ª tentativa)`
+      : "Médico sem interesse",
     detail: evidenceHistoryDetail(note, evidence.uploaded),
     by: user.email || user.id || "usuario",
   });
@@ -1649,7 +1646,7 @@ export async function markLeadSemContato(leadId, user, { files } = {}) {
   });
   const historico = appendHistorico(raw, {
     action: "sem_contato",
-    label: "Lead sem contato",
+    label: "Médico não foi localizado",
     detail: evidenceHistoryDetail(
       "Consultor registrou que não foi possível contato com o lead.",
       evidence.uploaded,
@@ -1750,9 +1747,8 @@ export async function checkinLead(leadId, user) {
 
   const historico = appendHistorico(raw, {
     action: "sla_aceito",
-    label: "Lead aceito",
-    detail:
-      "Consultor aceitou a oferta e assumiu o lead. Status atualizado para Lead em Qualificação.",
+    label: "Lead aceito — atendimento iniciado",
+    detail: "Você confirmou o recebimento deste lead. Ele está na sua carteira e em processo de qualificação.",
     by: user.email || user.id || "usuario",
   });
 

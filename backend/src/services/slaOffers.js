@@ -141,8 +141,8 @@ async function pickNextOffer(lead, recusadosInput) {
     fieldUpdates.slaCicloRegional = proximoCiclo;
     historicoExtras.push({
       action: "sla_ciclo_reiniciado",
-      label: `Ciclo regional ${proximoCiclo} iniciado`,
-      detail: `Ninguém aceitou no ciclo ${ciclo} em ${lead.regiao}. A fila regional recomeça pelos consultores.`,
+      label: `Nova rodada de atribuição — região ${lead.regiao}`,
+      detail: `Nenhum consultor aceitou na rodada ${ciclo}. Iniciando nova rodada (${proximoCiclo}) de atribuição na região ${lead.regiao}.`,
       by: "sistema",
     });
     const freshRecusados = [];
@@ -161,8 +161,8 @@ async function pickNextOffer(lead, recusadosInput) {
   fieldUpdates.slaCicloRegional = SLA_REGIONAL_CYCLES;
   historicoExtras.push({
     action: "sla_escalado_gestao",
-    label: "Lead encaminhado à Gestão",
-    detail: `${SLA_REGIONAL_CYCLES} ciclos regionais em ${lead.regiao} sem aceite. A oferta passa à Gestão.`,
+    label: "Lead escalado para a Gestão",
+    detail: `Após ${SLA_REGIONAL_CYCLES} rodadas na região ${lead.regiao} sem aceite, o lead foi encaminhado para a equipe de Gestão.`,
     by: "sistema",
   });
 
@@ -179,26 +179,27 @@ async function pickNextOffer(lead, recusadosInput) {
 function offerHistoryCopy(lead, consultor, { reoffer = false } = {}) {
   const nome = consultorNome(consultor);
   const minutos = slaOfferMinutes();
-  const verbo = reoffer ? "Reofertado" : "Oferecido";
-  const verboLabel = reoffer ? "reofertado" : "oferecido";
+  const acao = reoffer ? "reenviado" : "enviado";
+  const regiao = lead.regiao || "—";
+
   if (isPerfilGestao(consultor)) {
     const escalado = lead.slaFaseGestao && lead.regiao;
     return {
-      label: `Lead ${verboLabel} à Gestão`,
+      label: `Lead escalado para a Gestão`,
       detail: escalado
-        ? `Após ${SLA_REGIONAL_CYCLES} ciclos em ${lead.regiao} sem aceite. ${verbo} à Gestão (${nome}). ${minutos} min para aceitar.`
-        : `Lead sem UF/região. ${verbo} à Gestão (${nome}). ${minutos} min para aceitar.`,
+        ? `Após ${SLA_REGIONAL_CYCLES} rodadas na região ${regiao} sem aceite, o lead foi encaminhado para a equipe de Gestão (${nome}). Prazo: ${minutos} minutos para aceitar.`
+        : `Lead sem região definida. Enviado diretamente para a Gestão (${nome}). Prazo: ${minutos} minutos para aceitar.`,
     };
   }
   if (isPerfilGerencia(consultor)) {
     return {
-      label: `Lead ${verboLabel} à gerência`,
-      detail: `Fila regional ${lead.regiao || "—"}: consultores esgotados. ${verbo} à gerência (${nome}). ${minutos} min para aceitar.`,
+      label: `Lead escalado para a gerência`,
+      detail: `Todos os consultores da região ${regiao} foram acionados sem sucesso. Lead ${acao} para a gerência (${nome}). Prazo: ${minutos} minutos para aceitar.`,
     };
   }
   return {
-    label: `Lead ${verboLabel} ao consultor`,
-    detail: `Fila regional ${lead.regiao || "—"}: menor carteira (${nome}). ${minutos} min para aceitar.`,
+    label: `Lead ${acao} para ${nome}`,
+    detail: `Lead atribuído a ${nome} pela fila da região ${regiao}. Prazo: ${minutos} minutos para aceitar ou recusar.`,
   };
 }
 
@@ -341,10 +342,10 @@ function previousOfferHistory(reason, by) {
   const sweeper = String(by || "") === "sweeper";
   return {
     action: sweeper ? "sla_prazo_expirado" : "sla_recusado",
-    label: sweeper ? "Prazo de aceite encerrado" : "Oferta recusada",
+    label: sweeper ? "Consultor não respondeu no prazo" : "Consultor recusou o lead",
     detail: reason || (sweeper
-      ? "Ninguém aceitou no prazo. Seguindo a fila."
-      : "Consultor recusou a oferta."),
+      ? "O lead não foi aceito em 10 minutos. Encaminhado automaticamente para o próximo consultor da fila."
+      : "O consultor recusou o recebimento deste lead. Encaminhado automaticamente para o próximo da fila."),
     by: by || "sistema",
   };
 }
@@ -380,10 +381,10 @@ export async function reofferLead(lead, { reason, by } = {}) {
         ...historicoExtras,
         {
           action: "sla_ciclo_encerrado",
-          label: "Fila de aceite encerrada",
+          label: "Fila esgotada — nenhum aceite",
           detail: lead.regiao
-            ? `${SLA_REGIONAL_CYCLES} ciclos regionais em ${lead.regiao} e a Gestão esgotada — ninguém aceitou o lead.`
-            : "Gestão recusou ou deixou expirar a oferta do lead sem região.",
+            ? `Todos os consultores e a equipe de Gestão da região ${lead.regiao} foram acionados sem sucesso. Lead requer atenção manual.`
+            : "A Gestão recusou ou não respondeu no prazo. Este lead precisa de atenção manual.",
           by: by || "sistema",
         },
       ],
