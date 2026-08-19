@@ -1,5 +1,5 @@
-import { useEffect, useRef } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   MdDashboard,
   MdPeople,
@@ -8,17 +8,18 @@ import {
   MdReport,
   MdDescription,
   MdBookmarks,
-  MdHelpOutline,
   MdClose,
-  MdPerson,
   MdBook,
   MdLocalShipping,
   MdLanguage,
   MdMedicalServices,
+  MdLogout,
+  MdExitToApp,
 } from "react-icons/md";
 import {
   EXTERNAL_LINKS,
   ROUTES,
+  STORAGE_KEYS,
   podeVerCompra,
   podeVerOcorrencia,
   podeVerProposta,
@@ -27,28 +28,28 @@ import {
 } from "../../utils/constants";
 import { hasAdminPanelPermission } from "../../utils/permissions";
 import { useMenu } from "../../contexts/MenuContext";
-import { useUserDropdown } from "../../contexts/UserContext";
 import { authService } from "../../services/auth";
+import Avatar from "../ui/Avatar";
+import SplashScreen from "../feedback/auth/SplashScreen";
 
-/**
- * Componente de Navegação
- */
 export default function Navbar() {
   const { isMenuOpen, closeMenu } = useMenu();
-  const { showUserDropdown, setShowUserDropdown } = useUserDropdown();
   const location = useLocation();
+  const navigate = useNavigate();
   const isAdmin = hasAdminPanelPermission();
   const user = authService.getUser();
+  const prevPathnameRef = useRef(location.pathname);
+  const [showSplash, setShowSplash] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+
   const mostrarCompra = podeVerCompra(user);
   const mostrarRecompra = podeVerRecompra(user);
   const mostrarProposta = podeVerProposta(user);
   const mostrarOcorrencia = podeVerOcorrencia(user);
   const mostrarTrackingPedido = podeVerTrackingPedido(user);
-  const prevPathnameRef = useRef(location.pathname);
 
-  // Fecha o menu apenas quando a rota realmente muda (não na primeira renderização)
+  // Fecha o drawer quando a rota muda
   useEffect(() => {
-    // Só fecha se a rota realmente mudou (não na primeira renderização)
     if (prevPathnameRef.current !== location.pathname && prevPathnameRef.current !== null) {
       closeMenu();
     }
@@ -56,193 +57,206 @@ export default function Navbar() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname]);
 
-  // Bloqueia scroll do body quando menu está aberto (mobile/tablet)
+  // Bloqueia scroll do body quando menu está aberto
   useEffect(() => {
-    if (isMenuOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-    // Limpa o estilo quando componente desmonta
-    return () => {
-      document.body.style.overflow = "";
-    };
+    document.body.style.overflow = isMenuOpen ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
   }, [isMenuOpen]);
 
-  const navItems = [
+  const handleLogout = () => {
+    if (showSplash || loggingOut) return;
+    setLoggingOut(true);
+    closeMenu();
+    setShowSplash(true);
+    setTimeout(async () => {
+      try {
+        sessionStorage.setItem(STORAGE_KEYS.LOGOUT_SUCCESS, "true");
+        await authService.logout();
+        navigate(ROUTES.LOGIN, { replace: true });
+      } catch {
+        navigate(ROUTES.LOGIN, { replace: true });
+      }
+    }, 800);
+  };
+
+  const displayName =
+    user?.nome || user?.Nome || user?.Name || user?.nome_completo || "Usuário";
+  const emailUsuario = user?.email || user?.Email || "";
+
+  // Mesmos grupos da Sidebar
+  const groups = [
     {
-      path: ROUTES.DASHBOARD,
-      label: "Home",
-      icon: <MdDashboard className="text-xl" />,
-      show: true, // Sempre visível
+      id: "principal",
+      label: "Principal",
+      items: [
+        { path: ROUTES.DASHBOARD,     label: "Home",          Icon: MdDashboard,       show: true },
+        { path: ROUTES.LEADS_MEDICOS, label: "Leads Médicos", Icon: MdMedicalServices, show: true },
+        { path: ROUTES.USUARIOS,      label: "Usuários",      Icon: MdPeople,          show: isAdmin },
+      ].filter((i) => i.show),
     },
     {
-      path: ROUTES.LEADS_MEDICOS,
-      label: "Leads Médicos",
-      icon: <MdMedicalServices className="text-xl" />,
-      show: true,
+      id: "comercial",
+      label: "Comercial",
+      items: [
+        { path: ROUTES.COMPRA,    label: "Compra",    Icon: MdAssignment,  show: mostrarCompra },
+        { path: ROUTES.RECOMPRA,  label: "Recompra",  Icon: MdShoppingCart, show: mostrarRecompra },
+        { path: ROUTES.PROPOSTA,  label: "Proposta",  Icon: MdDescription, show: mostrarProposta },
+        {
+          path: EXTERNAL_LINKS.CENTRAL_CONSULTOR,
+          label: "Central Comercial",
+          Icon: MdLanguage,
+          show: true,
+          external: true,
+          variant: "amber",
+        },
+        {
+          path: EXTERNAL_LINKS.TRACKING_PEDIDO,
+          label: "Rastreamento",
+          Icon: MdLocalShipping,
+          show: mostrarTrackingPedido,
+          external: true,
+          variant: "teal",
+        },
+      ].filter((i) => i.show),
     },
     {
-      path: ROUTES.USUARIOS,
-      label: "Usuários",
-      icon: <MdPeople className="text-xl" />,
-      show: isAdmin, // Apenas para Admin Painel
+      id: "suporte",
+      label: "Suporte",
+      items: [
+        { path: ROUTES.OCORRENCIA,   label: "Ocorrência",         Icon: MdReport,    show: mostrarOcorrencia },
+        { path: ROUTES.SAVED_FORMS,  label: "Formulários Salvos", Icon: MdBookmarks, show: true },
+        { path: ROUTES.MANUAL,       label: "Manual",             Icon: MdBook,      show: true },
+      ].filter((i) => i.show),
     },
-    {
-      path: ROUTES.COMPRA,
-      label: "Compra",
-      icon: <MdAssignment className="text-xl" />,
-      show: mostrarCompra,
-    },
-    {
-      path: ROUTES.RECOMPRA,
-      label: "Recompra",
-      icon: <MdShoppingCart className="text-xl" />,
-      show: mostrarRecompra,
-    },
-    {
-      path: ROUTES.PROPOSTA,
-      label: "Proposta",
-      icon: <MdDescription className="text-xl" />,
-      show: mostrarProposta,
-    },
-    {
-      path: EXTERNAL_LINKS.CENTRAL_CONSULTOR,
-      label: "Central Comercial",
-      icon: <MdLanguage className="text-xl" />,
-      show: true,
-      external: true,
-      variant: "amber",
-    },
-    {
-      path: EXTERNAL_LINKS.TRACKING_PEDIDO,
-      label: "Rastreamento de Pedido",
-      icon: <MdLocalShipping className="text-xl" />,
-      show: mostrarTrackingPedido,
-      external: true,
-      variant: "teal",
-    },
-    {
-      path: ROUTES.OCORRENCIA,
-      label: "Ocorrência",
-      icon: <MdReport className="text-xl" />,
-      show: mostrarOcorrencia,
-    },
-    {
-      path: ROUTES.SAVED_FORMS,
-      label: "Formulários Salvos",
-      icon: <MdBookmarks className="text-xl" />,
-      show: true,
-    },
-    {
-      path: ROUTES.MANUAL,
-      label: "Manual",
-      icon: <MdBook className="text-xl" />,
-      show: true,
-    },
-  ].filter((item) => item.show); // Filtra apenas itens visíveis
+  ].filter((g) => g.items.length > 0);
 
   return (
     <>
-      {/* Overlay transparente com blur quando menu está aberto (mobile/tablet) */}
+      {showSplash && <SplashScreen message="Saindo..." />}
+
+      {/* Overlay escurecido */}
       {isMenuOpen && (
         <div
-          className="mobile-menu-overlay fixed inset-0 z-[55] lg:hidden transition-opacity duration-300"
-          onClick={(e) => {
-            // Só fecha se clicar diretamente no overlay, não em elementos filhos
-            if (e.target === e.currentTarget) {
-              closeMenu();
-            }
-          }}
+          className="fixed inset-0 z-[55] bg-black/40 backdrop-blur-[2px] lg:hidden"
+          onClick={closeMenu}
           aria-hidden="true"
         />
       )}
 
-      {/* Menu mobile/tablet (drawer da esquerda) - sempre renderizado */}
+      {/* Drawer */}
       <nav
-        className={`mobile-menu-drawer fixed top-0 left-0 h-full w-64 sm:w-80 shadow-2xl z-[60] transform transition-transform duration-300 ease-in-out lg:hidden flex flex-col ${
+        className={`fixed top-0 left-0 h-full w-[272px] z-[60] flex flex-col bg-[#1a2f5b] shadow-2xl transform transition-transform duration-300 ease-in-out lg:hidden select-none ${
           isMenuOpen ? "translate-x-0" : "-translate-x-full"
         }`}
         role="navigation"
         aria-label="Menu de navegação"
         aria-hidden={!isMenuOpen}
-        onClick={(e) => {
-          // Previne que cliques dentro do drawer propaguem para o overlay
-          e.stopPropagation();
-        }}
+        onClick={(e) => e.stopPropagation()}
       >
-        {/* Cabeçalho do drawer */}
-        <div className="mobile-menu-header flex items-center justify-between p-4 border-b border-tegra-gray-medium flex-shrink-0">
-          <h2 className="text-lg font-semibold text-tegra-text-primary">
-            Menu
-          </h2>
+        {/* Cabeçalho: logo + fechar */}
+        <div className="flex items-center justify-between h-[60px] px-4 shrink-0 border-b border-white/8">
+          <img
+            src="/logoCorp.png"
+            alt="TegraPharma"
+            className="h-8 w-auto object-contain brightness-0 invert"
+          />
           <button
+            type="button"
             onClick={closeMenu}
-            className="p-2 text-tegra-text-secondary hover:text-tegra-text-primary hover:bg-tegra-gray-light rounded-lg transition"
             aria-label="Fechar menu"
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-white/50 transition hover:bg-white/10 hover:text-white"
           >
-            <MdClose className="text-2xl" />
+            <MdClose className="text-xl" aria-hidden />
           </button>
         </div>
 
-        {/* Itens do menu */}
-        <div className="flex flex-col py-2 flex-1">
-          {navItems.map((item) => (
-            item.external ? (
-              <a
-                key={item.path}
-                href={item.path}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={closeMenu}
-                className={`mobile-menu-item mx-2 my-1 flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-semibold ring-1 transition-colors ${
-                  item.variant === "teal"
-                    ? "text-teal-600 ring-teal-200/80 hover:bg-teal-50 hover:text-teal-700"
-                    : "text-amber-700 ring-amber-200/80 hover:bg-amber-50 hover:text-amber-800"
-                }`}
-              >
-                <span className={item.variant === "teal" ? "text-teal-500" : "text-amber-600"}>
-                  {item.icon}
-                </span>
-                <span className="flex-1">{item.label}</span>
-              </a>
-            ) : (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                onClick={closeMenu}
-                className={({ isActive }) =>
-                  `mobile-menu-item flex items-center gap-3 px-4 py-3 mx-2 my-1 text-sm font-medium transition-colors rounded-lg ${
-                    isActive
-                      ? "mobile-menu-item--active"
-                      : "text-tegra-text-secondary hover:text-tegra-blue-dark hover:bg-tegra-gray-light"
-                  }`
-                }
-              >
-                {item.icon}
-                {item.label}
-              </NavLink>
-            )
+        {/* Grupos de navegação */}
+        <div className="flex-1 overflow-y-auto py-4 px-3 space-y-5">
+          {groups.map((group) => (
+            <div key={group.id}>
+              <p className="mb-1 px-3 text-[10px] font-bold uppercase tracking-widest text-white/30">
+                {group.label}
+              </p>
+              <ul className="space-y-0.5">
+                {group.items.map((item) =>
+                  item.external ? (
+                    <li key={item.path}>
+                      <a
+                        href={item.path}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={closeMenu}
+                        className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                          item.variant === "teal"
+                            ? "text-teal-300/80 hover:bg-teal-400/10 hover:text-teal-200"
+                            : "text-amber-300/80 hover:bg-amber-400/10 hover:text-amber-200"
+                        }`}
+                      >
+                        <item.Icon
+                          className={`shrink-0 text-[1.15rem] ${
+                            item.variant === "teal" ? "text-teal-400/70" : "text-amber-400/70"
+                          }`}
+                          aria-hidden
+                        />
+                        <span className="flex-1 truncate">{item.label}</span>
+                        <MdExitToApp className="shrink-0 text-[0.8rem] opacity-40" aria-hidden />
+                      </a>
+                    </li>
+                  ) : (
+                    <li key={item.path}>
+                      <NavLink
+                        to={item.path}
+                        onClick={closeMenu}
+                        className={({ isActive }) =>
+                          `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors ${
+                            isActive
+                              ? "bg-white/14 font-semibold text-white"
+                              : "font-medium text-white/60 hover:bg-white/8 hover:text-white/90"
+                          }`
+                        }
+                      >
+                        {({ isActive }) => (
+                          <>
+                            <item.Icon
+                              className={`shrink-0 text-[1.15rem] ${isActive ? "text-white" : "text-white/50"}`}
+                              aria-hidden
+                            />
+                            <span className="truncate">{item.label}</span>
+                          </>
+                        )}
+                      </NavLink>
+                    </li>
+                  ),
+                )}
+              </ul>
+            </div>
           ))}
         </div>
 
-        {/* Separador */}
-        <div className="h-px bg-tegra-gray-medium flex-shrink-0" />
-
-        {/* Botão de Perfil - no rodapé */}
-        <div className="flex-shrink-0 px-4 py-4">
-          <button
-            onClick={() => {
-              setShowUserDropdown(!showUserDropdown);
-              closeMenu();
-            }}
-            className="w-full flex items-center justify-center gap-3 px-4 py-3 text-sm font-medium bg-gradient-to-r from-tegra-blue to-tegra-blue-light text-white rounded-lg hover:shadow-lg transition-shadow"
-            type="button"
-            aria-label="Abrir perfil do usuário"
-          >
-            <MdPerson className="text-lg" />
-            Meu Perfil
-          </button>
+        {/* Rodapé: usuário + logout */}
+        <div className="shrink-0 border-t border-white/8 px-3 py-3">
+          <div className="flex items-center gap-2.5 rounded-lg px-2 py-2">
+            <Avatar user={user} size="sm" />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold text-white leading-tight">
+                {displayName}
+              </p>
+              {emailUsuario && (
+                <p className="truncate text-[11px] text-white/45 leading-tight mt-0.5">
+                  {emailUsuario}
+                </p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={handleLogout}
+              title="Sair"
+              aria-label="Sair"
+              className="shrink-0 rounded-lg p-1.5 text-white/35 transition hover:bg-red-500/15 hover:text-red-300"
+            >
+              <MdLogout className="text-lg" aria-hidden />
+            </button>
+          </div>
         </div>
       </nav>
     </>
