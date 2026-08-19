@@ -120,14 +120,17 @@ export default function MessagesBell() {
     function onKey(e) {
       if (e.key === "Escape") setOpen(false);
     }
-    function onScroll() { setOpen(false); }
+    function onScroll(e) {
+      if (panelRef.current && panelRef.current.contains(e.target)) return;
+      setOpen(false);
+    }
     document.addEventListener("mousedown", onPointerDown);
     document.addEventListener("keydown", onKey);
-    window.addEventListener("scroll", onScroll, { passive: true });
+    document.addEventListener("scroll", onScroll, { passive: true, capture: true });
     return () => {
       document.removeEventListener("mousedown", onPointerDown);
       document.removeEventListener("keydown", onKey);
-      window.removeEventListener("scroll", onScroll);
+      document.removeEventListener("scroll", onScroll, { capture: true });
     };
   }, [open]);
 
