@@ -399,6 +399,17 @@ export function mapZohoPayloadToLead(payload) {
     slaCicloRegional: regiao ? 1 : 0,
     slaFaseGestao: !regiao,
     protocolo: protocolo && isValidProtocolo(protocolo) ? protocolo : undefined,
+    eventos: evento
+      ? [
+          {
+            id: randomUUID(),
+            nome: evento,
+            idZoho: idZoho || undefined,
+            dataEntrada: entradaEm || now,
+            adicionadoEm: now,
+          },
+        ]
+      : [],
     evidencias: [],
     workdriveFolderId: undefined,
     workdriveFolderName: undefined,
@@ -542,6 +553,29 @@ async function findLeadByZohoId(idZoho) {
   }
 }
 
+async function findLeadByRegistroUf(numeroRegistro, ufCrm) {
+  const reg = String(numeroRegistro || "").trim();
+  const uf = String(ufCrm || "").trim().toUpperCase();
+  if (!reg || !uf) return null;
+
+  let lastKey;
+  do {
+    const page = await dynamoDocClient.send(
+      new ScanCommand({
+        TableName: TABLE(),
+        FilterExpression: "#nr = :nr AND #uf = :uf",
+        ExpressionAttributeNames: { "#nr": "numeroRegistro", "#uf": "ufCrm" },
+        ExpressionAttributeValues: { ":nr": reg, ":uf": uf },
+        ExclusiveStartKey: lastKey,
+      }),
+    );
+    if (page.Items?.length) return page.Items[0];
+    lastKey = page.LastEvaluatedKey;
+  } while (lastKey);
+
+  return null;
+}
+
 async function findLeadByProtocolo(protocolo) {
   const code = normalizeProtocolo(protocolo);
   if (!code) return null;
@@ -626,6 +660,52 @@ export async function createLeadFromZoho(payload) {
       created: false,
       alreadyExists: true,
       lead: existing,
+    };
+  }
+
+  const duplicateByRegistro = await findLeadByRegistroUf(lead.numeroRegistro, lead.ufCrm);
+  if (duplicateByRegistro) {
+    const now = new Date().toISOString();
+    const novoEvento = {
+      id: randomUUID(),
+      nome: lead.evento || "Sem evento",
+      idZoho: lead.idZoho,
+      dataEntrada: lead.entradaEm || now,
+      adicionadoEm: now,
+    };
+
+    const eventos = Array.isArray(duplicateByRegistro.eventos)
+      ? [...duplicateByRegistro.eventos, novoEvento]
+      : [novoEvento];
+
+    const historicoEntry = {
+      id: randomUUID(),
+      at: now,
+      action: "evento_agregado",
+      label: `Evento agregado: ${novoEvento.nome}`,
+      detail: `Lead já existente (${duplicateByRegistro.numeroRegistro}/${duplicateByRegistro.ufCrm}). Novo evento "${novoEvento.nome}" adicionado (idZoho: ${lead.idZoho}).`,
+      by: "sistema",
+    };
+
+    await dynamoDocClient.send(
+      new UpdateCommand({
+        TableName: TABLE(),
+        Key: { id: duplicateByRegistro.id },
+        UpdateExpression: "SET eventos = :ev, historico = list_append(if_not_exists(historico, :empty), :hist), updatedAt = :now",
+        ExpressionAttributeValues: {
+          ":ev": eventos,
+          ":hist": [historicoEntry],
+          ":empty": [],
+          ":now": now,
+        },
+      }),
+    );
+
+    return {
+      created: false,
+      alreadyExists: true,
+      eventAdded: true,
+      lead: { ...duplicateByRegistro, eventos, updatedAt: now },
     };
   }
 
@@ -813,6 +893,7 @@ export function toLeadListItem(lead) {
     slaStatus: lead.slaStatus || null,
     slaCheckinAt: lead.slaCheckinAt || null,
     protocolo: lead.protocolo || null,
+    eventos: Array.isArray(lead.eventos) ? lead.eventos : [],
   };
 }
 
@@ -1104,6 +1185,7 @@ export function toLeadDetail(lead) {
       .map(normalizeHistoricoEntry)
       .filter(Boolean),
     evidencias: publicEvidencias(lead),
+    eventos: Array.isArray(lead.eventos) ? lead.eventos : [],
     workdriveFolderId: lead.workdriveFolderId || null,
     protocolo: lead.protocolo || null,
     timeline: buildLeadTimeline(lead),

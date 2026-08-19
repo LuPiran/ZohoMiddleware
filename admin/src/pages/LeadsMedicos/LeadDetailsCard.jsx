@@ -13,6 +13,7 @@ import {
   MdLocationCity,
   MdMarkunreadMailbox,
   MdTag,
+  MdCalendarToday,
 } from "react-icons/md";
 import { canonicalizeLeadStatus, getLeadStatusMeta } from "./leadStatus";
 
@@ -67,6 +68,8 @@ function LeadStatusChip({ status }) {
 
 export default function LeadDetailsCard({ lead }) {
   if (!lead) return null;
+
+  const eventos = Array.isArray(lead.eventos) ? lead.eventos : [];
 
   const enderecoLinha = [
     [lead.rua, lead.numero].filter(Boolean).join(", "),
@@ -133,11 +136,13 @@ export default function LeadDetailsCard({ lead }) {
           label="Tipo de lead"
           value={lead.tipoLead || lead.especialidade}
         />
-        <DetailItem
-          icon={MdEvent}
-          label="Evento / origem"
-          value={lead.evento || lead.origem}
-        />
+        {eventos.length === 0 && (
+          <DetailItem
+            icon={MdEvent}
+            label="Evento / origem"
+            value={lead.evento || lead.origem}
+          />
+        )}
         <DetailItem icon={MdPerson} label="Consultor" value={lead.consultor} />
         <DetailItem icon={MdBusiness} label="Gerência" value={lead.gerencia} />
         <DetailItem
@@ -146,6 +151,35 @@ export default function LeadDetailsCard({ lead }) {
           value={lead.ufCrm || lead.uf}
         />
       </dl>
+
+      {eventos.length > 0 && (
+        <div className="px-4 sm:px-5 pb-3">
+          <h3 className="text-xs font-bold uppercase tracking-wide text-tegra-text-secondary border-t border-tegra-gray-medium pt-4 mb-3">
+            Eventos ({eventos.length})
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {eventos.map((ev) => (
+              <div
+                key={ev.id}
+                className="flex items-center gap-2 rounded-lg border border-tegra-gray-medium/80 bg-tegra-gray-light px-3 py-2"
+              >
+                <MdEvent className="text-tegra-blue-dark shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-tegra-text-primary truncate">
+                    {ev.nome}
+                  </p>
+                  <p className="flex items-center gap-1 text-[11px] text-tegra-text-secondary">
+                    <MdCalendarToday className="text-[10px]" />
+                    {ev.dataEntrada
+                      ? new Date(ev.dataEntrada).toLocaleDateString("pt-BR")
+                      : "—"}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="px-4 sm:px-5 pb-2">
         <h3 className="text-xs font-bold uppercase tracking-wide text-tegra-text-secondary border-t border-tegra-gray-medium pt-4">
