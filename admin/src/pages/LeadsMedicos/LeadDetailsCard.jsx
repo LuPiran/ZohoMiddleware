@@ -158,25 +158,37 @@ export default function LeadDetailsCard({ lead }) {
             Eventos ({eventos.length})
           </h3>
           <div className="flex flex-wrap gap-2">
-            {eventos.map((ev) => (
-              <div
-                key={ev.id}
-                className="flex items-center gap-2 rounded-lg border border-tegra-gray-medium/80 bg-tegra-gray-light px-3 py-2"
-              >
-                <MdEvent className="text-tegra-blue-dark shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-tegra-text-primary truncate">
-                    {ev.nome}
-                  </p>
-                  <p className="flex items-center gap-1 text-[11px] text-tegra-text-secondary">
-                    <MdCalendarToday className="text-[10px]" />
-                    {ev.dataEntrada
-                      ? new Date(ev.dataEntrada).toLocaleDateString("pt-BR")
-                      : "—"}
-                  </p>
+            {eventos.map((ev, idx) => {
+              const isPrincipal = idx === 0;
+              return (
+                <div
+                  key={ev.id}
+                  className={`flex items-center gap-2 rounded-lg border px-3 py-2 ${
+                    isPrincipal
+                      ? "border-tegra-blue-dark/40 bg-tegra-blue-dark/5 ring-1 ring-tegra-blue-dark/20"
+                      : "border-tegra-gray-medium/80 bg-tegra-gray-light"
+                  }`}
+                >
+                  <MdEvent className={`shrink-0 ${isPrincipal ? "text-tegra-blue-dark" : "text-tegra-text-secondary"}`} />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-tegra-text-primary truncate flex items-center gap-1.5">
+                      {ev.nome}
+                      {isPrincipal && (
+                        <span className="inline-flex items-center rounded-full bg-tegra-blue-dark px-1.5 py-px text-[9px] font-bold uppercase tracking-wider text-white">
+                          Principal
+                        </span>
+                      )}
+                    </p>
+                    <p className="flex items-center gap-1 text-[11px] text-tegra-text-secondary">
+                      <MdCalendarToday className="text-[10px]" />
+                      {ev.dataEntrada
+                        ? new Date(ev.dataEntrada).toLocaleDateString("pt-BR")
+                        : "—"}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
