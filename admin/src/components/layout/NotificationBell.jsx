@@ -93,7 +93,7 @@ export default function NotificationBell() {
         <div
           role="dialog"
           aria-label="Notificações de leads"
-          className="absolute top-full z-50 mt-3 origin-top-right left-2 right-2 sm:left-auto sm:right-0 sm:w-80"
+          className="fixed inset-x-2 top-16 z-50 sm:absolute sm:inset-x-auto sm:top-full sm:right-0 sm:mt-3 sm:w-80 origin-top-right"
           style={{ animation: "confirm-modal-in 0.18s cubic-bezier(0.34,1.56,0.64,1)" }}
         >
           {/* Seta */}
