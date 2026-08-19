@@ -38,15 +38,15 @@ function ChartTooltip({ active, payload, label }) {
 }
 
 /* ── Wrapper accordion só no mobile ── */
-function AccordionCard({ title, subtitle, badge, defaultOpen = false, children }) {
-  const [open, setOpen] = useState(defaultOpen);
+function AccordionCard({ id, openId, onToggle, title, subtitle, badge, children }) {
+  const open = openId === id;
 
   return (
     <div className="bg-tegra-bg-primary rounded-xl border border-tegra-gray-medium/80 shadow-sm overflow-hidden">
-      {/* Header clicável (só mobile) */}
+      {/* Header clicável — só mobile */}
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => onToggle(id)}
         className="sm:hidden w-full flex items-center justify-between px-4 py-3.5 text-left"
         aria-expanded={open}
       >
@@ -70,7 +70,6 @@ function AccordionCard({ title, subtitle, badge, defaultOpen = false, children }
 
       {/* Conteúdo: sempre visível no desktop, toggle no mobile */}
       <div className={`sm:block ${open ? "block" : "hidden"}`}>
-        {/* Header desktop (estático) */}
         <div className="hidden sm:flex items-baseline justify-between gap-3 px-5 pt-5 pb-0">
           <h2 className="text-base sm:text-lg font-semibold text-tegra-text-primary">{title}</h2>
           {subtitle && <span className="text-xs text-tegra-text-secondary">{subtitle}</span>}
@@ -96,6 +95,9 @@ export default function LeadsDashboard({
   convertedCount,
 }) {
   const totalMensal = monthlyData?.reduce((s, d) => s + (d.total || 0), 0) ?? 0;
+  // Accordion: só um aberto por vez; "mensal" aberto por padrão
+  const [openId, setOpenId] = useState("mensal");
+  const handleToggle = (id) => setOpenId((cur) => (cur === id ? null : id));
 
   return (
     <section
@@ -105,10 +107,12 @@ export default function LeadsDashboard({
       {/* ── Leads por mês ── */}
       <div className="xl:col-span-5">
         <AccordionCard
+          id="mensal"
+          openId={openId}
+          onToggle={handleToggle}
           title="Leads por mês"
           subtitle="Criação · últimos períodos"
           badge={totalMensal || undefined}
-          defaultOpen={true}
         >
           <div className="h-52 sm:h-64">
             <ResponsiveContainer width="100%" height="100%">
@@ -154,6 +158,9 @@ export default function LeadsDashboard({
       {/* ── Por status ── */}
       <div className="xl:col-span-4">
         <AccordionCard
+          id="status"
+          openId={openId}
+          onToggle={handleToggle}
           title="Por status"
           subtitle="Distribuição"
           badge={statusData?.length || undefined}
@@ -208,6 +215,9 @@ export default function LeadsDashboard({
       {/* ── Conversão ── */}
       <div className="xl:col-span-3">
         <AccordionCard
+          id="conversao"
+          openId={openId}
+          onToggle={handleToggle}
           title="Conversão"
           subtitle="Leads convertidos"
           badge={`${conversionRate}%`}
