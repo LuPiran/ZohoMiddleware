@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import * as XLSX from "xlsx";
 import {
   MdSearch,
   MdFilterList,
@@ -269,23 +270,13 @@ export default function LeadsMedicos() {
     showToast(`Importação iniciada: ${lead.nome}`, "success", 2200);
   };
 
-  const exportToCSV = () => {
+  const exportToXLSX = () => {
     if (filteredLeads.length === 0) {
       showToast("Nenhum lead para exportar.", "error", 2200);
       return;
     }
 
-    // Escapa campo para CSV: encapsula em aspas se contiver ; " ou quebra de linha
-    const escapeField = (value) => {
-      if (value === null || value === undefined) return "";
-      const str = String(value);
-      if (str.includes(";") || str.includes('"') || str.includes("\n")) {
-        return `"${str.replace(/"/g, '""')}"`;
-      }
-      return str;
-    };
-
-    const formatDateCSV = (isoDate) => {
+    const formatDateXLSX = (isoDate) => {
       if (!isoDate) return "";
       const d = new Date(isoDate);
       if (Number.isNaN(d.getTime())) return isoDate;
@@ -295,56 +286,50 @@ export default function LeadsMedicos() {
       return `${dd}/${mm}/${yyyy}`;
     };
 
-    const headers = [
-      "ID",
-      "Nome",
-      "E-mail",
-      "Telefone",
-      "Celular",
-      "CRM",
-      "Especialidade",
-      "Cidade",
-      "UF",
-      "Origem",
-      "Status",
-      "Consultor",
-      "Gerência",
-      "Data de criação",
-      "Data de entrada",
+    const rows = filteredLeads.map((lead) => ({
+      ID: lead.id || "",
+      Nome: lead.nome || "",
+      "E-mail": lead.email || "",
+      Telefone: lead.telefone || "",
+      Celular: lead.celular || "",
+      CRM: lead.crm || "",
+      Especialidade: lead.especialidade || "",
+      Cidade: lead.cidade || "",
+      UF: lead.uf || "",
+      Origem: lead.origem || "",
+      Status: canonicalizeLeadStatus(lead.status) || lead.status || "",
+      Consultor: lead.consultor || "",
+      Gerência: lead.gerencia || lead.gerência || "",
+      "Data de criação": formatDateXLSX(lead.criadoEm),
+      "Data de entrada": formatDateXLSX(lead.entradaEm),
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+
+    // Largura das colunas
+    worksheet["!cols"] = [
+      { wch: 36 }, // ID
+      { wch: 28 }, // Nome
+      { wch: 30 }, // E-mail
+      { wch: 16 }, // Telefone
+      { wch: 16 }, // Celular
+      { wch: 12 }, // CRM
+      { wch: 22 }, // Especialidade
+      { wch: 18 }, // Cidade
+      { wch: 6  }, // UF
+      { wch: 16 }, // Origem
+      { wch: 22 }, // Status
+      { wch: 24 }, // Consultor
+      { wch: 20 }, // Gerência
+      { wch: 16 }, // Data de criação
+      { wch: 16 }, // Data de entrada
     ];
 
-    const rows = filteredLeads.map((lead) => [
-      escapeField(lead.id),
-      escapeField(lead.nome),
-      escapeField(lead.email),
-      escapeField(lead.telefone),
-      escapeField(lead.celular),
-      escapeField(lead.crm),
-      escapeField(lead.especialidade),
-      escapeField(lead.cidade),
-      escapeField(lead.uf),
-      escapeField(lead.origem),
-      escapeField(canonicalizeLeadStatus(lead.status) || lead.status),
-      escapeField(lead.consultor),
-      escapeField(lead.gerencia || lead.gerência),
-      escapeField(formatDateCSV(lead.criadoEm)),
-      escapeField(formatDateCSV(lead.entradaEm)),
-    ]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Leads Médicos");
 
-    const csvContent =
-      "﻿" + // BOM UTF-8 para Excel reconhecer acentuação
-      [headers.join(";"), ...rows.map((r) => r.join(";"))].join("\r\n");
-
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
     const today = new Date().toISOString().slice(0, 10);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `leads-medicos-${today}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    XLSX.writeFile(workbook, `leads-medicos-${today}.xlsx`);
 
     showToast(
       `${filteredLeads.length} lead${filteredLeads.length > 1 ? "s" : ""} exportado${filteredLeads.length > 1 ? "s" : ""} com sucesso.`,
@@ -429,10 +414,10 @@ export default function LeadsMedicos() {
               )}
             </button>
 
-            {/* Exportar CSV */}
+            {/* Exportar XLSX */}
             <button
               type="button"
-              onClick={exportToCSV}
+              onClick={exportToXLSX}
               disabled={loading || filteredLeads.length === 0}
               title={
                 filteredLeads.length === 0
@@ -440,9 +425,10 @@ export default function LeadsMedicos() {
                   : `Exportar ${filteredLeads.length} lead${filteredLeads.length > 1 ? "s" : ""} para Excel`
               }
               aria-label="Exportar para Excel"
-              className="shrink-0 inline-flex h-9 w-9 items-center justify-center rounded-lg border border-tegra-gray-medium text-tegra-text-secondary transition hover:bg-tegra-gray-light hover:text-tegra-blue-dark disabled:opacity-40"
+              className="relative inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 border-2 border-emerald-600 rounded-lg text-emerald-700 hover:bg-emerald-600 hover:text-white transition cursor-pointer shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <MdFileDownload className="text-xl" aria-hidden />
+              <span className="text-sm font-medium">Exportar</span>
             </button>
           </div>
 
