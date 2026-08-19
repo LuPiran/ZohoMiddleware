@@ -16,6 +16,7 @@ export function SlaOfferProvider({ children }) {
   const [selectedOffer, setSelectedOffer] = useState(null);
   const [submittingId, setSubmittingId] = useState(null);
   const busyRef = useRef(false);
+  const autoShownRef = useRef(new Set()); // IDs já exibidos automaticamente
 
   const dismissOffer = useCallback((offerId) => {
     if (!offerId) return;
@@ -38,9 +39,19 @@ export function SlaOfferProvider({ children }) {
       const result = await leadsMedicosService.listPendingOffers();
       const next = Array.isArray(result.data) ? result.data : [];
       setOffers(next);
+
       setSelectedOffer((current) => {
-        if (!current) return null;
-        return next.find((item) => item.id === current.id) || null;
+        // Se já tem modal aberto, mantém (atualiza dados se ainda existir na fila)
+        if (current) {
+          return next.find((item) => item.id === current.id) || null;
+        }
+        // Abre automaticamente a primeira oferta nova (ainda não exibida)
+        const newOffer = next.find((o) => !autoShownRef.current.has(o.id));
+        if (newOffer) {
+          autoShownRef.current.add(newOffer.id);
+          return newOffer;
+        }
+        return null;
       });
     } catch {
       // polling silencioso
