@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { MdArrowBack } from "react-icons/md";
+import { MdArrowBack, MdPhoneMissed, MdThumbDown } from "react-icons/md";
 import MainLayout from "../../components/layout/MainLayout";
 import Button from "../../components/ui/Button";
+import ConfirmModal from "../../components/ui/ConfirmModal";
 import { useToast } from "../../components/feedback/auth/ToastContainer";
 import { ROUTES } from "../../utils/constants";
 import { leadsMedicosService } from "../../services/leadsMedicos";
@@ -130,6 +131,7 @@ export default function LeadDetail() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [confirmModal, setConfirmModal] = useState(null); // { type: "semContato" | "semInteresse", files, observacao }
 
   const loadLead = useCallback(async () => {
     if (!id) return;
@@ -230,48 +232,34 @@ export default function LeadDetail() {
     }
   };
 
-  const handleSemInteresse = async (observacao, files) => {
-    const ok = window.confirm(
-      "Confirmar que este lead não tem interesse? Esta ação encerra o funil.",
-    );
-    if (!ok) return;
-
-    setSubmitting(true);
-    try {
-      const result = await leadsMedicosService.marcarSemInteresse(
-        id,
-        observacao,
-        files,
-      );
-      setLead(result.data);
-      showToast("Lead marcado como sem interesse", "success", 2500);
-    } catch (err) {
-      const message =
-        err?.response?.data?.error ||
-        err?.message ||
-        "Erro ao marcar sem interesse";
-      showToast(message, "error", 3500);
-    } finally {
-      setSubmitting(false);
-    }
+  const handleSemInteresse = (observacao, files) => {
+    setConfirmModal({ type: "semInteresse", observacao, files });
   };
 
-  const handleSemContato = async (files) => {
-    const ok = window.confirm(
-      "Confirmar que não foi possível contato com este lead? O status passará a Lead Sem Contato.",
-    );
-    if (!ok) return;
+  const handleSemContato = (files) => {
+    setConfirmModal({ type: "semContato", files });
+  };
 
+  const executeConfirmed = async () => {
+    if (!confirmModal) return;
+    const { type, observacao, files } = confirmModal;
+    setConfirmModal(null);
     setSubmitting(true);
     try {
-      const result = await leadsMedicosService.marcarSemContato(id, files);
-      setLead(result.data);
-      showToast("Lead marcado como sem contato", "success", 2500);
+      if (type === "semInteresse") {
+        const result = await leadsMedicosService.marcarSemInteresse(id, observacao, files);
+        setLead(result.data);
+        showToast("Lead marcado como sem interesse", "success", 2500);
+      } else if (type === "semContato") {
+        const result = await leadsMedicosService.marcarSemContato(id, files);
+        setLead(result.data);
+        showToast("Lead marcado como sem contato", "success", 2500);
+      }
     } catch (err) {
       const message =
         err?.response?.data?.error ||
         err?.message ||
-        "Erro ao marcar sem contato";
+        "Erro ao atualizar o lead";
       showToast(message, "error", 3500);
     } finally {
       setSubmitting(false);
@@ -357,6 +345,32 @@ export default function LeadDetail() {
           </>
         )}
       </div>
+
+      {/* Modal de confirmação — sem contato */}
+      <ConfirmModal
+        open={confirmModal?.type === "semContato"}
+        title="Lead sem contato"
+        description="Confirmar que não foi possível contato com este lead? O status passará para Lead Sem Contato."
+        confirmLabel="Confirmar"
+        cancelLabel="Cancelar"
+        variant="warning"
+        icon={<MdPhoneMissed className="text-lg" />}
+        onConfirm={executeConfirmed}
+        onCancel={() => setConfirmModal(null)}
+      />
+
+      {/* Modal de confirmação — sem interesse */}
+      <ConfirmModal
+        open={confirmModal?.type === "semInteresse"}
+        title="Lead sem interesse"
+        description="Confirmar que este lead não tem interesse? Esta ação encerra o funil de atendimento."
+        confirmLabel="Encerrar funil"
+        cancelLabel="Cancelar"
+        variant="danger"
+        icon={<MdThumbDown className="text-lg" />}
+        onConfirm={executeConfirmed}
+        onCancel={() => setConfirmModal(null)}
+      />
     </MainLayout>
   );
 }
