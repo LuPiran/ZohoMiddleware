@@ -9,6 +9,7 @@ import {
   MdLastPage,
   MdChevronLeft,
   MdChevronRight,
+  MdRefresh,
 } from "react-icons/md";
 import MainLayout from "../../components/layout/MainLayout";
 import Input from "../../components/ui/Input";
@@ -271,7 +272,7 @@ export default function LeadsMedicos() {
   return (
     <MainLayout>
       <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
-        <header className="mb-5 sm:mb-6 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+        <header className="mb-5 sm:mb-6 flex items-start justify-between gap-3">
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-tegra-text-primary">
               Leads Médicos
@@ -281,14 +282,16 @@ export default function LeadsMedicos() {
               leads; gerente a equipe; admin todos.
             </p>
           </div>
-          <Button
-            variant="secondary"
+          <button
+            type="button"
             onClick={loadLeads}
             disabled={loading}
-            className="shrink-0"
+            title="Atualizar dados"
+            aria-label="Atualizar dados"
+            className="shrink-0 mt-0.5 inline-flex h-9 w-9 items-center justify-center rounded-lg border border-tegra-gray-medium text-tegra-text-secondary transition hover:bg-tegra-gray-light hover:text-tegra-blue-dark disabled:opacity-40"
           >
-            {loading ? "Atualizando…" : "Atualizar"}
-          </Button>
+            <MdRefresh className={`text-xl ${loading ? "animate-spin" : ""}`} />
+          </button>
         </header>
 
         <LeadsDashboard
