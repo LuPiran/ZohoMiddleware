@@ -55,11 +55,14 @@ function dynamoErrorResponse(res, error) {
     error.code === "WORKDRIVE_ERROR" ||
     error.code === "WORKDRIVE_AUTH_FAILED" ||
     error.code === "WORKDRIVE_NOT_CONFIGURED" ||
+    error.code === "ZOHO_ATTACHMENT_ERROR" ||
     error.status === 502
   ) {
     return res.status(error.status || 502).json({
       success: false,
-      error: error.message || "Falha ao enviar evidência para o WorkDrive",
+      error:
+        error.message ||
+        "Falha ao enviar evidência para WorkDrive/Zoho CRM",
     });
   }
 

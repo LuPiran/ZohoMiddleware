@@ -37,6 +37,7 @@ export async function chamarZohoApi(method, endpoint, data = null, options = {})
       url: fullUrl,
       headers: {
         Authorization: `Zoho-oauthtoken ${token}`,
+        ...(options.headers || {}),
       },
       data,
       timeout: timeoutMs,

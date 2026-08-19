@@ -9,6 +9,7 @@ import {
   ensureLeadWorkDriveFolder,
   uploadEvidenceFile,
 } from "./workdrive.js";
+import { uploadLeadAttachmentToZoho } from "./zohoLeadAttachments.js";
 
 export async function persistLeadEvidencias(lead, files, { acao, round, user } = {}) {
   const validated = assertEvidenceFiles(files);
@@ -29,6 +30,12 @@ export async function persistLeadEvidencias(lead, files, { acao, round, user } =
       buffer: file.buffer,
       mimeType: file.mimeType,
     });
+    const zohoAttachment = await uploadLeadAttachmentToZoho({
+      idZoho: lead.idZoho,
+      fileName,
+      buffer: file.buffer,
+      mimeType: file.mimeType,
+    });
 
     uploaded.push({
       id: randomUUID(),
@@ -41,6 +48,7 @@ export async function persistLeadEvidencias(lead, files, { acao, round, user } =
       workdriveFileId: remote.fileId,
       url: remote.url,
       previewUrl: remote.previewUrl || null,
+      zohoAttachmentId: zohoAttachment.attachmentId || null,
       uploadedAt: now,
       uploadedBy: actor,
     });

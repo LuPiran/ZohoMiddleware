@@ -1261,6 +1261,7 @@ function publicEvidencias(lead) {
       mimeType: item.mimeType,
       url: previewUrl || item.url || null,
       previewUrl: previewUrl || null,
+      zohoAttachmentId: item.zohoAttachmentId || null,
       uploadedAt: item.uploadedAt || null,
       uploadedBy: item.uploadedBy || null,
     };
