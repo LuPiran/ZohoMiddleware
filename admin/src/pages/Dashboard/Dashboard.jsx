@@ -1,18 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  Cell,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import {
   MdLocalShipping,
   MdLanguage,
   MdMedicalServices,
@@ -33,15 +21,8 @@ import { useLoading } from "../../contexts/LoadingContext";
 import MainLayout from "../../components/layout/MainLayout";
 import { obterContagemFormulariosSalvos } from "../../services/savedForms";
 import { leadsMedicosService } from "../../services/leadsMedicos";
-import {
-  aggregateLeadsByMonth,
-  aggregateLeadsByStatus,
-  computeConversionRate,
-} from "../LeadsMedicos/mockLeads";
-import {
-  getLeadStatusColor,
-  isConvertedLeadStatus,
-} from "../LeadsMedicos/leadStatus";
+import { computeConversionRate } from "../LeadsMedicos/mockLeads";
+import { isConvertedLeadStatus } from "../LeadsMedicos/leadStatus";
 import {
   EXTERNAL_LINKS,
   ROUTES,
@@ -67,29 +48,6 @@ function getDataFormatada() {
     month: "long",
     year: "numeric",
   });
-}
-
-/* ── Tooltip dos gráficos ── */
-function ChartTooltip({ active, payload, label }) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-md text-xs">
-      {label && <p className="font-medium text-slate-700 mb-1">{label}</p>}
-      {payload.map((entry) => (
-        <p key={entry.name} className="text-slate-500">
-          <span
-            className="inline-block w-2 h-2 rounded-full mr-1.5 align-middle"
-            style={{ backgroundColor: entry.color || entry.payload?.fill }}
-          />
-          {entry.name}:{" "}
-          <span className="font-semibold text-slate-800">
-            {entry.value}
-            {entry.unit || ""}
-          </span>
-        </p>
-      ))}
-    </div>
-  );
 }
 
 /* ── KPI card ── */
@@ -167,15 +125,6 @@ function ActionCard({ icon: Icon, label, description, onClick, variant, badge, e
   );
 }
 
-/* ── Skeleton do gráfico ── */
-function ChartSkeleton() {
-  return (
-    <div className="flex items-center justify-center h-52 sm:h-60">
-      <div className="w-full h-full animate-pulse rounded-lg bg-slate-100" />
-    </div>
-  );
-}
-
 export default function Dashboard() {
   const navigate = useNavigate();
   const user = authService.getUser();
@@ -208,8 +157,6 @@ export default function Dashboard() {
   }, [navigate, setLoading]);
 
   /* Dados derivados */
-  const statusData = useMemo(() => aggregateLeadsByStatus(leads), [leads]);
-  const monthlyData = useMemo(() => aggregateLeadsByMonth(leads), [leads]);
   const conversionRate = useMemo(() => computeConversionRate(leads), [leads]);
   const convertedCount = useMemo(
     () => leads.filter((l) => isConvertedLeadStatus(l.status)).length,
@@ -303,131 +250,6 @@ export default function Dashboard() {
             sub="aguardando envio"
             iconBg={savedFormsCount > 0 ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-500"}
           />
-        </div>
-
-        {/* ── Gráficos ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-
-          {/* Por status */}
-          <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-            <div className="px-5 pt-5 pb-0">
-              <h2 className="text-base font-semibold text-slate-800">Por status</h2>
-              <p className="text-xs text-slate-400 mt-0.5">Distribuição dos seus leads</p>
-            </div>
-            <div className="px-4 pb-4 pt-3">
-              {leadsLoading ? (
-                <ChartSkeleton />
-              ) : statusData.length === 0 ? (
-                <div className="flex items-center justify-center h-52 text-sm text-slate-400">
-                  Nenhum dado disponível
-                </div>
-              ) : (
-                <div className="flex flex-col sm:flex-row items-center gap-4 h-52 sm:h-60">
-                  {/* Donut */}
-                  <div className="w-full sm:w-1/2 h-44 sm:h-full shrink-0">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={statusData}
-                          dataKey="value"
-                          nameKey="name"
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={52}
-                          outerRadius={76}
-                          paddingAngle={2}
-                          stroke="#ffffff"
-                          strokeWidth={2}
-                        >
-                          {statusData.map((entry) => (
-                            <Cell
-                              key={entry.name}
-                              fill={getLeadStatusColor(entry.name)}
-                            />
-                          ))}
-                        </Pie>
-                        <Tooltip content={<ChartTooltip />} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                  {/* Legenda */}
-                  <ul className="w-full sm:w-1/2 space-y-2 text-sm overflow-y-auto max-h-44 sm:max-h-full pr-1">
-                    {statusData.map((entry) => (
-                      <li
-                        key={entry.name}
-                        className="flex items-center justify-between gap-2 text-slate-500"
-                      >
-                        <span className="flex items-center gap-2 min-w-0">
-                          <span
-                            className="w-2.5 h-2.5 rounded-full shrink-0"
-                            style={{ backgroundColor: getLeadStatusColor(entry.name) }}
-                          />
-                          <span className="truncate text-xs">{entry.name}</span>
-                        </span>
-                        <span className="font-semibold text-slate-700 tabular-nums shrink-0">
-                          {entry.value}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Leads por mês */}
-          <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-            <div className="px-5 pt-5 pb-0">
-              <h2 className="text-base font-semibold text-slate-800">Leads por mês</h2>
-              <p className="text-xs text-slate-400 mt-0.5">Criação nos últimos períodos</p>
-            </div>
-            <div className="px-4 pb-4 pt-3 h-52 sm:h-[calc(100%-72px)]">
-              {leadsLoading ? (
-                <ChartSkeleton />
-              ) : monthlyData.length === 0 ? (
-                <div className="flex items-center justify-center h-full text-sm text-slate-400">
-                  Nenhum dado disponível
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart
-                    data={monthlyData}
-                    margin={{ top: 8, right: 8, left: -20, bottom: 0 }}
-                  >
-                    <defs>
-                      <linearGradient id="dashMonthFill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#1a2f5b" stopOpacity={0.22} />
-                        <stop offset="100%" stopColor="#1a2f5b" stopOpacity={0.02} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                    <XAxis
-                      dataKey="label"
-                      tick={{ fill: "#94a3b8", fontSize: 11 }}
-                      axisLine={{ stroke: "#e2e8f0" }}
-                      tickLine={false}
-                    />
-                    <YAxis
-                      allowDecimals={false}
-                      tick={{ fill: "#94a3b8", fontSize: 11 }}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <Tooltip content={<ChartTooltip />} />
-                    <Area
-                      type="monotone"
-                      dataKey="total"
-                      name="Leads"
-                      stroke="#1a2f5b"
-                      strokeWidth={2}
-                      fill="url(#dashMonthFill)"
-                      activeDot={{ r: 4, strokeWidth: 0 }}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          </div>
         </div>
 
         {/* ── Acesso rápido ── */}
