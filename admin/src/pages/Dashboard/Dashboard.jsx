@@ -1,6 +1,18 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { MdLocalShipping, MdLanguage } from "react-icons/md";
+import {
+  MdLocalShipping,
+  MdLanguage,
+  MdMedicalServices,
+  MdShoppingCart,
+  MdAssignment,
+  MdDescription,
+  MdReport,
+  MdBookmarks,
+  MdChevronRight,
+  MdOpenInNew,
+  MdWarningAmber,
+} from "react-icons/md";
 import { authService } from "../../services/auth";
 import { useLoading } from "../../contexts/LoadingContext";
 import MainLayout from "../../components/layout/MainLayout";
@@ -15,167 +27,267 @@ import {
   podeVerTrackingPedido,
 } from "../../utils/constants";
 
-export default function Dashboard() {
+/* ── Saudação contextual ── */
+function getSaudacao() {
+  const h = new Date().getHours();
+  if (h < 12) return "Bom dia";
+  if (h < 18) return "Boa tarde";
+  return "Boa noite";
+}
 
+function getDataFormatada() {
+  return new Date().toLocaleDateString("pt-BR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+/* ── Card de atalho ── */
+function ActionCard({ icon: Icon, label, description, onClick, variant, badge, external }) {
+  const isAmber = variant === "amber";
+  const isTeal = variant === "teal";
+
+  const iconBg = isAmber
+    ? "bg-amber-100 text-amber-700"
+    : isTeal
+      ? "bg-teal-100 text-teal-700"
+      : "bg-[#1a2f5b]/8 text-[#1a2f5b]";
+
+  const chevronColor = isAmber
+    ? "text-amber-300 group-hover:text-amber-600"
+    : isTeal
+      ? "text-teal-300 group-hover:text-teal-600"
+      : "text-slate-300 group-hover:text-[#1a2f5b]";
+
+  const borderHover = isAmber
+    ? "hover:border-amber-300"
+    : isTeal
+      ? "hover:border-teal-300"
+      : "hover:border-[#1a2f5b]/25";
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={external ? `Abrir ${label} em nova aba` : `Ir para ${label}`}
+      className={`group relative flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm transition-all duration-150 hover:shadow-md hover:-translate-y-0.5 ${borderHover} focus:outline-none focus:ring-2 focus:ring-[#1a2f5b]/30`}
+    >
+      {/* Badge */}
+      {badge > 0 && (
+        <span className="absolute -top-2 -right-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+          {badge}
+        </span>
+      )}
+
+      {/* Ícone */}
+      <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${iconBg}`}>
+        <Icon className="text-xl" aria-hidden />
+      </span>
+
+      {/* Texto */}
+      <div className="min-w-0 flex-1">
+        <p className="font-semibold text-slate-800 leading-tight truncate">{label}</p>
+        {description && (
+          <p className="mt-0.5 text-sm text-slate-500 leading-snug truncate">{description}</p>
+        )}
+      </div>
+
+      {/* Seta / externo */}
+      {external ? (
+        <MdOpenInNew className={`shrink-0 text-lg transition-colors ${chevronColor}`} aria-hidden />
+      ) : (
+        <MdChevronRight className={`shrink-0 text-xl transition-colors ${chevronColor}`} aria-hidden />
+      )}
+    </button>
+  );
+}
+
+/* ── Seção de cards ── */
+function Section({ title, children }) {
+  return (
+    <section>
+      <h2 className="mb-3 text-[11px] font-bold uppercase tracking-widest text-slate-400">
+        {title}
+      </h2>
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+        {children}
+      </div>
+    </section>
+  );
+}
+
+export default function Dashboard() {
   const navigate = useNavigate();
   const user = authService.getUser();
   const { setLoading } = useLoading();
   const [savedFormsCount, setSavedFormsCount] = useState(0);
+
   const mostrarCompra = podeVerCompra(user);
   const mostrarRecompra = podeVerRecompra(user);
   const mostrarProposta = podeVerProposta(user);
   const mostrarOcorrencia = podeVerOcorrencia(user);
   const mostrarTrackingPedido = podeVerTrackingPedido(user);
 
-  // Atalhos principais do sistema
-  const shortcutCards = [
-    ...(mostrarCompra
-      ? [
-          {
-            id: "compra",
-            label: "Compra",
-            icon: <span className="text-3xl md:text-4xl"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none"><path d="M7 18a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm10 2a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM7.16 16l.94-2h7.45a2 2 0 0 0 1.92-1.45l2.13-7.11A1 1 0 0 0 18.65 4H6.21l-.94-2H1v2h2l3.6 7.59-1.35 2.44A2 2 0 0 0 5 17a2 2 0 0 0 2.16-1z" fill="currentColor"/></svg></span>,
-            route: ROUTES.COMPRA,
-          },
-        ]
-      : []),
-    ...(mostrarRecompra
-      ? [
-          {
-            id: "recompra",
-            label: "Recompra",
-            icon: <span className="text-3xl md:text-4xl"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.3-.42 2.5-1.13 3.47l1.46 1.46A7.932 7.932 0 0 0 20 12c0-4.42-3.58-8-8-8zm-6.87 2.53L3.67 7.99A7.932 7.932 0 0 0 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3c-3.31 0-6-2.69-6-6 0-1.3.42-2.5 1.13-3.47z" fill="currentColor"/></svg></span>,
-            route: ROUTES.RECOMPRA,
-          },
-        ]
-      : []),
-    ...(mostrarProposta
-      ? [
-          {
-            id: "proposta",
-            label: "Proposta",
-            icon: <span className="text-3xl md:text-4xl"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none"><path d="M19 2H8c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V6l-5-4zm0 18H8V4h7v5h5v11c0 1.1-.9 2-2 2zm-7-7h2v2h-2v-2zm0-4h2v2h-2V9z" fill="currentColor"/></svg></span>,
-            route: ROUTES.PROPOSTA,
-          },
-        ]
-      : []),
-    ...(mostrarTrackingPedido
-      ? [
-          {
-            id: "tracking-pedido",
-            label: "Rastreamento de Pedido",
-            icon: <MdLocalShipping className="text-3xl md:text-4xl" />,
-            route: EXTERNAL_LINKS.TRACKING_PEDIDO,
-            external: true,
-            variant: "teal",
-          },
-        ]
-      : []),
-    {
-      id: "central-comercial",
-      label: "Central Comercial",
-      icon: <MdLanguage className="text-3xl md:text-4xl" />,
-      route: EXTERNAL_LINKS.CENTRAL_CONSULTOR,
-      external: true,
-    },
-    ...(mostrarOcorrencia
-      ? [
-          {
-            id: "ocorrencia",
-            label: "Ocorrência",
-            icon: <span className="text-3xl md:text-4xl"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm0-4h-2V7h2v8z" fill="currentColor"/></svg></span>,
-            route: ROUTES.OCORRENCIA,
-          },
-        ]
-      : []),
-    {
-      id: "saved-forms",
-      label: "Formulários Salvos",
-      icon: <span className="text-3xl md:text-4xl"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V4h3v5h-3z" fill="currentColor"/></svg></span>,
-      route: ROUTES.SAVED_FORMS,
-      badge: savedFormsCount > 0 ? savedFormsCount : null,
-    },
-  ];
-
   useEffect(() => {
     if (!authService.isAuthenticated()) {
       navigate("/login");
       return;
     }
-    
-    const carregarContagem = async () => {
+    const carregar = async () => {
       try {
         const count = await obterContagemFormulariosSalvos();
         setSavedFormsCount(count);
-      } catch (error) {
-        console.error("Erro ao carregar contagem de formulários:", error);
+      } catch {
+        // silencioso
       } finally {
         setLoading(false);
       }
     };
-
-    carregarContagem();
+    carregar();
   }, [navigate, setLoading]);
 
   const nomeUsuario =
-    user?.nome || user?.Nome || user?.Name || user?.nome_completo || user?.Nome_Completo || "Admin";
+    user?.nome ||
+    user?.Nome ||
+    user?.Name ||
+    user?.nome_completo ||
+    user?.Nome_Completo ||
+    "Usuário";
+
+  const primeiroNome = nomeUsuario.split(" ")[0];
+  const emailUsuario = user?.email || user?.Email || "";
+
+  const saudacao = getSaudacao();
+  const dataHoje = getDataFormatada();
+
+  const goTo = (route) => navigate(route);
+  const openExternal = (url) => window.open(url, "_blank", "noopener,noreferrer");
 
   return (
     <MainLayout>
-      <div className="dashboard-page max-w-2xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-10 sm:py-14 md:py-16 flex flex-col items-center justify-center min-h-[60vh]">
-        <div className="bg-white/80 rounded-2xl shadow-lg p-8 sm:p-10 flex flex-col items-center w-full">
-          <div className="flex justify-center items-center w-full mb-6">
-            <img 
-              src="/LogoTegra3.png" 
-              alt="TegraPharma Logo" 
-              className="h-16 sm:h-20 md:h-24 object-contain drop-shadow-none bg-transparent rounded-none"
-              style={{ maxWidth: '180px', filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.04))' }}
-            />
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-8">
+
+        {/* ── Saudação ── */}
+        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2">
+          <div>
+            <p className="text-2xl sm:text-3xl font-bold text-slate-800">
+              {saudacao}, {primeiroNome}! 👋
+            </p>
+            {emailUsuario && (
+              <p className="mt-1 text-sm text-slate-500">{emailUsuario}</p>
+            )}
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-tegra-text-primary mb-2 text-center">
-            Bem-vindo(a) ao Painel Administrativo TegraPharma
-          </h1>
-          <p className="text-base sm:text-lg text-tegra-text-secondary text-center mb-4">
-            Olá, {nomeUsuario}!<br />
-            Este é o seu ambiente de gestão centralizada.<br />
-            Utilize o menu acima ou os atalhos abaixo para acessar as funcionalidades do sistema.
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-lg my-4">
-            {shortcutCards.map((card) => (
-              <button
-                key={card.id}
-                onClick={() => {
-                  if (card.external) {
-                    window.open(card.route, "_blank", "noopener,noreferrer");
-                    return;
-                  }
-                  navigate(card.route);
-                }}
-                className={`flex flex-col items-center justify-center p-5 rounded-xl shadow transition-all border focus:outline-none focus:ring-2 relative ${
-                  card.external && card.variant === "teal"
-                    ? "bg-teal-50/90 hover:bg-teal-100 border-teal-200 text-teal-800 shadow-[0_0_14px_rgba(20,184,166,0.12)] focus:ring-teal-400"
-                    : card.external
-                    ? "bg-amber-50/90 hover:bg-amber-100 border-amber-200 text-amber-800 shadow-[0_0_14px_rgba(245,158,11,0.12)] focus:ring-amber-400"
-                    : "bg-tegra-blue-light/10 hover:bg-tegra-blue-light/20 border-tegra-blue-light/30 focus:ring-tegra-blue-dark"
-                }`}
-                type="button"
-                aria-label={card.external ? `Abrir ${card.label} em nova aba` : `Ir para ${card.label}`}
-              >
-                {card.badge && (
-                  <span className="absolute top-2 right-2 flex items-center justify-center w-6 h-6 bg-tegra-error text-white text-xs font-bold rounded-full">
-                    {card.badge}
-                  </span>
-                )}
-                <div className={`mb-2 ${card.external && card.variant === "teal" ? "text-teal-600" : card.external ? "text-amber-700" : "text-tegra-blue-dark"}`}>{card.icon}</div>
-                <span className={`font-semibold text-base text-center ${card.external && card.variant === "teal" ? "text-teal-900" : card.external ? "text-amber-900" : "text-tegra-text-primary"}`}>{card.label}</span>
-              </button>
-            ))}
-          </div>
-          <div className="mt-2 text-xs text-tegra-text-tertiary text-center">
-            Sistema desenvolvido para facilitar o controle de compras, propostas, recompras e ocorrências.<br />
-            Caso precise de suporte, entre em contato com a equipe TegraPharma.
-          </div>
+          <p className="text-sm text-slate-400 capitalize">{dataHoje}</p>
         </div>
+
+        {/* ── Alerta formulários pendentes ── */}
+        {savedFormsCount > 0 && (
+          <button
+            type="button"
+            onClick={() => goTo(ROUTES.SAVED_FORMS)}
+            className="w-full flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-left transition hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-400"
+          >
+            <MdWarningAmber className="shrink-0 text-xl text-amber-600" aria-hidden />
+            <p className="flex-1 text-sm font-medium text-amber-800">
+              Você tem{" "}
+              <span className="font-bold">
+                {savedFormsCount} formulário{savedFormsCount > 1 ? "s" : ""}
+              </span>{" "}
+              salvo{savedFormsCount > 1 ? "s" : ""} aguardando envio.
+            </p>
+            <MdChevronRight className="shrink-0 text-amber-400" aria-hidden />
+          </button>
+        )}
+
+        {/* ── Principal ── */}
+        <Section title="Principal">
+          <ActionCard
+            icon={MdMedicalServices}
+            label="Leads Médicos"
+            description="Gerencie e acompanhe seus leads"
+            onClick={() => goTo(ROUTES.LEADS_MEDICOS)}
+          />
+        </Section>
+
+        {/* ── Comercial ── */}
+        {(mostrarCompra || mostrarRecompra || mostrarProposta) && (
+          <Section title="Comercial">
+            {mostrarCompra && (
+              <ActionCard
+                icon={MdAssignment}
+                label="Compra"
+                description="Registrar nova compra"
+                onClick={() => goTo(ROUTES.COMPRA)}
+              />
+            )}
+            {mostrarRecompra && (
+              <ActionCard
+                icon={MdShoppingCart}
+                label="Recompra"
+                description="Registrar recompra de produto"
+                onClick={() => goTo(ROUTES.RECOMPRA)}
+              />
+            )}
+            {mostrarProposta && (
+              <ActionCard
+                icon={MdDescription}
+                label="Proposta"
+                description="Criar e enviar proposta"
+                onClick={() => goTo(ROUTES.PROPOSTA)}
+              />
+            )}
+          </Section>
+        )}
+
+        {/* ── Externo ── */}
+        {(mostrarTrackingPedido || true) && (
+          <Section title="Plataformas externas">
+            <ActionCard
+              icon={MdLanguage}
+              label="Central Comercial"
+              description="Acesse o portal de vendas"
+              onClick={() => openExternal(EXTERNAL_LINKS.CENTRAL_CONSULTOR)}
+              variant="amber"
+              external
+            />
+            {mostrarTrackingPedido && (
+              <ActionCard
+                icon={MdLocalShipping}
+                label="Rastreamento de Pedido"
+                description="Rastreie pedidos enviados"
+                onClick={() => openExternal(EXTERNAL_LINKS.TRACKING_PEDIDO)}
+                variant="teal"
+                external
+              />
+            )}
+          </Section>
+        )}
+
+        {/* ── Suporte ── */}
+        <Section title="Suporte">
+          {mostrarOcorrencia && (
+            <ActionCard
+              icon={MdReport}
+              label="Ocorrência"
+              description="Registrar ou acompanhar ocorrências"
+              onClick={() => goTo(ROUTES.OCORRENCIA)}
+            />
+          )}
+          <ActionCard
+            icon={MdBookmarks}
+            label="Formulários Salvos"
+            description={
+              savedFormsCount > 0
+                ? `${savedFormsCount} formulário${savedFormsCount > 1 ? "s" : ""} pendente${savedFormsCount > 1 ? "s" : ""}`
+                : "Formulários salvos localmente"
+            }
+            onClick={() => goTo(ROUTES.SAVED_FORMS)}
+            badge={savedFormsCount}
+          />
+        </Section>
+
       </div>
     </MainLayout>
   );
