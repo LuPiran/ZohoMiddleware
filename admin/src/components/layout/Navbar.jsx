@@ -153,8 +153,8 @@ export default function Navbar() {
         aria-hidden={!isMenuOpen}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Cabeçalho: logo + fechar */}
-        <div className="flex items-center justify-between h-[60px] px-4 shrink-0 border-b border-white/8">
+        {/* Cabeçalho: logo centralizada + fechar */}
+        <div className="relative flex items-center justify-center h-[60px] px-4 shrink-0 border-b border-white/8">
           <img
             src="/logoCorp.png"
             alt="TegraPharma"
@@ -164,7 +164,7 @@ export default function Navbar() {
             type="button"
             onClick={closeMenu}
             aria-label="Fechar menu"
-            className="flex h-9 w-9 items-center justify-center rounded-lg text-white/50 transition hover:bg-white/10 hover:text-white"
+            className="absolute right-3 flex h-9 w-9 items-center justify-center rounded-lg text-white/50 transition hover:bg-white/10 hover:text-white"
           >
             <MdClose className="text-xl" aria-hidden />
           </button>
@@ -208,15 +208,19 @@ export default function Navbar() {
                         to={item.path}
                         onClick={closeMenu}
                         className={({ isActive }) =>
-                          `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors ${
+                          `relative flex items-center gap-3 rounded-lg px-3 py-3 text-sm transition-colors ${
                             isActive
                               ? "bg-white/14 font-semibold text-white"
-                              : "font-medium text-white/60 hover:bg-white/8 hover:text-white/90"
+                              : "font-medium text-white/60 hover:bg-white/8 hover:text-white/90 active:bg-white/12"
                           }`
                         }
                       >
                         {({ isActive }) => (
                           <>
+                            {/* Barra lateral no item ativo */}
+                            {isActive && (
+                              <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-full bg-white" aria-hidden />
+                            )}
                             <item.Icon
                               className={`shrink-0 text-[1.15rem] ${isActive ? "text-white" : "text-white/50"}`}
                               aria-hidden
@@ -236,16 +240,21 @@ export default function Navbar() {
         {/* Rodapé: usuário + logout */}
         <div className="shrink-0 border-t border-white/8 px-3 py-3">
           <div className="flex items-center gap-2.5 rounded-lg px-2 py-2">
-            <Avatar user={user} size="sm" />
+            {/* Avatar com bolinha online */}
+            <div className="relative shrink-0">
+              <Avatar user={user} size="sm" />
+              <span
+                className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[#1a2f5b] bg-emerald-400"
+                aria-label="Online"
+              />
+            </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold text-white leading-tight">
                 {displayName}
               </p>
-              {emailUsuario && (
-                <p className="truncate text-[11px] text-white/45 leading-tight mt-0.5">
-                  {emailUsuario}
-                </p>
-              )}
+              <p className="text-[11px] text-emerald-400/80 leading-tight mt-0.5 font-medium">
+                online
+              </p>
             </div>
             <button
               type="button"
