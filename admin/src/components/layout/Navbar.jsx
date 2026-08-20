@@ -153,18 +153,26 @@ export default function Navbar() {
         aria-hidden={!isMenuOpen}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Cabeçalho: logo centralizada + fechar */}
-        <div className="relative flex items-center justify-center h-[60px] px-4 shrink-0 border-b border-white/8">
-          <img
-            src="/logoCorp.png"
-            alt="TegraPharma"
-            className="h-8 w-auto object-contain brightness-0 invert"
-          />
+        {/* Cabeçalho: espaçador | logo centralizada | fechar */}
+        <div className="flex items-center h-[60px] px-3 shrink-0 border-b border-white/8 gap-2">
+          {/* Espaçador — mesmo tamanho do botão fechar para equilibrar */}
+          <div className="h-9 w-9 shrink-0" aria-hidden />
+
+          {/* Logo centralizada */}
+          <div className="flex flex-1 items-center justify-center">
+            <img
+              src="/logoCorp.png"
+              alt="TegraPharma"
+              className="h-6 w-auto object-contain brightness-0 invert"
+            />
+          </div>
+
+          {/* Botão fechar */}
           <button
             type="button"
             onClick={closeMenu}
             aria-label="Fechar menu"
-            className="absolute right-3 flex h-9 w-9 items-center justify-center rounded-lg text-white/50 transition hover:bg-white/10 hover:text-white"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-white/40 transition hover:bg-white/10 hover:text-white"
           >
             <MdClose className="text-xl" aria-hidden />
           </button>
