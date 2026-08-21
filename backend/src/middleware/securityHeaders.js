@@ -27,7 +27,7 @@ export function applySecurityMiddleware(app) {
       referrerPolicy: { policy: "strict-origin-when-cross-origin" },
       hsts:
         ENV.NODE_ENV === "production"
-          ? { maxAge: 15552000, includeSubDomains: true }
+          ? { maxAge: 31536000, includeSubDomains: true }
           : false,
     }),
   );
