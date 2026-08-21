@@ -45,6 +45,23 @@ export async function registrarPrimeiraTentativa(id, observacao) {
   return registrarTentativa(id, 1, observacao);
 }
 
+export async function solicitarQuartaTentativa(id, { dataQuartaTentativa, motivo, files = [] }) {
+  const form = new FormData();
+  if (dataQuartaTentativa) form.append("dataQuartaTentativa", dataQuartaTentativa);
+  if (motivo) form.append("motivo", motivo);
+  files.forEach((file) => form.append("evidencias", file));
+
+  const response = await api.post(
+    API_ENDPOINTS.LEADS_MEDICOS.QUARTA_TENTATIVA_SOLICITAR(id),
+    form,
+    { timeout: 120000 },
+  );
+  return {
+    success: Boolean(response.data?.success),
+    data: response.data?.data || null,
+  };
+}
+
 export async function marcarTentativaSemRetorno(id, round, observacao) {
   const response = await api.post(
     API_ENDPOINTS.LEADS_MEDICOS.TENTATIVA_SEM_RETORNO(id, round),
@@ -115,6 +132,7 @@ export const leadsMedicosService = {
   marcarSemInteresse: marcarLeadSemInteresse,
   marcarSemContato: marcarLeadSemContato,
   marcarSemRetorno: marcarTentativaSemRetorno,
+  solicitarQuartaTentativa,
   confirmarCheckin,
   aceitarOferta: confirmarCheckin,
   recusarOferta,

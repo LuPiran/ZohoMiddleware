@@ -1,10 +1,21 @@
 import { useState } from "react";
-import { MdPhoneMissed, MdSchedule, MdSend, MdShoppingCart, MdThumbDown } from "react-icons/md";
+import { useNavigate } from "react-router-dom";
+import {
+  MdAddAlarm,
+  MdPhoneMissed,
+  MdSchedule,
+  MdSend,
+  MdShoppingCart,
+  MdThumbDown,
+} from "react-icons/md";
 import Button from "../../components/ui/Button";
 import Textarea from "../../components/ui/Textarea";
 import { useToast } from "../../components/feedback/auth/ToastContainer";
+import { ROUTES } from "../../utils/constants";
+import { setPendingLeadAttemptFiles } from "../../services/leadAttemptTransfer";
 import EvidenceUploader, { EvidenceGallery } from "./EvidenceUploader";
-import LeadAttemptCompraModal from "./LeadAttemptCompraModal";
+import RequestFourthAttemptModal from "./RequestFourthAttemptModal";
+import { buildLeadPrefill } from "./leadPrefill";
 
 const MIN_OBSERVACAO = 10;
 
@@ -21,6 +32,11 @@ const ROUND_COPY = {
   },
   3: {
     title: "Terceira tentativa",
+    send: "Continuar para compra",
+    hint: "Observação, evidência e compra são obrigatórias.",
+  },
+  4: {
+    title: "Quarta tentativa",
     send: "Continuar para compra",
     hint: "Observação, evidência e compra são obrigatórias.",
   },
@@ -146,17 +162,18 @@ function DaysRemainingChip({ days, expired, deadlineAt }) {
 
 export default function LeadFirstAttemptCard({
   lead,
-  onSubmitAttempt,
   onSemInteresse,
   onSemContato,
+  onRequestFourthAttempt,
   submitting,
 }) {
+  const navigate = useNavigate();
   const { showToast } = useToast();
   const [observacao, setObservacao] = useState("");
   const [error, setError] = useState("");
   const [files, setFiles] = useState([]);
   const [fileError, setFileError] = useState("");
-  const [compraModalOpen, setCompraModalOpen] = useState(false);
+  const [fourthAttemptModalOpen, setFourthAttemptModalOpen] = useState(false);
 
   const attempt = lead?.attempt || {};
   const round = attempt.currentRound;
@@ -204,14 +221,27 @@ export default function LeadFirstAttemptCard({
   const handleAttempt = () => {
     const note = validateObservacao();
     if (!note || !validateEvidencias()) return;
-    setCompraModalOpen(true);
+
+    // Arquivos não cabem em location.state (limite de ~640KB do pushState) —
+    // ficam num singleton de módulo que a página /compra recolhe ao montar.
+    setPendingLeadAttemptFiles(files);
+    navigate(ROUTES.COMPRA, {
+      state: {
+        leadAttemptContext: {
+          leadId: lead.id,
+          round,
+          roundLabel: copy.title,
+          observacao: note,
+          leadPrefill: buildLeadPrefill(lead),
+          draftKey: `zoho_draft_compra_lead_${lead.id}_${round}`,
+        },
+      },
+    });
   };
 
-  const handleCompraComplete = async () => {
-    const note = observacao.trim();
-    await onSubmitAttempt(round, note, files);
-    setCompraModalOpen(false);
-    resetForm();
+  const handleRequestFourthAttempt = async (payload) => {
+    await onRequestFourthAttempt(payload);
+    setFourthAttemptModalOpen(false);
   };
 
   const handleSemInteresse = async () => {
@@ -253,6 +283,24 @@ export default function LeadFirstAttemptCard({
           Este lead foi encerrado em{" "}
           {lead.dataSemInteresse
             ? new Date(lead.dataSemInteresse).toLocaleDateString("pt-BR")
+            : "—"}
+          .
+        </p>
+        <div className="mt-4">
+          <EvidenceGallery evidencias={lead.evidencias} leadId={lead.id} />
+        </div>
+      </section>
+    );
+  }
+
+  if (attempt.hasSemTratativa) {
+    return (
+      <section className="rounded-xl border border-red-200 bg-red-50/60 px-4 sm:px-5 py-5">
+        <h2 className="text-base font-bold text-tegra-error">Lead sem tratativa</h2>
+        <p className="mt-1 text-sm text-tegra-text-secondary">
+          Nenhuma tentativa foi tratada dentro do prazo. Encerrado em{" "}
+          {lead.dataLeadSemTratativa
+            ? new Date(lead.dataLeadSemTratativa).toLocaleDateString("pt-BR")
             : "—"}
           .
         </p>
@@ -305,9 +353,17 @@ export default function LeadFirstAttemptCard({
       description: lead.descricaoTerceiraTentativa,
       evidencias: evidenciasByRound(3),
     },
+    attempt.hasFourthAttempt && {
+      title: "Quarta tentativa",
+      date: lead.dataQuartaTentativa,
+      status: lead.statusQuartaTentativa,
+      description: lead.descricaoQuartaTentativa,
+      evidencias: evidenciasByRound(4),
+    },
   ].filter(Boolean);
 
   const showCountdown = Boolean(attempt.currentRound || attempt.deadlineAt);
+  const canRequestFourth = round === 3 && attempt.canRequestFourthAttempt;
 
   return (
     <section
@@ -365,7 +421,7 @@ export default function LeadFirstAttemptCard({
             {attempt.canRegisterAttempt && copy.hint && (
               <p className="flex items-start gap-2 rounded-lg border border-tegra-teal/25 bg-tegra-teal/5 px-3 py-2.5 text-xs text-tegra-text-secondary">
                 <MdShoppingCart className="mt-0.5 shrink-0 text-tegra-teal" aria-hidden />
-                <span>{copy.hint} Ao continuar, abriremos o formulário de compra.</span>
+                <span>{copy.hint} Ao continuar, você será direcionado para o formulário de compra.</span>
               </p>
             )}
 
@@ -393,6 +449,17 @@ export default function LeadFirstAttemptCard({
                   Sem interesse
                 </Button>
               </div>
+              {canRequestFourth && (
+                <Button
+                  variant="secondary"
+                  className="w-full inline-flex items-center justify-center gap-1.5 text-sm"
+                  disabled={submitting}
+                  onClick={() => setFourthAttemptModalOpen(true)}
+                >
+                  <MdAddAlarm aria-hidden />
+                  Solicitar 4ª tentativa
+                </Button>
+              )}
               {attempt.canRegisterAttempt && (
                 <Button
                   variant="teal"
@@ -428,6 +495,17 @@ export default function LeadFirstAttemptCard({
                 <MdThumbDown aria-hidden />
                 Lead sem interesse
               </Button>
+              {canRequestFourth && (
+                <Button
+                  variant="secondary"
+                  className="inline-flex items-center justify-center gap-2"
+                  disabled={submitting}
+                  onClick={() => setFourthAttemptModalOpen(true)}
+                >
+                  <MdAddAlarm aria-hidden />
+                  Solicitar 4ª tentativa
+                </Button>
+              )}
               {attempt.canRegisterAttempt && (
                 <Button
                   variant="teal"
@@ -464,15 +542,10 @@ export default function LeadFirstAttemptCard({
         ) : null}
       </div>
 
-      <LeadAttemptCompraModal
-        open={compraModalOpen}
-        onClose={() => !submitting && setCompraModalOpen(false)}
-        lead={lead}
-        round={round}
-        roundLabel={copy.title}
-        observacao={observacao.trim()}
-        evidenceCount={files.length}
-        onComplete={handleCompraComplete}
+      <RequestFourthAttemptModal
+        open={fourthAttemptModalOpen}
+        onClose={() => !submitting && setFourthAttemptModalOpen(false)}
+        onConfirm={handleRequestFourthAttempt}
         submitting={submitting}
       />
     </section>

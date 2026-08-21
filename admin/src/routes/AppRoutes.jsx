@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import Login from "../pages/Auth/Login";
 import Dashboard from "../pages/Dashboard/Dashboard";
 import LeadsMedicos from "../pages/LeadsMedicos/LeadsMedicos";
@@ -40,12 +40,22 @@ function LoginRoute() {
 }
 
 function OptionalFormRoute({ permissionCheck, children }) {
+  const location = useLocation();
+
   if (!authService.isAuthenticated()) {
     return <Navigate to={ROUTES.LOGIN} replace />;
   }
 
+  // Consultor veio de uma tentativa em Leads Médicos (LeadFirstAttemptCard ->
+  // /compra): a compra é parte do fluxo de tratativa do lead, então libera
+  // o acesso independente da permissão opcional de "Compra" estar habilitada
+  // — o antigo modal também não fazia essa checagem.
+  const cameFromLeadAttempt = Boolean(location.state?.leadAttemptContext);
+
   const user = authService.getUser();
-  const canAccess = typeof permissionCheck === "function" ? permissionCheck(user) : false;
+  const canAccess =
+    cameFromLeadAttempt ||
+    (typeof permissionCheck === "function" && permissionCheck(user));
 
   if (!canAccess) {
     return <Navigate to={ROUTES.DASHBOARD} replace />;

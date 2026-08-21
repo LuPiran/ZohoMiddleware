@@ -4,9 +4,11 @@ import {
   MdPhoneInTalk,
   MdPhoneCallback,
   MdPhoneForwarded,
+  MdPhoneDisabled,
   MdFavorite,
   MdEmojiEvents,
   MdClose,
+  MdBlock,
 } from "react-icons/md";
 
 const ICONS = {
@@ -15,10 +17,15 @@ const ICONS = {
   tentativa1: MdPhoneInTalk,
   tentativa2: MdPhoneCallback,
   tentativa3: MdPhoneForwarded,
+  tentativa4: MdPhoneDisabled,
   interesse: MdFavorite,
   semInteresse: MdClose,
+  semTratativa: MdClose,
+  rejeitado: MdBlock,
   convertido: MdEmojiEvents,
 };
+
+const TERMINAL_NEGATIVE_STAGES = ["semInteresse", "semTratativa", "rejeitado"];
 
 function formatTimelineDate(dateString) {
   if (!dateString) return null;
@@ -66,7 +73,7 @@ export default function LeadTimeline({ timeline }) {
               const date = formatTimelineDate(stage.date);
 
               const iconBg =
-                isDone && stage.id === "semInteresse"
+                isDone && TERMINAL_NEGATIVE_STAGES.includes(stage.id)
                   ? "bg-tegra-error border-tegra-error text-white"
                   : isDone
                     ? "bg-tegra-teal border-tegra-teal text-white"
@@ -150,7 +157,7 @@ export default function LeadTimeline({ timeline }) {
               <span
                 className={[
                   "flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
-                  isDone && stage.id === "semInteresse"
+                  isDone && TERMINAL_NEGATIVE_STAGES.includes(stage.id)
                     ? "bg-tegra-error border-tegra-error text-white"
                     : isDone
                       ? "bg-tegra-teal border-tegra-teal text-white"

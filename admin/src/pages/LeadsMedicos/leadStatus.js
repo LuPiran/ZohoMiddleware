@@ -9,6 +9,8 @@ export const LEAD_STATUS = {
   SEM_INTERESSE: "Lead Sem Interesse",
   COM_INTERESSE: "Lead Com Interesse",
   SEM_CONTATO: "Lead Sem Contato",
+  REJEITADO: "Lead Rejeitado",
+  SEM_TRATATIVA: "Lead Sem Tratativa",
 };
 
 export const LEAD_STATUSES = [
@@ -18,6 +20,8 @@ export const LEAD_STATUSES = [
   LEAD_STATUS.SEM_INTERESSE,
   LEAD_STATUS.COM_INTERESSE,
   LEAD_STATUS.SEM_CONTATO,
+  LEAD_STATUS.REJEITADO,
+  LEAD_STATUS.SEM_TRATATIVA,
 ];
 
 export const LEAD_STATUS_META = {
@@ -46,6 +50,14 @@ export const LEAD_STATUS_META = {
     chart: "#F1C40F",
     soft: "rgba(241, 196, 15, 0.22)",
   },
+  [LEAD_STATUS.REJEITADO]: {
+    color: "#6B7280",
+    soft: "rgba(107, 114, 128, 0.16)",
+  },
+  [LEAD_STATUS.SEM_TRATATIVA]: {
+    color: "#B91C1C",
+    soft: "rgba(185, 28, 28, 0.14)",
+  },
 };
 
 const STATUS_ALIASES = {
@@ -61,6 +73,10 @@ const STATUS_ALIASES = {
   "lead sem contato": LEAD_STATUS.SEM_CONTATO,
   "lead sem interesse": LEAD_STATUS.SEM_INTERESSE,
   perdido: LEAD_STATUS.SEM_INTERESSE,
+  "lead rejeitado": LEAD_STATUS.REJEITADO,
+  rejeitado: LEAD_STATUS.REJEITADO,
+  "lead sem tratativa": LEAD_STATUS.SEM_TRATATIVA,
+  "sem tratativa": LEAD_STATUS.SEM_TRATATIVA,
 };
 
 export function canonicalizeLeadStatus(raw) {

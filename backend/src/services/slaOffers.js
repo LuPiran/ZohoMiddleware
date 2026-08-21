@@ -14,6 +14,8 @@ import {
   updateConsultorUltimaAtribuicao,
 } from "./consultores.js";
 import { notifyLeadOffer } from "./emailService.js";
+import { ZOHO_LEAD_STATUS } from "../domain/leadStatus.js";
+import { syncZohoLeadRejected } from "./zohoLeadSync.js";
 import { buildDynamoUpdateParts } from "../utils/dynamoUpdate.js";
 
 const TABLE = () => ENV.DYNAMODB_LEADS_TABLE;
@@ -343,89 +345,48 @@ function previousOfferHistory(reason, by) {
   return {
     action: sweeper ? "sla_prazo_expirado" : "sla_recusado",
     label: sweeper ? "Consultor não respondeu no prazo" : "Consultor recusou o lead",
-    detail: reason || (sweeper
-      ? "O lead não foi aceito em 10 minutos. Encaminhado automaticamente para o próximo consultor da fila."
-      : "O consultor recusou o recebimento deste lead. Encaminhado automaticamente para o próximo da fila."),
+    detail:
+      reason ||
+      (sweeper
+        ? "O lead não foi aceito dentro do prazo."
+        : "O consultor recusou o recebimento deste lead."),
     by: by || "sistema",
   };
 }
 
 /**
- * Recusa ou timeout → próximo da fila (consultor → gerência → novo ciclo → Gestão).
+ * Recusa explícita OU estouro do prazo de aceite (48h): o lead é encerrado
+ * no Portal e devolvido ao Zoho como "Lead Rejeitado" — NÃO volta ao
+ * rodízio. Quem estava com a oferta (consultorId/consultor/emailConsultor)
+ * é preservado de propósito: é o registro de quem rejeitou.
  */
-export async function reofferLead(lead, { reason, by } = {}) {
-  const previousId = lead.consultorId || lead.consultorIdOferta;
-  const recusados = refusedSet(lead);
-  if (previousId) recusados.add(String(previousId));
-
-  const {
-    next,
-    recusados: nextRecusados,
-    historicoExtras,
-    fieldUpdates,
-  } = await pickNextOffer(lead, recusados);
+export async function rejectLeadOffer(lead, { reason, by } = {}) {
+  const now = new Date().toISOString();
   const stillOffered = offeredStatusCondition();
   const closedEntry = previousOfferHistory(reason, by);
-
-  if (!next) {
-    return persistOfferSwitch(
-      lead,
-      {
-        ...fieldUpdates,
-        slaStatus: "expirado_ciclo",
-        slaDeadline: null,
-        slaRecusados: nextRecusados,
-      },
-      [
-        closedEntry,
-        ...historicoExtras,
-        {
-          action: "sla_ciclo_encerrado",
-          label: "Fila esgotada — nenhum aceite",
-          detail: lead.regiao
-            ? `Todos os consultores e a equipe de Gestão da região ${lead.regiao} foram acionados sem sucesso. Lead requer atenção manual.`
-            : "A Gestão recusou ou não respondeu no prazo. Este lead precisa de atenção manual.",
-          by: by || "sistema",
-        },
-      ],
-      stillOffered,
-    );
-  }
-
-  const now = new Date().toISOString();
-  await updateConsultorUltimaAtribuicao(next.id, now);
-  const copy = offerHistoryCopy(lead, next, { reoffer: true });
-  const deadline = offerDeadlineIso();
+  const consultorAtual = lead.consultor || "O consultor responsável";
 
   const updated = await persistOfferSwitch(
     lead,
     {
-      ...fieldUpdates,
-      consultorId: String(next.id),
-      consultorIdOferta: String(next.id),
-      consultor: consultorNome(next),
-      emailConsultor: next.email || lead.emailConsultor,
-      gerencia: getConsultorGerencia(next) || lead.gerencia,
-      slaStatus: "ofertado",
-      slaDeadline: deadline,
-      slaCheckinAt: null,
-      slaOfertaRound: Number(lead.slaOfertaRound || 0) + 1,
-      slaRecusados: nextRecusados,
+      slaStatus: "rejeitado",
+      slaDeadline: null,
+      status: ZOHO_LEAD_STATUS.REJEITADO,
+      dataLeadRejeitado: now,
     },
     [
       closedEntry,
-      ...historicoExtras,
       {
-        action: "sla_reatribuido",
-        label: copy.label,
-        detail: copy.detail,
+        action: "lead_rejeitado_terminal",
+        label: "Lead encerrado — devolvido ao Zoho como rejeitado",
+        detail: `${consultorAtual} não aceitou este lead. Encerrado no Portal e sincronizado ao Zoho como "Lead Rejeitado" — não retorna à fila.`,
         by: by || "sistema",
       },
     ],
     stillOffered,
   );
 
-  if (updated) void notifyLeadOffer(updated, next);
+  if (updated) syncZohoLeadRejected(updated, { at: now });
   return updated;
 }
 

@@ -21,6 +21,10 @@ const STATUS_ALIASES = {
   perdido: ZOHO_LEAD_STATUS.SEM_INTERESSE,
   "lead convertido": ZOHO_LEAD_STATUS.CONVERTIDO,
   convertido: ZOHO_LEAD_STATUS.CONVERTIDO,
+  "lead rejeitado": ZOHO_LEAD_STATUS.REJEITADO,
+  rejeitado: ZOHO_LEAD_STATUS.REJEITADO,
+  "lead sem tratativa": ZOHO_LEAD_STATUS.SEM_TRATATIVA,
+  "sem tratativa": ZOHO_LEAD_STATUS.SEM_TRATATIVA,
 };
 
 export function canonicalizeLeadStatus(raw, fallback = ZOHO_LEAD_STATUS.NOVO) {
@@ -82,6 +86,13 @@ function attemptFieldMap(round) {
       date: ENV.ZOHO_LEAD_DATA_3A_FIELD,
       obs: ENV.ZOHO_LEAD_OBS_3A_FIELD,
       status: ENV.ZOHO_LEAD_STATUS_3A_FIELD,
+    };
+  }
+  if (round === 4) {
+    return {
+      date: ENV.ZOHO_LEAD_DATA_4A_FIELD,
+      obs: ENV.ZOHO_LEAD_OBS_4A_FIELD,
+      status: ENV.ZOHO_LEAD_STATUS_4A_FIELD,
     };
   }
   return {
@@ -178,11 +189,18 @@ export function buildZohoAttemptTreatedFields(lead, round, { observacao, at } = 
   };
 }
 
-export function syncZohoLeadAttemptNoReturn(lead, round, { at, observacao } = {}) {
-  syncZohoLead(lead.idZoho, buildZohoAttemptNoReturnFields(lead, round, { at, observacao }));
+export function syncZohoLeadAttemptNoReturn(lead, round, { at, observacao, leadTerminal } = {}) {
+  syncZohoLead(
+    lead.idZoho,
+    buildZohoAttemptNoReturnFields(lead, round, { at, observacao, leadTerminal }),
+  );
 }
 
-export function buildZohoAttemptNoReturnFields(_lead, round, { at, observacao } = {}) {
+export function buildZohoAttemptNoReturnFields(
+  _lead,
+  round,
+  { at, observacao, leadTerminal } = {},
+) {
   const fields = attemptFieldMap(round);
   const note = observacao || TIMEOUT_OBSERVACAO;
   return {
@@ -190,6 +208,53 @@ export function buildZohoAttemptNoReturnFields(_lead, round, { at, observacao } 
     ...field(fields.obs, note),
     ...field(fields.status, ZOHO_ATTEMPT_STATUS.SEM_RETORNO),
     ...addNextAttemptFlags(round),
+    // Rodada 3 (sem pedido de 4ª) ou rodada 4 vencidas: o lead inteiro vira
+    // "Lead Sem Tratativa" — sincroniza no mesmo PUT em vez de uma 2ª chamada.
+    ...(leadTerminal
+      ? {
+          ...field(ENV.ZOHO_LEAD_STATUS_FIELD, ZOHO_LEAD_STATUS.SEM_TRATATIVA),
+          ...field(ENV.ZOHO_LEAD_DATA_SEM_TRATATIVA_FIELD, toZohoDate(at)),
+        }
+      : {}),
+  };
+}
+
+/**
+ * Consultor solicitou a 4ª tentativa (data-alvo + motivo). Não altera o
+ * status do lead — continua "Lead Em Qualificação".
+ */
+export function syncZohoLeadFourthAttemptRequested(lead, { at, dataQuartaTentativa, motivo } = {}) {
+  syncZohoLead(
+    lead.idZoho,
+    buildZohoFourthAttemptRequestedFields(lead, { at, dataQuartaTentativa, motivo }),
+  );
+}
+
+export function buildZohoFourthAttemptRequestedFields(
+  _lead,
+  { dataQuartaTentativa, motivo } = {},
+) {
+  return {
+    ...field(ENV.ZOHO_LEAD_ADD_4A_FIELD, true),
+    ...field(ENV.ZOHO_LEAD_DATA_4A_FIELD, toZohoDate(dataQuartaTentativa)),
+    ...field(ENV.ZOHO_LEAD_MOTIVO_4A_FIELD, motivo),
+  };
+}
+
+/**
+ * Lead recusado ou não aceito dentro do prazo — devolvido ao Zoho como
+ * terminal, sem voltar ao rodízio. Registra também quem estava com a oferta.
+ */
+export function syncZohoLeadRejected(lead, { at } = {}) {
+  syncZohoLead(lead.idZoho, buildZohoRejectedFields(lead, { at }));
+}
+
+export function buildZohoRejectedFields(lead, { at } = {}) {
+  return {
+    ...field(ENV.ZOHO_LEAD_STATUS_FIELD, ZOHO_LEAD_STATUS.REJEITADO),
+    ...field(ENV.ZOHO_LEAD_DATA_REJEITADO_FIELD, toZohoDate(at)),
+    ...field(ENV.ZOHO_LEAD_CONSULTOR_FIELD, consultorLookup(lead)),
+    ...field(ENV.ZOHO_LEAD_EMAIL_CONSULTOR_FIELD, lead.emailConsultor),
   };
 }
 
@@ -210,7 +275,7 @@ export function syncZohoLeadSemInteresse(lead, { at, observacao, round } = {}) {
 
 export function buildZohoSemInteresseFields(_lead, { at, observacao, round } = {}) {
   const n = Number(round);
-  const attemptFields = [1, 2, 3].includes(n) ? attemptFieldMap(n) : null;
+  const attemptFields = [1, 2, 3, 4].includes(n) ? attemptFieldMap(n) : null;
 
   return {
     ...field(ENV.ZOHO_LEAD_STATUS_FIELD, ZOHO_LEAD_STATUS.SEM_INTERESSE),

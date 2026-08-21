@@ -3,7 +3,7 @@ import { dynamoDocClient } from "../config/dynamodb.js";
 import { ENV } from "../config/env.js";
 import {
   isSlaOffered,
-  reofferLead,
+  rejectLeadOffer,
   startOfferCycle,
 } from "./slaOffers.js";
 import { expireOverdueAttempts } from "./leadsMedicos.js";
@@ -148,12 +148,12 @@ async function runSweep() {
     const expired = await fetchExpiredOffers();
     if (expired.length) {
       console.log(
-        `[SWEEPER] ${expired.length} oferta(s) expirada(s) — redistribuindo...`,
+        `[SWEEPER] ${expired.length} oferta(s) expirada(s) — encerrando como rejeitadas...`,
       );
       await Promise.allSettled(
         expired.filter(isSlaOffered).map((lead) =>
-          reofferLead(lead, {
-            reason: "Prazo de aceite expirado. Oferecido ao próximo consultor.",
+          rejectLeadOffer(lead, {
+            reason: "Prazo de 48h para aceite expirado.",
             by: "sweeper",
           }),
         ),

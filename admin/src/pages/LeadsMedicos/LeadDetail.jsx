@@ -47,6 +47,17 @@ function SlaTimer({ lead, onAccept, onRefuse, submitting }) {
     return null;
   }
 
+  if (slaStatus === "rejeitado") {
+    return (
+      <div className="rounded-xl border border-gray-300 bg-gray-100 px-4 py-3 flex items-center gap-3">
+        <span className="text-gray-500 text-lg">✕</span>
+        <p className="text-sm font-semibold text-gray-700">
+          Lead rejeitado — encerrado no Portal e devolvido ao Zoho, não retorna à fila
+        </p>
+      </div>
+    );
+  }
+
   if (
     slaStatus === "expirado" ||
     slaStatus === "reatribuido" ||
@@ -166,26 +177,25 @@ export default function LeadDetail() {
     return () => window.removeEventListener("sla-offer-changed", onOfferChanged);
   }, [id, loadLead]);
 
-  const handleAttempt = async (round, observacao, files) => {
+  // Registrar a tentativa em si acontece do outro lado da navegação, na
+  // página /compra (ver LeadFirstAttemptCard -> Compra.jsx) — o consultor
+  // sai desta tela e volta para cá quando a compra + tentativa forem concluídas.
+
+  const handleRequestFourthAttempt = async ({ dataQuartaTentativa, motivo, files }) => {
     setSubmitting(true);
     try {
-      const result = await leadsMedicosService.registrarTentativa(
-        id,
-        round,
-        observacao,
+      const result = await leadsMedicosService.solicitarQuartaTentativa(id, {
+        dataQuartaTentativa,
+        motivo,
         files,
-      );
+      });
       setLead(result.data);
-      showToast(
-        "Compra registrada e tentativa enviada ao Zoho",
-        "success",
-        3000,
-      );
+      showToast("4ª tentativa solicitada e enviada ao Zoho", "success", 3000);
     } catch (err) {
       const message =
         err?.response?.data?.error ||
         err?.message ||
-        "Erro ao registrar tentativa";
+        "Erro ao solicitar a 4ª tentativa";
       showToast(message, "error", 3500);
     } finally {
       setSubmitting(false);
@@ -337,9 +347,9 @@ export default function LeadDetail() {
             <LeadFirstAttemptCard
               lead={lead}
               submitting={submitting}
-              onSubmitAttempt={handleAttempt}
               onSemInteresse={handleSemInteresse}
               onSemContato={handleSemContato}
+              onRequestFourthAttempt={handleRequestFourthAttempt}
             />
             <LeadHistory historico={lead.historico} />
           </>

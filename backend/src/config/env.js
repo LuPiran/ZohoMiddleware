@@ -106,6 +106,22 @@ export const ENV = {
   ZOHO_LEAD_PROTOCOLO_FIELD:
     process.env.ZOHO_LEAD_PROTOCOLO_FIELD || "Protocolo_Portal",
 
+  // Sessão "4ª Tentativas de Contato" (solicitada pelo consultor, sem aprovação)
+  ZOHO_LEAD_DATA_4A_FIELD: process.env.ZOHO_LEAD_DATA_4A_FIELD || "Data_4_Tentativa",
+  ZOHO_LEAD_OBS_4A_FIELD: process.env.ZOHO_LEAD_OBS_4A_FIELD || "Tentativa_4",
+  ZOHO_LEAD_STATUS_4A_FIELD:
+    process.env.ZOHO_LEAD_STATUS_4A_FIELD || "Status_4_Tentativa",
+  ZOHO_LEAD_ADD_4A_FIELD:
+    process.env.ZOHO_LEAD_ADD_4A_FIELD || "Adicionar_4_Tentativa",
+  ZOHO_LEAD_MOTIVO_4A_FIELD:
+    process.env.ZOHO_LEAD_MOTIVO_4A_FIELD || "Motivo_4_Tentativa",
+
+  // Rejeição de oferta (48h sem aceite ou recusa explícita) e "Lead Sem Tratativa"
+  ZOHO_LEAD_DATA_REJEITADO_FIELD:
+    process.env.ZOHO_LEAD_DATA_REJEITADO_FIELD || "Data_Lead_Rejeitado",
+  ZOHO_LEAD_DATA_SEM_TRATATIVA_FIELD:
+    process.env.ZOHO_LEAD_DATA_SEM_TRATATIVA_FIELD || "Data_Lead_Sem_Tratativa",
+
   DYNAMODB_LEADS_PROTOCOLO_INDEX:
     process.env.DYNAMODB_LEADS_PROTOCOLO_INDEX || "gsi_protocolo",
   DYNAMODB_LEADS_PROTOCOLO_ATTR:

@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { authService } from "../../services/auth";
+import { leadsMedicosService } from "../../services/leadsMedicos";
+import { takePendingLeadAttemptFiles } from "../../services/leadAttemptTransfer";
 import { useLoading } from "../../contexts/LoadingContext";
 import { useToast } from "../../components/feedback/auth/ToastContainer";
 import SplashScreen from "../../components/feedback/auth/SplashScreen";
@@ -56,13 +58,28 @@ export default function Compra({
   showSaveDraft = true,
 } = {}) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { setLoading, isLoading } = useLoading();
   const { showToast } = useToast();
   const [showSplash, setShowSplash] = useState(false);
   const [showReview, setShowReview] = useState(false);
     const [showDraftBanner, setShowDraftBanner] = useState(false);
 
-    const DRAFT_KEY = draftKeyProp || "zoho_draft_compra";
+    // Chegou aqui a partir de uma tentativa de contato em Leads Médicos
+    // (LeadFirstAttemptCard -> navigate(ROUTES.COMPRA, {state})) em vez do
+    // antigo modal. Arquivos de evidência não cabem em location.state (limite
+    // do pushState) — vêm de um singleton de módulo, recolhido uma única vez.
+    const leadAttemptCtx = location.state?.leadAttemptContext || null;
+    const [leadAttemptFiles] = useState(() =>
+      leadAttemptCtx ? takePendingLeadAttemptFiles() : [],
+    );
+    const effectiveLeadPrefill = leadPrefill || leadAttemptCtx?.leadPrefill;
+    const effectiveShowSaveDraft = leadAttemptCtx ? false : showSaveDraft;
+    const effectiveSubmitLabel = leadAttemptCtx
+      ? "Registrar compra e tentativa"
+      : submitLabel;
+
+    const DRAFT_KEY = draftKeyProp || leadAttemptCtx?.draftKey || "zoho_draft_compra";
 
   // Estados do formulário do paciente
   const [nomePaciente, setNomePaciente] = useState("");
@@ -195,19 +212,21 @@ export default function Compra({
     }, [embedded, DRAFT_KEY]);
 
   useEffect(() => {
-    if (!leadPrefill) return;
-    if (leadPrefill.temNovoMedicoPrescritor) {
+    if (!effectiveLeadPrefill) return;
+    if (effectiveLeadPrefill.temNovoMedicoPrescritor) {
       setTemNovoMedicoPrescritor(true);
     }
-    if (leadPrefill.nomeMedico) setNomeMedico(leadPrefill.nomeMedico);
-    if (leadPrefill.crmMedico) setCrmMedico(leadPrefill.crmMedico);
-    if (leadPrefill.ufCrm) setUfCrm(leadPrefill.ufCrm);
-    if (leadPrefill.celularMedico) setCelularMedico(leadPrefill.celularMedico);
-    if (leadPrefill.emailMedico) setEmailMedico(leadPrefill.emailMedico);
-    if (leadPrefill.especialidadeMedico) {
-      setEspecialidadeMedico(leadPrefill.especialidadeMedico);
+    if (effectiveLeadPrefill.nomeMedico) setNomeMedico(effectiveLeadPrefill.nomeMedico);
+    if (effectiveLeadPrefill.crmMedico) setCrmMedico(effectiveLeadPrefill.crmMedico);
+    if (effectiveLeadPrefill.ufCrm) setUfCrm(effectiveLeadPrefill.ufCrm);
+    if (effectiveLeadPrefill.celularMedico) {
+      setCelularMedico(effectiveLeadPrefill.celularMedico);
     }
-  }, [leadPrefill]);
+    if (effectiveLeadPrefill.emailMedico) setEmailMedico(effectiveLeadPrefill.emailMedico);
+    if (effectiveLeadPrefill.especialidadeMedico) {
+      setEspecialidadeMedico(effectiveLeadPrefill.especialidadeMedico);
+    }
+  }, [effectiveLeadPrefill]);
 
   useEffect(() => {
     if (!authService.isAuthenticated()) {
@@ -905,6 +924,30 @@ export default function Compra({
 
         setShowSplash(false);
 
+        if (leadAttemptCtx) {
+          // A compra já foi criada no Zoho neste ponto — mesmo se o
+          // registro da tentativa falhar, ainda volta para o lead em vez
+          // de travar o consultor numa tela de erro (mesmo comportamento
+          // que o antigo modal já tinha).
+          try {
+            await leadsMedicosService.registrarTentativa(
+              leadAttemptCtx.leadId,
+              leadAttemptCtx.round,
+              leadAttemptCtx.observacao,
+              leadAttemptFiles,
+            );
+            showToast("Compra registrada e tentativa enviada ao Zoho", "success", 3000);
+          } catch (attemptError) {
+            const message =
+              attemptError?.response?.data?.error ||
+              attemptError?.message ||
+              "Compra enviada, mas falhou ao registrar a tentativa.";
+            showToast(message, "error", 4000);
+          }
+          navigate(`/leads-medicos/${leadAttemptCtx.leadId}`, { replace: true });
+          return;
+        }
+
         if (embedded && onSuccess) {
           onSuccess({
             compra: response,
@@ -969,7 +1012,21 @@ export default function Compra({
   function renderFormBody() {
     return (
       <>
-        {!embedded && (
+        {!embedded && leadAttemptCtx && (
+          <div className="mb-4 sm:mb-6 rounded-xl border border-tegra-teal/30 bg-tegra-teal/5 px-4 py-3 sm:px-5 sm:py-4">
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-tegra-teal">
+              Pedido a partir de Lead Médico · {leadAttemptCtx.roundLabel || "Tentativa"}
+            </p>
+            <h1 className="mt-1 text-lg sm:text-xl font-bold text-tegra-blue-dark">
+              {leadAttemptCtx.leadPrefill?.nomeMedico || "Médico"}
+            </h1>
+            <p className="mt-0.5 text-xs sm:text-sm text-tegra-text-secondary">
+              Preencha o pedido abaixo — ao enviar, a tentativa é registrada automaticamente.
+            </p>
+          </div>
+        )}
+
+        {!embedded && !leadAttemptCtx && (
           <>
             <h1 className="text-xl sm:text-2xl font-bold text-tegra-text-primary mb-4 sm:mb-6">
               Nova Compra
@@ -1813,6 +1870,10 @@ export default function Compra({
                     onCancel();
                     return;
                   }
+                  if (leadAttemptCtx) {
+                    navigate(`/leads-medicos/${leadAttemptCtx.leadId}`);
+                    return;
+                  }
                   limparFormulario();
                 }}
                 className="w-full sm:w-auto"
@@ -1827,7 +1888,7 @@ export default function Compra({
               >
                 Rever formulário
               </Button>
-              {showSaveDraft && (
+              {effectiveShowSaveDraft && (
                 <Button
                   type="button"
                   variant="secondary"
@@ -1843,7 +1904,7 @@ export default function Compra({
                 loading={false}
                 className="w-full sm:w-auto"
               >
-                {submitLabel}
+                {effectiveSubmitLabel}
               </Button>
             </div>
           </form>
@@ -1856,7 +1917,9 @@ export default function Compra({
       {showSplash && (
         <SplashScreen
           message={
-            embedded ? "Registrando compra e tentativa..." : "Criando compra..."
+            embedded || leadAttemptCtx
+              ? "Registrando compra e tentativa..."
+              : "Criando compra..."
           }
         />
       )}

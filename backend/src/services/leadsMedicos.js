@@ -20,7 +20,7 @@ import {
   isSlaOffered,
   offerLeadOnCreate,
   offeredStatusCondition,
-  reofferLead,
+  rejectLeadOffer,
 } from "./slaOffers.js";
 import {
   ZOHO_LEAD_STATUS,
@@ -28,19 +28,20 @@ import {
   syncZohoLeadAccepted,
   syncZohoLeadAttemptNoReturn,
   syncZohoLeadAttemptTreated,
+  syncZohoLeadFourthAttemptRequested,
   syncZohoLeadSemContato,
   syncZohoLeadSemInteresse,
   syncZohoLeadProtocolo,
 } from "./zohoLeadSync.js";
 import {
   ATTEMPT_ROUNDS,
-  TIMEOUT_OBSERVACAO,
   buildAttemptView,
   buildLeadTimeline,
   currentOpenAttemptRound,
   isAttemptWindowOpen,
   parseAttemptRound,
   qualificationStartIso,
+  requestFourthAttemptUpdates,
   semContatoUpdates,
   semInteresseUpdates,
   timeoutAttemptUpdates,
@@ -420,6 +421,14 @@ export function mapZohoPayloadToLead(payload) {
     descricaoTerceiraTentativa: null,
     dataTerceiraTentativa: null,
     statusTerceiraTentativa: null,
+    adicionarQuartaTentativa: false,
+    dataSolicitacaoQuartaTentativa: null,
+    motivoQuartaTentativa: null,
+    descricaoQuartaTentativa: null,
+    dataQuartaTentativa: null,
+    statusQuartaTentativa: null,
+    dataLeadRejeitado: null,
+    dataLeadSemTratativa: null,
     slaDeadline: undefined,
     slaStatus: undefined,
     slaCheckinAt: undefined,
@@ -1298,6 +1307,14 @@ export function toLeadDetail(lead) {
     descricaoTerceiraTentativa: lead.descricaoTerceiraTentativa || "",
     dataTerceiraTentativa: lead.dataTerceiraTentativa || null,
     statusTerceiraTentativa: lead.statusTerceiraTentativa || null,
+    adicionarQuartaTentativa: Boolean(lead.adicionarQuartaTentativa),
+    dataSolicitacaoQuartaTentativa: lead.dataSolicitacaoQuartaTentativa || null,
+    motivoQuartaTentativa: lead.motivoQuartaTentativa || "",
+    descricaoQuartaTentativa: lead.descricaoQuartaTentativa || "",
+    dataQuartaTentativa: lead.dataQuartaTentativa || null,
+    statusQuartaTentativa: lead.statusQuartaTentativa || null,
+    dataLeadRejeitado: lead.dataLeadRejeitado || null,
+    dataLeadSemTratativa: lead.dataLeadSemTratativa || null,
     createdAt: lead.createdAt || null,
     updatedAt: lead.updatedAt || null,
     historico: (Array.isArray(lead.historico) ? lead.historico : [])
@@ -1518,17 +1535,24 @@ async function applyAttemptTimeout(raw, round) {
 
   const n = parseAttemptRound(round);
   const meta = ATTEMPT_ROUNDS[n];
+  // 3ª (sem pedido de 4ª) e 4ª são terminais: o lead inteiro vira "Lead Sem Tratativa".
+  const leadTerminal = n === 3 || n === 4;
+  const observacao = updates[meta.desc];
+
   const historico = appendHistorico(raw, {
-    action: "tentativa_sem_retorno",
-    label: `Médico não retornou (${n}ª tentativa)`,
-    detail: TIMEOUT_OBSERVACAO,
+    action: leadTerminal ? "lead_sem_tratativa" : "tentativa_sem_retorno",
+    label: leadTerminal
+      ? `Lead sem tratativa (${n}ª tentativa vencida sem ação)`
+      : `Médico não retornou (${n}ª tentativa)`,
+    detail: observacao,
     by: "sistema",
   });
 
   const updated = await updateLeadItem(raw.id, { ...updates, historico });
   syncZohoLeadAttemptNoReturn(updated, n, {
     at: now,
-    observacao: TIMEOUT_OBSERVACAO,
+    observacao,
+    leadTerminal,
   });
   return updated;
 }
@@ -1673,6 +1697,87 @@ export async function markLeadSemContato(leadId, user, { files } = {}) {
 }
 
 /**
+ * Consultor solicita a 4ª tentativa durante a janela da 3ª — sem aprovação
+ * de gerência. Exige data-alvo (até 1 mês), motivo e ao menos 1 evidência.
+ */
+export async function requestFourthAttempt(
+  leadId,
+  user,
+  { dataQuartaTentativa, motivo, files } = {},
+) {
+  await getLeadForUser(leadId, user);
+  const now = new Date().toISOString();
+  const raw = (
+    await dynamoDocClient.send(
+      new GetCommand({ TableName: TABLE(), Key: { id: leadId } }),
+    )
+  ).Item;
+
+  const { note, updates } = requestFourthAttemptUpdates(raw, {
+    dataQuartaTentativa,
+    motivo,
+    at: now,
+  });
+  const evidence = await persistLeadEvidencias(raw, files, {
+    acao: "solicitacao_4a_tentativa",
+    round: 4,
+    user,
+  });
+  const dataFormatada = new Date(updates.dataQuartaTentativa).toLocaleDateString("pt-BR");
+  const historico = appendHistorico(raw, {
+    action: "solicitacao_4a_tentativa",
+    label: "4ª tentativa solicitada pelo consultor",
+    detail: evidenceHistoryDetail(
+      `${note}\n\nData combinada para a 4ª tentativa: ${dataFormatada}`,
+      evidence.uploaded,
+    ),
+    by: user.email || user.id || "usuario",
+  });
+
+  let updated;
+  try {
+    updated = await updateLeadItem(
+      leadId,
+      {
+        ...updates,
+        historico,
+        evidencias: evidence.evidencias,
+        workdriveFolderId: evidence.workdriveFolderId,
+        workdriveFolderName: evidence.workdriveFolderName,
+        protocolo: evidence.protocolo,
+      },
+      // Protege contra corrida com o sweeper: se a 3ª tentativa já foi
+      // fechada (por timeout) entre o snapshot acima e este write, aborta
+      // em vez de gravar um pedido de 4ª sobre um lead já "Sem Tratativa".
+      {
+        expression: "attribute_not_exists(#dataTerceira)",
+        names: { "#dataTerceira": "dataTerceiraTentativa" },
+      },
+    );
+  } catch (error) {
+    if (error.code === "OFFER_GONE") {
+      const err = new Error(
+        "O prazo da 3ª tentativa encerrou antes do pedido ser processado. Não é mais possível solicitar a 4ª tentativa.",
+      );
+      err.status = 409;
+      err.code = "VALIDATION_ERROR";
+      throw err;
+    }
+    throw error;
+  }
+
+  if (!raw.protocolo && evidence.protocolo) {
+    syncZohoLeadProtocolo(updated);
+  }
+  syncZohoLeadFourthAttemptRequested(updated, {
+    at: now,
+    dataQuartaTentativa: updates.dataQuartaTentativa,
+    motivo: note,
+  });
+  return toLeadDetail(updated);
+}
+
+/**
  * Consultor aceita a oferta (vira dono). Alias do check-in antigo.
  */
 export async function checkinLead(leadId, user) {
@@ -1680,6 +1785,15 @@ export async function checkinLead(leadId, user) {
 
   if (isSlaAccepted(lead)) {
     const err = new Error("Este lead já foi aceito.");
+    err.status = 400;
+    err.code = "VALIDATION_ERROR";
+    throw err;
+  }
+
+  if (lead.slaStatus === "rejeitado") {
+    const err = new Error(
+      "Este lead foi rejeitado (recusa ou prazo de 48h vencido) e devolvido ao Zoho. Não retorna à fila.",
+    );
     err.status = 400;
     err.code = "VALIDATION_ERROR";
     throw err;
@@ -1720,13 +1834,15 @@ export async function checkinLead(leadId, user) {
     ).Item;
 
     if (raw && isSlaOffered(raw)) {
-      await reofferLead(raw, {
-        reason: "Prazo de aceite expirado no momento da confirmação.",
+      await rejectLeadOffer(raw, {
+        reason: "Prazo de 48h para aceite expirado no momento da confirmação.",
         by: user.email || user.id || "usuario",
       });
     }
 
-    const err = new Error("Prazo de aceite expirado. O lead foi oferecido ao próximo consultor.");
+    const err = new Error(
+      "Prazo de 48h para aceite expirado. Este lead foi encerrado e devolvido ao Zoho como rejeitado.",
+    );
     err.status = 400;
     err.code = "VALIDATION_ERROR";
     throw err;
@@ -1777,7 +1893,8 @@ export async function checkinLead(leadId, user) {
 }
 
 /**
- * Consultor recusa a oferta — o lead segue para o próximo da região.
+ * Consultor recusa a oferta — o lead é encerrado no Portal (Lead Rejeitado)
+ * e devolvido ao Zoho. Não segue para o próximo da fila.
  */
 export async function recusarLead(leadId, user) {
   const { role, viewer, lead } = await getLeadForUser(leadId, user);
@@ -1809,7 +1926,7 @@ export async function recusarLead(leadId, user) {
     throw err;
   }
 
-  const updated = await reofferLead(raw, {
+  const updated = await rejectLeadOffer(raw, {
     reason: `Consultor recusou a oferta (${user.email || user.id || "usuario"}).`,
     by: user.email || user.id || "usuario",
   });

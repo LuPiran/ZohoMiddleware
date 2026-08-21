@@ -5,6 +5,8 @@ export const ZOHO_LEAD_STATUS = {
   SEM_CONTATO: "Lead Sem Contato",
   SEM_INTERESSE: "Lead Sem Interesse",
   CONVERTIDO: "Lead Convertido",
+  REJEITADO: "Lead Rejeitado",
+  SEM_TRATATIVA: "Lead Sem Tratativa",
 };
 
 export const ZOHO_ATTEMPT_STATUS = {

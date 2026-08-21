@@ -12,6 +12,7 @@ import {
   recusarLead,
   registerContactAttempt,
   registerFirstAttempt,
+  requestFourthAttempt,
   getEvidenceFileForUser,
 } from "../services/leadsMedicos.js";
 import { authenticateLeadsWebhook } from "../middleware/leadsWebhookAuth.js";
@@ -306,7 +307,7 @@ router.post(
 );
 
 /**
- * Registra 1ª, 2ª ou 3ª tentativa como tratado pelo consultor.
+ * Registra 1ª, 2ª, 3ª ou 4ª tentativa como tratado pelo consultor.
  * POST /v1/leads-medicos/:id/tentativas/:round
  */
 router.post(
@@ -335,6 +336,38 @@ router.post(
       return res.status(500).json({
         success: false,
         error: error.message || "Erro ao registrar tentativa",
+      });
+    }
+  },
+);
+
+/**
+ * Consultor solicita a 4ª tentativa durante a janela da 3ª — sem aprovação.
+ * Exige data-alvo (até 1 mês), motivo e ao menos 1 imagem de evidência.
+ * POST /v1/leads-medicos/:id/tentativas/4/solicitar
+ */
+router.post(
+  "/:id/tentativas/4/solicitar",
+  authenticateToken,
+  requireSafeResourceId("id"),
+  writeRateLimiter,
+  evidenceUploadMiddleware,
+  async (req, res) => {
+    try {
+      const lead = await requestFourthAttempt(req.params.id, req.user, {
+        dataQuartaTentativa: req.body?.dataQuartaTentativa,
+        motivo: req.body?.motivo,
+        files: req.files,
+      });
+      return res.json({ success: true, data: lead });
+    } catch (error) {
+      console.error("[LEADS] Erro ao solicitar 4ª tentativa:", error);
+      const handled = dynamoErrorResponse(res, error);
+      if (handled) return handled;
+
+      return res.status(500).json({
+        success: false,
+        error: error.message || "Erro ao solicitar a 4ª tentativa",
       });
     }
   },
