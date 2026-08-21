@@ -11,6 +11,7 @@ services:
       PORT: 3000
       SERVE_FRONTEND: "false"
       TRUST_PROXY: "1"
+      FRONTEND_URL: ${FRONTEND_URL:-https://portal.autofullall.com}
       JSON_BODY_LIMIT: 2mb
       UPLOAD_BODY_LIMIT: 25mb
     volumes:
@@ -56,10 +57,14 @@ services:
         VITE_API_URL: ""
         VITE_ENTRA_CLIENT_ID: ${VITE_ENTRA_CLIENT_ID}
         VITE_ENTRA_TENANT_ID: ${VITE_ENTRA_TENANT_ID}
-        VITE_ENTRA_REDIRECT_URI: ${VITE_ENTRA_REDIRECT_URI:-http://localhost:8081}
+        VITE_ENTRA_REDIRECT_URI: ${VITE_ENTRA_REDIRECT_URI:-https://portal.autofullall.com}
     container_name: zoho-admin
     ports:
       - "80:80"
+      - "443:443"
+    volumes:
+      # Certificado Origin Cloudflare (Full strict)
+      - /etc/ssl/cloudflare:/etc/ssl/cloudflare:ro
     depends_on:
       zoho-backend:
         condition: service_healthy
