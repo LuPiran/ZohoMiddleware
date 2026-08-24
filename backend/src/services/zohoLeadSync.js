@@ -42,8 +42,9 @@ function field(name, value) {
 function consultorLookup(lead) {
   const name = String(lead?.consultor || "").trim();
   if (!name) return undefined;
-  // Consultor_Tegra é lookup no CRM
-  return { name };
+  // Consultor_Tegra é Lista de opções no CRM — envia o nome como string pura.
+  // O valor precisa existir no picklist do campo para ser gravado.
+  return name;
 }
 
 function addNextAttemptFlags(round) {
