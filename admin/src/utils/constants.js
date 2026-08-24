@@ -215,12 +215,25 @@ function normalizarPermissaoFormulario(valor) {
 }
 
 function extrairPermissoesFormularios(user) {
+  if (!user || typeof user !== "object") return [];
+
+  // 1. Usa o array pré-extraído pelo backend no login (campo mais confiável)
+  if (Array.isArray(user.permissoesFormularios)) {
+    const permissoes = user.permissoesFormularios
+      .map(normalizarPermissaoFormulario)
+      .filter(Boolean);
+    return [...new Set(permissoes)];
+  }
+
+  // 2. Fallback: lê direto do campo Zoho (inclui todas as variações de API name,
+  //    com e sem acento — Zoho substitui chars especiais por "_")
   const bruto = getCampoUsuarioPorChaves(user, [
-    "Permiss_es_formularios",
-    "Permissoes_formularios",
+    "Permiss_es_formul_rios",    // Permissões formulários (ambos acentuados)
+    "Permiss_es_formularios",     // Permissões formularios
+    "Permissoes_formularios",     // Permissoes formularios
     "Permissoes_formulario",
     "Permiss_oes_formularios",
-    "Permiss_oes_formulario",
+    "Permiss_oes_formul_rios",
   ]);
 
   if (!bruto) return [];
@@ -238,13 +251,11 @@ function extrairPermissoesFormularios(user) {
     .map((item) => {
       if (!item) return "";
       if (typeof item === "string") return normalizarPermissaoFormulario(item);
-
       if (typeof item === "object") {
         return normalizarPermissaoFormulario(
           item.value || item.label || item.name || item.nome || "",
         );
       }
-
       return normalizarPermissaoFormulario(String(item));
     })
     .filter(Boolean);

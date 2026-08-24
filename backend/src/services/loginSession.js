@@ -5,6 +5,81 @@ import { logSecurityEvent } from "../utils/security.js";
 import { syncConsultorZohoPerfil } from "./consultores.js";
 
 /**
+ * Extrai as permissões de formulários do objeto Zoho.
+ * Tenta todas as variações possíveis de nome de campo (Zoho substitui acentos por "_").
+ * Retorna array de strings brutas (ex: ["Compra", "Recompra", "Tracking de Pedidos"]).
+ */
+function extrairPermissoesFormulariosZoho(usuario) {
+  if (!usuario || typeof usuario !== "object") return [];
+
+  // Candidatos com e sem acento no nome da API do Zoho:
+  //   "Permissões formulários" → Permiss_es_formul_rios
+  //   "Permissões formularios" → Permiss_es_formularios
+  //   "Permissoes formularios" → Permissoes_formularios
+  const CANDIDATOS = [
+    "Permiss_es_formul_rios",   // Permissões formulários (ambos com acento)
+    "Permiss_es_formularios",    // Permissões formularios
+    "Permissoes_formularios",    // Permissoes formularios
+    "Permissoes_formulario",
+    "Permiss_oes_formularios",
+    "Permiss_oes_formul_rios",
+  ];
+
+  // 1. Busca exata pelos candidatos
+  for (const candidato of CANDIDATOS) {
+    const valor = usuario[candidato];
+    if (valor !== undefined && valor !== null && valor !== "") {
+      return normalizarValorMultiselect(valor);
+    }
+  }
+
+  // 2. Fallback: varre todas as chaves do objeto procurando por "permiss" + "formulari"
+  const normChave = (k) =>
+    String(k)
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-z0-9]/g, "");
+
+  for (const [chave, valor] of Object.entries(usuario)) {
+    const n = normChave(chave);
+    if (
+      n.startsWith("permiss") &&
+      (n.includes("formulari") || n.includes("formulri"))
+    ) {
+      if (valor !== undefined && valor !== null && valor !== "") {
+        return normalizarValorMultiselect(valor);
+      }
+    }
+  }
+
+  return [];
+}
+
+function normalizarValorMultiselect(valor) {
+  if (Array.isArray(valor)) {
+    return valor
+      .map((item) => {
+        if (!item) return "";
+        if (typeof item === "string") return item.trim();
+        if (typeof item === "object") {
+          return String(item.value || item.label || item.name || item.nome || "").trim();
+        }
+        return String(item).trim();
+      })
+      .filter(Boolean);
+  }
+  if (typeof valor === "string") {
+    return valor.split(/[;,\n]/).map((s) => s.trim()).filter(Boolean);
+  }
+  if (typeof valor === "object" && valor !== null) {
+    const v = String(valor.value || valor.label || valor.name || "").trim();
+    return v ? [v] : [];
+  }
+  return [];
+}
+
+/**
  * Interpreta o campo de status Ativo do usuário Zoho.
  * @param {Object} usuario
  * @returns {boolean}
@@ -377,6 +452,12 @@ export async function completarLoginPortal(req, res, usuario, identityLabel) {
     }
   }
 
+  const permissoesFormularios = extrairPermissoesFormulariosZoho(usuario);
+  console.log(
+    "[AUTH ROUTE] Permissões formulários:",
+    permissoesFormularios.length ? permissoesFormularios.join(", ") : "(nenhuma)",
+  );
+
   res.json({
     success: true,
     message: "Login realizado com sucesso",
@@ -386,6 +467,7 @@ export async function completarLoginPortal(req, res, usuario, identityLabel) {
       email: usuario.Email || usuario.email,
       nome: nomeUsuario || usuario.Email || usuario.email,
       foto: fotoUsuario,
+      permissoesFormularios,   // array limpo já extraído — frontend usa isso primeiro
       ...usuarioLimpo,
     },
   });
