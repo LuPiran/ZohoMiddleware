@@ -221,6 +221,19 @@ export async function findConsultoresGestao() {
   return items.filter(isPerfilGestao);
 }
 
+/**
+ * Busca consultores ativos cuja gerência bate com o parâmetro.
+ * Usa scan + filtro em memória (tabela pequena, ~50 registros).
+ */
+export async function findConsultoresByGerencia(gerencia) {
+  if (!gerencia) return [];
+  const target = String(gerencia).trim().toLowerCase();
+  const items = await listActiveConsultores();
+  return items.filter(
+    (c) => String(c.gerencia || "").trim().toLowerCase() === target,
+  );
+}
+
 export function getConsultorCargaAceita(consultor) {
   const n = Number(consultor?.cargaAceita);
   return Number.isFinite(n) && n > 0 ? n : 0;

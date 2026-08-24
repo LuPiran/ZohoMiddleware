@@ -11,6 +11,7 @@ import { ENV } from "../config/env.js";
 import {
   decrementCargaAceita,
   findConsultorByEmail,
+  findConsultoresByGerencia,
   getConsultorDisplayName,
   getConsultorGerencia,
   incrementCargaAceita,
@@ -1060,12 +1061,46 @@ export async function listLeadsForUser(user = {}) {
   if (role === "admin") {
     leads = await scanAllLeads();
   } else if (role === "gerente") {
-    const all = await scanAllLeads();
-    leads = all.filter(
-      (lead) =>
-        leadMatchesConsultor(lead, viewer) ||
-        leadMatchesGerencia(lead, viewer.gerencia),
-    );
+    // Carrega a equipe do gerente via scan em memória
+    const equipe = [];
+    if (viewer.gerencia) {
+      try {
+        const membros = await findConsultoresByGerencia(viewer.gerencia);
+        equipe.push(...membros);
+      } catch (err) {
+        console.warn("[LEADS] Lookup equipe do gerente:", err.message);
+      }
+    }
+
+    const collected = new Map();
+
+    // Query via GSI (gsi_consultor) por cada membro — evita full scan
+    for (const membro of equipe) {
+      const keys = new Set(
+        [membro.id, membro.nome].filter(Boolean).map(String),
+      );
+      for (const key of keys) {
+        const rows = await queryLeadsByConsultorId(key);
+        for (const row of rows) {
+          if (row?.id && (!row.slaStatus || isSlaAccepted(row))) {
+            collected.set(row.id, row);
+          }
+        }
+      }
+    }
+
+    // Fallback: scan para leads que tenham campo gerencia preenchido
+    // (leads criados antes do novo rodízio, sem consultorId indexado)
+    if (viewer.gerencia) {
+      const all = await scanAllLeads();
+      for (const row of all) {
+        if (row?.id && leadMatchesGerencia(row, viewer.gerencia)) {
+          collected.set(row.id, row);
+        }
+      }
+    }
+
+    leads = [...collected.values()];
   } else {
     const keys = new Set(
       [viewer.id, viewer.nome].filter(Boolean).map((v) => String(v)),
@@ -1187,6 +1222,18 @@ async function resolveViewerContext(user = {}) {
     }
   }
 
+  const gerencia = getConsultorGerencia(consultorRecord);
+
+  // Para gerente: pré-carrega equipe para checar acesso ao lead individual
+  let equipe = [];
+  if (role === "gerente" && gerencia) {
+    try {
+      equipe = await findConsultoresByGerencia(gerencia);
+    } catch (err) {
+      console.warn("[LEADS] Lookup equipe do gerente:", err.message);
+    }
+  }
+
   return {
     role,
     viewer: {
@@ -1197,8 +1244,9 @@ async function resolveViewerContext(user = {}) {
         user.nome ||
         user.Nome ||
         user.name,
-      gerencia: getConsultorGerencia(consultorRecord),
+      gerencia,
       perfil: user.perfil,
+      equipe, // lista de membros da equipe (apenas para gerente)
     },
   };
 }
@@ -1206,10 +1254,21 @@ async function resolveViewerContext(user = {}) {
 function userCanAccessLead(lead, role, viewer) {
   if (role === "admin") return true;
   if (role === "gerente") {
-    return (
-      leadMatchesConsultor(lead, viewer) ||
-      leadMatchesGerencia(lead, viewer.gerencia)
-    );
+    if (leadMatchesConsultor(lead, viewer)) return true;
+    if (leadMatchesGerencia(lead, viewer.gerencia)) return true;
+    // Verifica se o consultor do lead é da equipe do gerente
+    const equipe = Array.isArray(viewer.equipe) ? viewer.equipe : [];
+    for (const membro of equipe) {
+      if (lead.consultorId && String(lead.consultorId) === String(membro.id))
+        return true;
+      if (
+        lead.emailConsultor &&
+        membro.email &&
+        normalizeEmail(lead.emailConsultor) === normalizeEmail(membro.email)
+      )
+        return true;
+    }
+    return false;
   }
   return leadMatchesConsultor(lead, viewer);
 }
