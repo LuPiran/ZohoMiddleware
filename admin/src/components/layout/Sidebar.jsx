@@ -18,6 +18,7 @@ import {
 import {
   EXTERNAL_LINKS,
   ROUTES,
+  podeVerLeadsMedicos,
   podeVerCompra,
   podeVerOcorrencia,
   podeVerProposta,
@@ -35,6 +36,7 @@ export default function Sidebar() {
   const navigate = useNavigate();
   const user = authService.getUser();
   const isAdmin = hasAdminPanelPermission();
+  const mostrarLeadsMedicos = podeVerLeadsMedicos(user);
   const mostrarCompra = podeVerCompra(user);
   const mostrarRecompra = podeVerRecompra(user);
   const mostrarProposta = podeVerProposta(user);
@@ -80,7 +82,7 @@ export default function Sidebar() {
           path: ROUTES.LEADS_MEDICOS,
           label: "Leads Médicos",
           Icon: MdMedicalServices,
-          show: true,
+          show: mostrarLeadsMedicos,
         },
         {
           path: ROUTES.USUARIOS,

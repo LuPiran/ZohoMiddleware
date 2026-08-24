@@ -84,6 +84,7 @@ export const STORAGE_KEYS = {
 export const PLATFORM_UPDATE_VERSION = "2026-08-07.1";
 
 export const FORMULARIOS_OPCIONAIS = {
+  LEADS_MEDICOS: "leads_medicos",
   COMPRA: "compra",
   RECOMPRA: "recompra",
   PROPOSTA: "proposta",
@@ -205,6 +206,7 @@ function normalizarPermissaoFormulario(valor) {
     .trim();
 
   if (!texto) return "";
+  if (texto.includes("lead")) return FORMULARIOS_OPCIONAIS.LEADS_MEDICOS;
   if (texto.includes("tracking")) return FORMULARIOS_OPCIONAIS.TRACKING_PEDIDO;
   if (texto.includes("ocorr")) return FORMULARIOS_OPCIONAIS.OCORRENCIA;
   if (texto.includes("recomp")) return FORMULARIOS_OPCIONAIS.RECOMPRA;
@@ -268,6 +270,10 @@ export function podeAcessarFormularioOpcional(user, permissao) {
   if (!permissaoNormalizada) return false;
 
   return extrairPermissoesFormularios(user).includes(permissaoNormalizada);
+}
+
+export function podeVerLeadsMedicos(user) {
+  return podeAcessarFormularioOpcional(user, FORMULARIOS_OPCIONAIS.LEADS_MEDICOS);
 }
 
 export function podeVerCompra(user) {

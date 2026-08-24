@@ -18,6 +18,7 @@ import AdminRoute from "../components/auth/AdminRoute";
 import { authService } from "../services/auth";
 import {
   ROUTES,
+  podeVerLeadsMedicos,
   podeVerCompra,
   podeVerOcorrencia,
   podeVerProposta,
@@ -81,17 +82,17 @@ export default function AppRoutes() {
       <Route
         path={ROUTES.LEADS_MEDICOS}
         element={
-          <ProtectedRoute>
+          <OptionalFormRoute permissionCheck={podeVerLeadsMedicos}>
             <LeadsMedicos />
-          </ProtectedRoute>
+          </OptionalFormRoute>
         }
       />
       <Route
         path={ROUTES.LEADS_MEDICOS_DETAIL}
         element={
-          <ProtectedRoute>
+          <OptionalFormRoute permissionCheck={podeVerLeadsMedicos}>
             <LeadDetail />
-          </ProtectedRoute>
+          </OptionalFormRoute>
         }
       />
       <Route

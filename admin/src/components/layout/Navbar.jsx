@@ -20,6 +20,7 @@ import {
   EXTERNAL_LINKS,
   ROUTES,
   STORAGE_KEYS,
+  podeVerLeadsMedicos,
   podeVerCompra,
   podeVerOcorrencia,
   podeVerProposta,
@@ -42,6 +43,7 @@ export default function Navbar() {
   const [showSplash, setShowSplash] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
 
+  const mostrarLeadsMedicos = podeVerLeadsMedicos(user);
   const mostrarCompra = podeVerCompra(user);
   const mostrarRecompra = podeVerRecompra(user);
   const mostrarProposta = podeVerProposta(user);
@@ -90,7 +92,7 @@ export default function Navbar() {
       label: "Principal",
       items: [
         { path: ROUTES.DASHBOARD,     label: "Home",          Icon: MdDashboard,       show: true },
-        { path: ROUTES.LEADS_MEDICOS, label: "Leads Médicos", Icon: MdMedicalServices, show: true },
+        { path: ROUTES.LEADS_MEDICOS, label: "Leads Médicos", Icon: MdMedicalServices, show: mostrarLeadsMedicos },
         { path: ROUTES.USUARIOS,      label: "Usuários",      Icon: MdPeople,          show: isAdmin },
       ].filter((i) => i.show),
     },
