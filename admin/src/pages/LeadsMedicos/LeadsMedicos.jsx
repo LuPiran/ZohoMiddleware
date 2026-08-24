@@ -242,7 +242,7 @@ export default function LeadsMedicos() {
         matchesTeamView
       );
     });
-  }, [leads, searchTerm, appliedFilters]);
+  }, [leads, searchTerm, appliedFilters, teamView, viewer, role]);
 
   const monthlyData = useMemo(
     () => aggregateLeadsByMonth(filteredLeads),
