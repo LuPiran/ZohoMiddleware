@@ -2,6 +2,7 @@ import { ENV } from "../config/env.js";
 import { generateToken } from "./jwtService.js";
 import { chamarZohoApi } from "./zohoApi.js";
 import { logSecurityEvent } from "../utils/security.js";
+import { syncConsultorZohoPerfil } from "./consultores.js";
 
 /**
  * Interpreta o campo de status Ativo do usuário Zoho.
@@ -388,6 +389,15 @@ export async function completarLoginPortal(req, res, usuario, identityLabel) {
       ...usuarioLimpo,
     },
   });
+
+  // Fire-and-forget: mantém portal_consultores em sincronia com o perfil do Zoho.
+  // Nunca bloqueia a resposta — falhas são apenas logadas.
+  void syncConsultorZohoPerfil(
+    usuario.Email || usuario.email,
+    usuario,
+  ).catch((err) =>
+    console.warn("[SYNC PERFIL] Erro inesperado no login sync:", err.message),
+  );
 
   return true;
 }

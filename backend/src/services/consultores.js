@@ -1,4 +1,4 @@
-import { QueryCommand, ScanCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
+import { PutCommand, QueryCommand, ScanCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { dynamoDocClient } from "../config/dynamodb.js";
 import { ENV } from "../config/env.js";
 
@@ -292,4 +292,125 @@ export function getConsultorGerencia(consultor) {
     return asString(raw.name ?? raw.nome ?? raw.id);
   }
   return asString(raw);
+}
+
+/**
+ * Extrai um campo do objeto Zoho tentando múltiplas variantes de nome
+ * (Zoho substitui acentos por "_" no nome da API).
+ */
+function zohoField(obj, ...candidates) {
+  for (const key of candidates) {
+    const val = asString(obj[key]);
+    if (val) return val;
+  }
+  return undefined;
+}
+
+/**
+ * Sincroniza dados de perfil do Zoho → DynamoDB portal_consultores.
+ * Cria o registro se não existir; atualiza os campos de perfil se já existir.
+ * Disparado no login do consultor — fire-and-forget, nunca bloqueia a resposta.
+ */
+export async function syncConsultorZohoPerfil(email, dadosZoho) {
+  if (!email || !dadosZoho) return;
+
+  const normalizedEmail = normalizeEmail(email);
+  if (!normalizedEmail) return;
+
+  // Lê campos do objeto Zoho — tenta variantes com e sem acento no nome da API
+  const nome       = zohoField(dadosZoho, "Name", "Nome", "name", "nome");
+  const gerencia   = zohoField(dadosZoho, "Gerencia", "gerencia");
+  const regiao     = zohoField(dadosZoho, "Regi_o", "Regiao", "Região", "regiao")
+                      ?.trim().toUpperCase() || undefined;
+  const telefone   = zohoField(dadosZoho, "Telefone", "telefone");
+  const endereco   = zohoField(dadosZoho, "Endere_o", "Endereco", "Endereço", "endereco");
+  const bairro     = zohoField(dadosZoho, "Bairro", "bairro");
+  const cidade     = zohoField(dadosZoho, "Cidade", "cidade");
+  const estado     = zohoField(dadosZoho, "Estado", "estado");
+  const cep        = zohoField(dadosZoho, "CEP", "Cep", "cep");
+  const emailPess  = zohoField(dadosZoho, "E_mail_Pessoal", "Email_Pessoal", "E-mail Pessoal");
+  const cargo      = zohoField(dadosZoho, "Cargo", "cargo", "Perfil", "perfil");
+  const zohoId     = asString(dadosZoho.id || dadosZoho.ID);
+  const agora      = new Date().toISOString();
+
+  try {
+    const existing = await findConsultorByEmail(normalizedEmail);
+
+    if (existing) {
+      // Monta UpdateExpression dinamicamente (só campos presentes)
+      const fieldPairs = [
+        ["nome",         nome],
+        ["gerencia",     gerencia],
+        ["regiao",       regiao],
+        ["telefone",     telefone],
+        ["endereco",     endereco],
+        ["bairro",       bairro],
+        ["cidade",       cidade],
+        ["estado",       estado],
+        ["cep",          cep],
+        ["emailPessoal", emailPess],
+        ["cargo",        cargo],
+        ["syncZohoEm",   agora],
+      ].filter(([, v]) => v !== undefined);
+
+      if (!fieldPairs.length) return;
+
+      const ExprAttrNames  = {};
+      const ExprAttrValues = {};
+      const setClauses     = fieldPairs.map(([key, val], i) => {
+        ExprAttrNames[`#f${i}`]  = key;
+        ExprAttrValues[`:v${i}`] = val;
+        return `#f${i} = :v${i}`;
+      });
+
+      await dynamoDocClient.send(new UpdateCommand({
+        TableName: TABLE(),
+        Key: { id: String(existing.id) },
+        UpdateExpression: `SET ${setClauses.join(", ")}`,
+        ExpressionAttributeNames:  ExprAttrNames,
+        ExpressionAttributeValues: ExprAttrValues,
+      }));
+
+      console.log(`[SYNC PERFIL] ✓ ${normalizedEmail} atualizado no DynamoDB`);
+    } else {
+      // Cria registro: usa o ID do Zoho como chave do DynamoDB
+      const newId = zohoId || String(Date.now());
+      const item  = Object.fromEntries(
+        [
+          ["id",           newId],
+          ["email",        normalizedEmail],
+          ["ativo",        true],
+          ["cargaAceita",  0],
+          ["nome",         nome],
+          ["gerencia",     gerencia],
+          ["regiao",       regiao],
+          ["telefone",     telefone],
+          ["endereco",     endereco],
+          ["bairro",       bairro],
+          ["cidade",       cidade],
+          ["estado",       estado],
+          ["cep",          cep],
+          ["emailPessoal", emailPess],
+          ["cargo",        cargo],
+          ["syncZohoEm",   agora],
+        ].filter(([, v]) => v !== undefined),
+      );
+
+      await dynamoDocClient.send(new PutCommand({
+        TableName: TABLE(),
+        Item: item,
+        // Não sobrescreve se outro processo já criou pelo lead routing
+        ConditionExpression: "attribute_not_exists(id)",
+      }));
+
+      console.log(`[SYNC PERFIL] ✓ ${normalizedEmail} criado no DynamoDB (id: ${newId})`);
+    }
+  } catch (error) {
+    if (error.name === "ConditionalCheckFailedException") {
+      // Registro criado concorrentemente pelo roteador — sem problema
+      console.log(`[SYNC PERFIL] Consultor ${normalizedEmail} já criado por outro processo — OK`);
+      return;
+    }
+    console.warn(`[SYNC PERFIL] ✗ Falha ao sincronizar ${normalizedEmail}:`, error.message);
+  }
 }
