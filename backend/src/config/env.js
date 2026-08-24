@@ -122,6 +122,26 @@ export const ENV = {
   ZOHO_LEAD_DATA_SEM_TRATATIVA_FIELD:
     process.env.ZOHO_LEAD_DATA_SEM_TRATATIVA_FIELD || "Data_Lead_Sem_Tratativa",
 
+  // Campos de distribuição/SLA — sincronizados de volta ao Zoho após distribuição/aceite/rejeição
+  ZOHO_LEAD_DIST_CONSULTOR_NOME_FIELD:
+    process.env.ZOHO_LEAD_DIST_CONSULTOR_NOME_FIELD || "Dist_Consultor_Nome",
+  ZOHO_LEAD_DIST_CONSULTOR_EMAIL_FIELD:
+    process.env.ZOHO_LEAD_DIST_CONSULTOR_EMAIL_FIELD || "Dist_Consultor_Email",
+  ZOHO_LEAD_DIST_CONSULTOR_ID_FIELD:
+    process.env.ZOHO_LEAD_DIST_CONSULTOR_ID_FIELD || "Dist_Consultor_Id_Portal",
+  ZOHO_LEAD_DIST_DATA_ATRIBUICAO_FIELD:
+    process.env.ZOHO_LEAD_DIST_DATA_ATRIBUICAO_FIELD || "Dist_Data_Atribuicao",
+  ZOHO_LEAD_DIST_DATA_CHECKIN_FIELD:
+    process.env.ZOHO_LEAD_DIST_DATA_CHECKIN_FIELD || "Dist_Data_Checkin",
+  ZOHO_LEAD_DIST_REGIAO_FIELD:
+    process.env.ZOHO_LEAD_DIST_REGIAO_FIELD || "Dist_Regiao",
+  ZOHO_LEAD_DIST_FILA_FIELD:
+    process.env.ZOHO_LEAD_DIST_FILA_FIELD || "Dist_Fila",
+  ZOHO_LEAD_DIST_STATUS_FIELD:
+    process.env.ZOHO_LEAD_DIST_STATUS_FIELD || "Dist_Status",
+  ZOHO_LEAD_DIST_RODADAS_FIELD:
+    process.env.ZOHO_LEAD_DIST_RODADAS_FIELD || "Dist_Rodadas",
+
   DYNAMODB_LEADS_PROTOCOLO_INDEX:
     process.env.DYNAMODB_LEADS_PROTOCOLO_INDEX || "gsi_protocolo",
   DYNAMODB_LEADS_PROTOCOLO_ATTR:

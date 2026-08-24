@@ -29,6 +29,7 @@ import {
   syncZohoLeadAccepted,
   syncZohoLeadAttemptNoReturn,
   syncZohoLeadAttemptTreated,
+  syncZohoLeadDistribuicao,
   syncZohoLeadFourthAttemptRequested,
   syncZohoLeadSemContato,
   syncZohoLeadSemInteresse,
@@ -887,6 +888,7 @@ export async function createLeadFromZoho(payload) {
   }
 
   syncZohoLeadProtocolo(lead);
+  syncZohoLeadDistribuicao(lead); // Dist_Consultor_Nome/Email/Id, Dist_Regiao, Dist_Fila, Dist_Status, Dist_Rodadas
 
   return {
     created: true,

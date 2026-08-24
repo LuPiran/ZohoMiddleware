@@ -57,6 +57,17 @@ function addNextAttemptFlags(round) {
   return {};
 }
 
+/**
+ * Converte ISO 8601 → formato DataHora do Zoho ("2026-08-24T14:30:00+00:00").
+ * Usado em campos do tipo DataHora (ex: Dist_Data_Atribuicao, Dist_Data_Checkin).
+ */
+export function toZohoDateTime(iso) {
+  if (!iso) return undefined;
+  const parsed = iso instanceof Date ? iso : new Date(iso);
+  if (Number.isNaN(parsed.getTime())) return undefined;
+  return parsed.toISOString().replace("Z", "+00:00");
+}
+
 export function toZohoDate(iso) {
   if (!iso) return undefined;
   const parsed = iso instanceof Date ? iso : new Date(iso);
@@ -149,15 +160,39 @@ export function syncZohoLeadProtocolo(lead) {
   });
 }
 
+/**
+ * Sincroniza campos Dist_* imediatamente após a distribuição do lead no portal.
+ * Chamado em createLeadFromZoho logo após gravar no DynamoDB.
+ * Fire-and-forget — não bloqueia o fluxo de criação.
+ */
+export function syncZohoLeadDistribuicao(lead) {
+  if (!lead?.idZoho) return;
+  const fila = lead.slaFaseGestao ? "Gestao" : "Consultor";
+  syncZohoLead(lead.idZoho, {
+    ...field(ENV.ZOHO_LEAD_DIST_CONSULTOR_NOME_FIELD, lead.consultor),
+    ...field(ENV.ZOHO_LEAD_DIST_CONSULTOR_EMAIL_FIELD, lead.emailConsultor),
+    ...field(ENV.ZOHO_LEAD_DIST_CONSULTOR_ID_FIELD, lead.consultorId ? String(lead.consultorId) : undefined),
+    ...field(ENV.ZOHO_LEAD_DIST_DATA_ATRIBUICAO_FIELD, toZohoDateTime(lead.entradaEm)),
+    ...field(ENV.ZOHO_LEAD_DIST_REGIAO_FIELD, lead.regiao),
+    ...field(ENV.ZOHO_LEAD_DIST_FILA_FIELD, fila),
+    ...field(ENV.ZOHO_LEAD_DIST_STATUS_FIELD, "Oferecido"),
+    ...(lead.slaOfertaRound != null
+      ? field(ENV.ZOHO_LEAD_DIST_RODADAS_FIELD, Number(lead.slaOfertaRound))
+      : {}),
+  });
+}
+
 export function syncZohoLeadAccepted(lead) {
   const now =
     lead.slaCheckinAt || lead.dataQualificado || new Date().toISOString();
   const qualificationDate = toZohoDate(now);
 
-  // Status + data primeiro: lookup de consultor não pode impedir a qualificação no CRM.
+  // Status + data qualificação + Dist checkin no mesmo PUT
   syncZohoLead(lead.idZoho, {
     ...field(ENV.ZOHO_LEAD_STATUS_FIELD, ZOHO_LEAD_STATUS.QUALIFICACAO),
     ...field(ENV.ZOHO_LEAD_DATA_QUALIFICADO_FIELD, qualificationDate),
+    ...field(ENV.ZOHO_LEAD_DIST_DATA_CHECKIN_FIELD, toZohoDateTime(now)),
+    ...field(ENV.ZOHO_LEAD_DIST_STATUS_FIELD, "Aceito"),
   });
 
   const consultor = consultorLookup(lead);
@@ -256,6 +291,7 @@ export function buildZohoRejectedFields(lead, { at } = {}) {
     ...field(ENV.ZOHO_LEAD_DATA_REJEITADO_FIELD, toZohoDate(at)),
     ...field(ENV.ZOHO_LEAD_CONSULTOR_FIELD, consultorLookup(lead)),
     ...field(ENV.ZOHO_LEAD_EMAIL_CONSULTOR_FIELD, lead.emailConsultor),
+    ...field(ENV.ZOHO_LEAD_DIST_STATUS_FIELD, "Rejeitado"),
   };
 }
 
