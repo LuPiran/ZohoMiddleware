@@ -136,6 +136,8 @@ export default function LeadsMedicos() {
   const [appliedFilters, setAppliedFilters] = useState(EMPTY_FILTERS);
 
   const isGerente = role === "gerente" || role === "admin";
+  // Toggle equipe / meus leads — só usado quando role === "gerente"
+  const [teamView, setTeamView] = useState("equipe"); // "equipe" | "meus"
 
   const loadLeads = async () => {
     setLoading(true);
@@ -224,12 +226,20 @@ export default function LeadsMedicos() {
         String(lead.consultor || "").toLowerCase() ===
           appliedFilters.consultor.toLowerCase();
 
+      // "Meus leads" filtra só os do próprio gerente (comparado pelo nome)
+      const matchesTeamView =
+        role !== "gerente" ||
+        teamView === "equipe" ||
+        String(lead.consultor || "").toLowerCase() ===
+          String(viewer?.nome || "").toLowerCase();
+
       return (
         matchesSearch &&
         matchesStatus &&
         matchesCriado &&
         matchesEntrada &&
-        matchesConsultor
+        matchesConsultor &&
+        matchesTeamView
       );
     });
   }, [leads, searchTerm, appliedFilters]);
@@ -371,11 +381,17 @@ export default function LeadsMedicos() {
             </h1>
             {role === "gerente" ? (
               <p className="mt-1 text-sm text-tegra-text-secondary max-w-2xl">
-                Visão de equipe
-                {viewer?.gerencia ? (
-                  <> — gerência <span className="font-semibold text-tegra-blue-dark">{viewer.gerencia}</span></>
-                ) : null}
-                . Todos os leads dos seus consultores.
+                {teamView === "meus" ? (
+                  "Seus leads atribuídos a você."
+                ) : (
+                  <>
+                    Visão de equipe
+                    {viewer?.gerencia ? (
+                      <> — gerência <span className="font-semibold text-tegra-blue-dark">{viewer.gerencia}</span></>
+                    ) : null}
+                    . Todos os leads dos seus consultores.
+                  </>
+                )}
               </p>
             ) : role === "admin" ? (
               <p className="mt-1 text-sm text-tegra-text-secondary max-w-2xl">
@@ -433,6 +449,34 @@ export default function LeadsMedicos() {
                 aria-label="Buscar leads"
               />
             </div>
+
+            {/* Toggle Equipe / Meus leads — só para gerente */}
+            {role === "gerente" && (
+              <div className="flex items-center rounded-lg border border-tegra-gray-medium overflow-hidden shrink-0 text-sm">
+                <button
+                  type="button"
+                  onClick={() => { setTeamView("equipe"); setCurrentPage(1); }}
+                  className={`px-3 py-2 font-medium transition cursor-pointer ${
+                    teamView === "equipe"
+                      ? "bg-tegra-blue-dark text-white"
+                      : "text-tegra-text-secondary hover:bg-tegra-gray-light"
+                  }`}
+                >
+                  Equipe
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setTeamView("meus"); setCurrentPage(1); }}
+                  className={`px-3 py-2 font-medium transition cursor-pointer border-l border-tegra-gray-medium ${
+                    teamView === "meus"
+                      ? "bg-tegra-blue-dark text-white"
+                      : "text-tegra-text-secondary hover:bg-tegra-gray-light"
+                  }`}
+                >
+                  Meus leads
+                </button>
+              </div>
+            )}
 
             <button
               type="button"
@@ -529,9 +573,11 @@ export default function LeadsMedicos() {
                         <h3 className="text-sm font-semibold text-tegra-text-primary truncate">
                           {lead.nome || "—"}
                         </h3>
-                        <p className="text-xs text-tegra-text-secondary truncate">
-                          {lead.email || "—"}
-                        </p>
+                        {!isGerente && (
+                          <p className="text-xs text-tegra-text-secondary truncate">
+                            {lead.email || "—"}
+                          </p>
+                        )}
                         {isGerente && lead.consultor && (
                           <p className="text-xs font-medium text-tegra-blue-dark/80 truncate mt-0.5">
                             👤 {lead.consultor}
@@ -589,9 +635,11 @@ export default function LeadsMedicos() {
                       <th scope="col" className="px-4 py-3 font-semibold">
                         Nome
                       </th>
-                      <th scope="col" className="px-4 py-3 font-semibold">
-                        E-mail
-                      </th>
+                      {!isGerente && (
+                        <th scope="col" className="px-4 py-3 font-semibold">
+                          E-mail
+                        </th>
+                      )}
                       <th
                         scope="col"
                         className="px-4 py-3 font-semibold whitespace-nowrap"
@@ -635,9 +683,11 @@ export default function LeadsMedicos() {
                         <td className="px-4 py-3 font-medium text-tegra-text-primary whitespace-nowrap">
                           {lead.nome || "—"}
                         </td>
-                        <td className="px-4 py-3 text-tegra-text-secondary">
-                          {lead.email || "—"}
-                        </td>
+                        {!isGerente && (
+                          <td className="px-4 py-3 text-tegra-text-secondary">
+                            {lead.email || "—"}
+                          </td>
+                        )}
                         <td className="px-4 py-3 text-tegra-text-secondary whitespace-nowrap">
                           {formatDate(lead.criadoEm)}
                         </td>
