@@ -76,7 +76,7 @@ export const ENV = {
   ZOHO_LEAD_STATUS_FIELD: process.env.ZOHO_LEAD_STATUS_FIELD || "Status",
   ZOHO_LEAD_CONSULTOR_FIELD:
     process.env.ZOHO_LEAD_CONSULTOR_FIELD || "Consultor_Tegra",
-  ZOHO_LEAD_EMAIL_CONSULTOR_FIELD: process.env.ZOHO_LEAD_EMAIL_CONSULTOR_FIELD || "",
+  ZOHO_LEAD_EMAIL_CONSULTOR_FIELD: process.env.ZOHO_LEAD_EMAIL_CONSULTOR_FIELD || "E_mail_do_Consultor",
   ZOHO_LEAD_DATA_QUALIFICADO_FIELD:
     process.env.ZOHO_LEAD_DATA_QUALIFICADO_FIELD || "Data_Lead_qualifica_o",
   ZOHO_LEAD_DATA_INTERESSE_FIELD:
@@ -108,7 +108,7 @@ export const ENV = {
 
   // Sessão "4ª Tentativas de Contato" (solicitada pelo consultor, sem aprovação)
   ZOHO_LEAD_DATA_4A_FIELD: process.env.ZOHO_LEAD_DATA_4A_FIELD || "Data_4_Tentativa",
-  ZOHO_LEAD_OBS_4A_FIELD: process.env.ZOHO_LEAD_OBS_4A_FIELD || "Tentativa_4",
+  ZOHO_LEAD_OBS_4A_FIELD: process.env.ZOHO_LEAD_OBS_4A_FIELD || "Tentativa",   // 4ª usa "Tentativa" sem sufixo numérico
   ZOHO_LEAD_STATUS_4A_FIELD:
     process.env.ZOHO_LEAD_STATUS_4A_FIELD || "Status_4_Tentativa",
   ZOHO_LEAD_ADD_4A_FIELD:
