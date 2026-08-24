@@ -40,6 +40,7 @@ const EMPTY_FILTERS = {
   criadoAte: "",
   entradaDe: "",
   entradaAte: "",
+  consultor: "",
 };
 
 function StatusBadge({ status }) {
@@ -100,7 +101,8 @@ function countActiveFilters(filters) {
     (filters.periodoRapido
       ? 1
       : [filters.criadoDe, filters.criadoAte].filter(Boolean).length) +
-    [filters.entradaDe, filters.entradaAte].filter(Boolean).length
+    [filters.entradaDe, filters.entradaAte].filter(Boolean).length +
+    (filters.consultor ? 1 : 0)
   );
 }
 
@@ -122,6 +124,8 @@ export default function LeadsMedicos() {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const [leads, setLeads] = useState([]);
+  const [role, setRole] = useState("consultor");
+  const [viewer, setViewer] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
@@ -131,12 +135,16 @@ export default function LeadsMedicos() {
   const [draftFilters, setDraftFilters] = useState(EMPTY_FILTERS);
   const [appliedFilters, setAppliedFilters] = useState(EMPTY_FILTERS);
 
+  const isGerente = role === "gerente" || role === "admin";
+
   const loadLeads = async () => {
     setLoading(true);
     setLoadError("");
     try {
       const result = await leadsMedicosService.list();
       setLeads(result.data);
+      setRole(result.role || "consultor");
+      setViewer(result.viewer || null);
     } catch (error) {
       const message =
         error?.response?.data?.error ||
@@ -154,6 +162,15 @@ export default function LeadsMedicos() {
     loadLeads();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Lista de consultores únicos para o filtro do gerente
+  const consultores = useMemo(
+    () =>
+      [...new Set(leads.map((l) => l.consultor).filter(Boolean))].sort((a, b) =>
+        a.localeCompare(b, "pt-BR"),
+      ),
+    [leads],
+  );
 
   const filteredLeads = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
@@ -202,11 +219,17 @@ export default function LeadsMedicos() {
         appliedFilters.entradaAte,
       );
 
+      const matchesConsultor =
+        !appliedFilters.consultor ||
+        String(lead.consultor || "").toLowerCase() ===
+          appliedFilters.consultor.toLowerCase();
+
       return (
         matchesSearch &&
         matchesStatus &&
         matchesCriado &&
-        matchesEntrada
+        matchesEntrada &&
+        matchesConsultor
       );
     });
   }, [leads, searchTerm, appliedFilters]);
@@ -346,10 +369,23 @@ export default function LeadsMedicos() {
             <h1 className="text-xl sm:text-2xl font-bold text-tegra-text-primary">
               Leads Médicos
             </h1>
-            <p className="mt-1 text-sm text-tegra-text-secondary max-w-2xl">
-              Acompanhe volume, status e conversão — cada consultor vê os próprios
-              leads; gerente a equipe; admin todos.
-            </p>
+            {role === "gerente" ? (
+              <p className="mt-1 text-sm text-tegra-text-secondary max-w-2xl">
+                Visão de equipe
+                {viewer?.gerencia ? (
+                  <> — gerência <span className="font-semibold text-tegra-blue-dark">{viewer.gerencia}</span></>
+                ) : null}
+                . Todos os leads dos seus consultores.
+              </p>
+            ) : role === "admin" ? (
+              <p className="mt-1 text-sm text-tegra-text-secondary max-w-2xl">
+                Visão administrador — todos os leads da plataforma.
+              </p>
+            ) : (
+              <p className="mt-1 text-sm text-tegra-text-secondary max-w-2xl">
+                Seus leads médicos atribuídos.
+              </p>
+            )}
           </div>
           <button
             type="button"
@@ -496,6 +532,11 @@ export default function LeadsMedicos() {
                         <p className="text-xs text-tegra-text-secondary truncate">
                           {lead.email || "—"}
                         </p>
+                        {isGerente && lead.consultor && (
+                          <p className="text-xs font-medium text-tegra-blue-dark/80 truncate mt-0.5">
+                            👤 {lead.consultor}
+                          </p>
+                        )}
                       </div>
                       <span className="shrink-0">
                         <StatusBadge status={lead.status} />
@@ -566,6 +607,11 @@ export default function LeadsMedicos() {
                       <th scope="col" className="px-4 py-3 font-semibold">
                         Status
                       </th>
+                      {isGerente && (
+                        <th scope="col" className="px-4 py-3 font-semibold whitespace-nowrap">
+                          Consultor
+                        </th>
+                      )}
                       <th
                         scope="col"
                         className="px-4 py-3 font-semibold text-right"
@@ -601,6 +647,11 @@ export default function LeadsMedicos() {
                         <td className="px-4 py-3 whitespace-nowrap">
                           <StatusBadge status={lead.status} />
                         </td>
+                        {isGerente && (
+                          <td className="px-4 py-3 text-tegra-text-secondary whitespace-nowrap">
+                            {lead.consultor || "—"}
+                          </td>
+                        )}
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-end gap-2">
                             <button
@@ -694,6 +745,8 @@ export default function LeadsMedicos() {
         onChange={setDraftFilters}
         onApply={applyFilters}
         onClear={clearFilters}
+        role={role}
+        consultores={consultores}
       />
     </MainLayout>
   );

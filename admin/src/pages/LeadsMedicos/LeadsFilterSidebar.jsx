@@ -6,6 +6,7 @@ import {
   MdOutlineEventAvailable,
   MdBolt,
   MdCheck,
+  MdPeople,
 } from "react-icons/md";
 import DatePicker from "../../components/ui/date-picker";
 import { DATE_PRESETS, getPresetDateRange } from "./mockLeads";
@@ -22,7 +23,8 @@ function countActiveFilters(filters) {
     (filters.periodoRapido
       ? 1
       : [filters.criadoDe, filters.criadoAte].filter(Boolean).length) +
-    [filters.entradaDe, filters.entradaAte].filter(Boolean).length
+    [filters.entradaDe, filters.entradaAte].filter(Boolean).length +
+    (filters.consultor ? 1 : 0)
   );
 }
 
@@ -42,6 +44,8 @@ export default function LeadsFilterSidebar({
   onChange,
   onApply,
   onClear,
+  role = "consultor",
+  consultores = [],
 }) {
   const titleId = useId();
   const panelRef = useRef(null);
@@ -218,6 +222,40 @@ export default function LeadsFilterSidebar({
               })}
             </ul>
           </section>
+
+          {/* Consultor — só visível para gerente / admin */}
+          {(role === "gerente" || role === "admin") && consultores.length > 0 && (
+            <>
+              <div className="border-t border-slate-100" />
+              <section>
+                <div className="flex items-center justify-between mb-2.5">
+                  <div className="flex items-center gap-2">
+                    <MdPeople className="text-[#1a2f5b]/60 text-base shrink-0" aria-hidden />
+                    <SectionLabel>Consultor</SectionLabel>
+                  </div>
+                  {filters.consultor && (
+                    <button
+                      type="button"
+                      onClick={() => onChange({ ...filters, consultor: "" })}
+                      className="text-[11px] font-medium text-[#1a2f5b]/70 hover:text-[#1a2f5b] transition cursor-pointer"
+                    >
+                      Limpar
+                    </button>
+                  )}
+                </div>
+                <select
+                  value={filters.consultor}
+                  onChange={(e) => onChange({ ...filters, consultor: e.target.value })}
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 focus:border-[#1a2f5b] focus:outline-none focus:ring-1 focus:ring-[#1a2f5b]/30 cursor-pointer"
+                >
+                  <option value="">Todos os consultores</option>
+                  {consultores.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </section>
+            </>
+          )}
 
           {/* Divisor */}
           <div className="border-t border-slate-100" />
