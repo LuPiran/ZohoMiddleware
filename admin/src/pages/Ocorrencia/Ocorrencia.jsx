@@ -790,7 +790,7 @@ export default function Ocorrencia() {
           className="fixed inset-0 z-0"
           style={{
             background:
-              "linear-gradient(135deg, rgba(255, 255, 255, 0.85) 0%, rgba(248, 250, 252, 0.8) 50%, rgba(255, 255, 255, 0.85) 100%)",
+              "linear-gradient(135deg, rgba(255, 255, 255, 0.70) 0%, rgba(248, 250, 252, 0.64) 50%, rgba(255, 255, 255, 0.70) 100%)",
           }}
         />
         {buscandoPedido && (

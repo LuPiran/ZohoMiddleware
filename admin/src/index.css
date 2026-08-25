@@ -915,17 +915,132 @@ input[type="number"] {
   -moz-appearance: textfield;
 }
 
+/* =====================================================================
+   REPAGINADA TegraPharma 2026
+   Aplicando: Inter, glass refinado, section headers com assinatura
+   Skill: frontend-design (Anthropic) + shadcn-ui MCP
+   ===================================================================== */
+
+/* 1 ── TIPOGRAFIA ────────────────────────────────────────────────────── */
+body {
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont,
+    'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.011em;
+}
+
+/* 2 ── GLASS CARDS ───────────────────────────────────────────────────── */
 /* ========================================
    COMPRA PAGE - GLASS CARDS
    ======================================== */
 .bg-tegra-bg-primary {
-  background: rgba(255, 255, 255, 0.75) !important;
-  backdrop-filter: blur(12px) saturate(110%);
-  -webkit-backdrop-filter: blur(12px) saturate(110%);
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.66) !important;
+  backdrop-filter: blur(20px) saturate(1.2);
+  -webkit-backdrop-filter: blur(20px) saturate(1.2);
+  border: 1px solid rgba(255, 255, 255, 0.52) !important;
   box-shadow:
-    0 8px 32px rgba(143, 169, 193, 0.12),
-    0 2px 8px rgba(0, 0, 0, 0.08) !important;
+    0 8px 32px rgba(143, 169, 193, 0.13),
+    0 1px 4px rgba(0, 0, 0, 0.05) !important;
+}
+
+/* 3 ── SECTION HEADERS — assinatura visual da marca ─────────────────── */
+/*
+  Elemento distintivo do portal TegraPharma:
+  Cada seção de formulário exibe um label uppercase compacto com uma
+  barra lateral em gradiente #8FA9C1 (azul-ardósia) → #E5989B (rosa-mauve),
+  criando um ritmo visual imediato e profissional ao rolar o formulário.
+*/
+div.bg-tegra-bg-primary > h2 {
+  position: relative !important;
+  padding-left: 14px !important;
+  font-size: 0.72rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.09em !important;
+  text-transform: uppercase !important;
+  color: #1a2f5b !important;
+  margin-bottom: 1.125rem !important;
+  line-height: 1.5 !important;
+}
+
+/* Barra lateral gradiente — a assinatura */
+div.bg-tegra-bg-primary > h2::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 2px;
+  bottom: 2px;
+  width: 3px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #8FA9C1 0%, #E5989B 100%);
+}
+
+/* Garantir que spans e ícones dentro do h2 herdem o estilo */
+div.bg-tegra-bg-primary > h2 span,
+div.bg-tegra-bg-primary > h2 svg {
+  font-size: inherit !important;
+  font-weight: inherit !important;
+  letter-spacing: inherit !important;
+  text-transform: inherit !important;
+  color: inherit !important;
+}
+
+/* 4 ── FORM PAGE — overlay ligeiramente mais transparente ────────────── */
+/*
+  Reduz a opacidade do overlay nas páginas de formulário para que
+  a imagem de fundo respire mais, intensificando o efeito glass.
+  Aplicado via classe utilitária .form-overlay-light nos arquivos JSX.
+*/
+.form-overlay-light {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.72) 0%,
+    rgba(248, 250, 252, 0.66) 50%,
+    rgba(255, 255, 255, 0.72) 100%
+  ) !important;
+}
+
+/* 5 ── TOPBAR DESKTOP — refinar a barra superior ─────────────────────── */
+/*
+  A topbar usa .bg-tegra-bg-primary então já herda o glass.
+  Adicionamos um sutil gradiente inferior para criar divisão visual.
+*/
+.app-topbar-enhanced {
+  background: rgba(255, 255, 255, 0.60) !important;
+  backdrop-filter: blur(20px) saturate(1.2);
+  -webkit-backdrop-filter: blur(20px) saturate(1.2);
+  border-bottom: 1px solid rgba(143, 169, 193, 0.18) !important;
+  box-shadow: 0 2px 12px rgba(143, 169, 193, 0.08) !important;
+}
+
+/* 6 ── BOTÕES — refinamento de elevação ──────────────────────────────── */
+/* Botão primário (tegra-blue-dark background) com gradiente mais rico */
+button.bg-tegra-blue,
+a.bg-tegra-blue {
+  background: linear-gradient(135deg, #1a3a6b 0%, #2E4A86 100%) !important;
+  box-shadow: 0 4px 14px rgba(30, 58, 107, 0.3) !important;
+  transition: all 200ms ease !important;
+}
+
+button.bg-tegra-blue:hover:not(:disabled),
+a.bg-tegra-blue:hover {
+  background: linear-gradient(135deg, #0f2447 0%, #1a3a6b 100%) !important;
+  box-shadow: 0 6px 20px rgba(30, 58, 107, 0.4) !important;
+  transform: translateY(-1px);
+}
+
+button.bg-tegra-blue:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(30, 58, 107, 0.3) !important;
+}
+
+/* 7 ── INPUTS — bordas e foco mais nítidos ───────────────────────────── */
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(143, 169, 193, 0.28), 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+  border-color: #8FA9C1 !important;
 }
 
 /* ========================================

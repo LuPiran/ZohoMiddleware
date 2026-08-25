@@ -1084,7 +1084,7 @@ export default function Proposta() {
         <div 
           className="fixed inset-0 z-0"
           style={{
-            background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.85) 0%, rgba(248, 250, 252, 0.8) 50%, rgba(255, 255, 255, 0.85) 100%)'
+            background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.70) 0%, rgba(248, 250, 252, 0.64) 50%, rgba(255, 255, 255, 0.70) 100%)'
           }}
         />
         <div className="relative z-10 max-w-5xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
