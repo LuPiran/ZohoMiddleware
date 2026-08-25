@@ -57,6 +57,7 @@ import {
 import { persistLeadEvidencias } from "./leadEvidencias.js";
 import { downloadWorkDriveFile, workDrivePreviewUrl } from "./workdrive.js";
 import { buildDynamoUpdateParts } from "../utils/dynamoUpdate.js";
+import { geocodeAddress } from "./geocoding.js";
 
 // Mapa UF → Região (fallback quando Zoho não envia Dist_Regiao)
 const UF_REGIAO = {
@@ -851,6 +852,24 @@ export async function createLeadFromZoho(payload) {
     },
     ...(lead.historico || []),
   ];
+
+  // Geocodifica localização do lead para distribuição geográfica (fire-and-forget style:
+  // falha não bloqueia a criação — apenas desativa o ranking por distância neste lead)
+  if (!lead.lat && (lead.cidade || lead.cep)) {
+    try {
+      const coords = await geocodeAddress({
+        cidade: lead.cidade,
+        estado: lead.estado,
+        cep: lead.cep,
+      });
+      if (coords) {
+        lead.lat = coords.lat;
+        lead.lng = coords.lng;
+      }
+    } catch (geoErr) {
+      console.warn("[LEADS] Geocoding do lead falhou:", geoErr.message);
+    }
+  }
 
   lead = await offerLeadOnCreate(lead);
 

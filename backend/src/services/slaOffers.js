@@ -17,6 +17,14 @@ import { notifyLeadOffer } from "./emailService.js";
 import { ZOHO_LEAD_STATUS } from "../domain/leadStatus.js";
 import { syncZohoLeadRejected } from "./zohoLeadSync.js";
 import { buildDynamoUpdateParts } from "../utils/dynamoUpdate.js";
+import { haversineDistance } from "./geocoding.js";
+
+/**
+ * Raio de empate geográfico: consultores dentro deste buffer (km) de diferença
+ * entre si concorrem por menor carga em vez de distância absoluta.
+ * Evita que 1 km de diferença sempre favoreça o mesmo consultor.
+ */
+const GEO_TIE_BUFFER_KM = 30;
 
 const TABLE = () => ENV.DYNAMODB_LEADS_TABLE;
 
@@ -74,16 +82,76 @@ function consultorNome(consultor) {
   return getConsultorDisplayName(consultor) || consultor?.email || consultor?.id;
 }
 
-function scoreCandidates(candidates) {
-  const scored = candidates.map((consultor) => ({
-    consultor,
-    carga: getConsultorCargaAceita(consultor),
-    ultima: consultor.ultimaAtribuicao
+/**
+ * Ordena candidatos e retorna o melhor.
+ *
+ * Com coordenadas do lead (leadCoords):
+ *   1. Consultores com lat/lng → ordenados por distância ao lead (km)
+ *   2. Dentro de GEO_TIE_BUFFER_KM de diferença → empate resolvido por carga
+ *   3. Consultores sem geo → caem ao fim, ordenados por carga
+ *
+ * Sem coordenadas do lead (fallback legado):
+ *   Ordenado apenas por carga → última atribuição (comportamento original).
+ *
+ * @param {object[]} candidates — registros de portal_consultores
+ * @param {{ lat: number, lng: number } | null} leadCoords
+ */
+function scoreCandidates(candidates, leadCoords = null) {
+  const scored = candidates.map((consultor) => {
+    const carga = getConsultorCargaAceita(consultor);
+    const ultima = consultor.ultimaAtribuicao
       ? new Date(consultor.ultimaAtribuicao).getTime()
-      : 0,
-  }));
-  scored.sort((a, b) => a.carga - b.carga || a.ultima - b.ultima);
-  return scored[0]?.consultor || null;
+      : 0;
+
+    let distanciaKm = null;
+    if (
+      leadCoords?.lat != null &&
+      leadCoords?.lng != null &&
+      consultor.lat != null &&
+      consultor.lng != null
+    ) {
+      distanciaKm = haversineDistance(
+        leadCoords.lat,
+        leadCoords.lng,
+        Number(consultor.lat),
+        Number(consultor.lng),
+      );
+    }
+
+    return { consultor, carga, ultima, distanciaKm };
+  });
+
+  const hasGeo = scored.some((s) => s.distanciaKm !== null);
+
+  if (hasGeo) {
+    scored.sort((a, b) => {
+      // Candidatos sem geo ficam sempre por último
+      if (a.distanciaKm === null && b.distanciaKm !== null) return 1;
+      if (a.distanciaKm !== null && b.distanciaKm === null) return -1;
+
+      if (a.distanciaKm !== null && b.distanciaKm !== null) {
+        const diff = a.distanciaKm - b.distanciaKm;
+        // Fora do buffer: menor distância vence
+        if (Math.abs(diff) > GEO_TIE_BUFFER_KM) return diff;
+      }
+
+      // Dentro do buffer (ou sem geo nos dois): menor carga → última atribuição
+      return a.carga - b.carga || a.ultima - b.ultima;
+    });
+  } else {
+    // Fallback legado: só carga + última atribuição
+    scored.sort((a, b) => a.carga - b.carga || a.ultima - b.ultima);
+  }
+
+  const winner = scored[0];
+  if (winner?.distanciaKm != null) {
+    console.log(
+      `[GEO] Winner: ${getConsultorDisplayName(winner.consultor)} — ` +
+        `${Math.round(winner.distanciaKm)} km do lead, carga ${winner.carga}`,
+    );
+  }
+
+  return winner?.consultor || null;
 }
 
 function availablePeople(people, excludeIds) {
@@ -92,31 +160,49 @@ function availablePeople(people, excludeIds) {
 }
 
 /**
- * Consultores da região primeiro (menor carga).
- * Gerência só entra quando não resta consultor — sempre por último.
+ * Extrai coordenadas do lead (se disponíveis após geocodificação).
+ * @param {object} lead
+ * @returns {{ lat: number, lng: number } | null}
  */
-export async function pickConsultorForOffer(regiao, excludeIds = []) {
+function leadCoords(lead) {
+  if (lead?.lat != null && lead?.lng != null) {
+    return { lat: Number(lead.lat), lng: Number(lead.lng) };
+  }
+  return null;
+}
+
+/**
+ * Consultores da região primeiro — ordenados por distância ao lead (se geo disponível)
+ * e por menor carga como critério secundário.
+ * Gerência só entra quando não resta consultor — sempre por último.
+ *
+ * @param {string} regiao
+ * @param {string[]} excludeIds
+ * @param {{ lat: number, lng: number } | null} coords — coordenadas do lead
+ */
+export async function pickConsultorForOffer(regiao, excludeIds = [], coords = null) {
   const people = availablePeople(await findConsultoresByRegiao(regiao), excludeIds);
   if (!people.length) return null;
 
   const consultores = people.filter(isPerfilConsultorFila);
-  if (consultores.length) return scoreCandidates(consultores) || null;
+  if (consultores.length) return scoreCandidates(consultores, coords) || null;
 
   const gerentes = people.filter(isPerfilGerencia);
-  if (gerentes.length) return scoreCandidates(gerentes) || null;
+  if (gerentes.length) return scoreCandidates(gerentes, coords) || null;
 
   return null;
 }
 
-export async function pickConsultorGestao(excludeIds = []) {
+export async function pickConsultorGestao(excludeIds = [], coords = null) {
   const people = availablePeople(await findConsultoresGestao(), excludeIds);
   if (!people.length) return null;
-  return scoreCandidates(people);
+  return scoreCandidates(people, coords);
 }
 
 export async function resolveOfferTarget(lead, excludeIds = []) {
-  if (isGestaoPhase(lead)) return pickConsultorGestao(excludeIds);
-  return pickConsultorForOffer(lead.regiao, excludeIds);
+  const coords = leadCoords(lead);
+  if (isGestaoPhase(lead)) return pickConsultorGestao(excludeIds, coords);
+  return pickConsultorForOffer(lead.regiao, excludeIds, coords);
 }
 
 /**
@@ -126,13 +212,14 @@ async function pickNextOffer(lead, recusadosInput) {
   const recusados = new Set(toExcludeIdList(recusadosInput).map((id) => String(id)));
   const historicoExtras = [];
   const fieldUpdates = {};
+  const coords = leadCoords(lead);
 
   if (isGestaoPhase(lead)) {
-    const next = await pickConsultorGestao([...recusados]);
+    const next = await pickConsultorGestao([...recusados], coords);
     return { next, recusados: [...recusados], historicoExtras, fieldUpdates };
   }
 
-  let next = await pickConsultorForOffer(lead.regiao, [...recusados]);
+  let next = await pickConsultorForOffer(lead.regiao, [...recusados], coords);
   if (next) {
     return { next, recusados: [...recusados], historicoExtras, fieldUpdates };
   }

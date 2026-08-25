@@ -11,6 +11,7 @@ export const ENV = {
   CEP_API_URL: process.env.CEP_API_URL,
   CEP_API_PASSWORD: process.env.CEP_API_PASSWORD,
   CEP_API_TIMEOUT_MS: process.env.CEP_API_TIMEOUT_MS,
+  GOOGLE_MAPS_API_KEY: process.env.GOOGLE_MAPS_API_KEY, // geocoding de leads e consultores
   ZOHO_CLIENT_ID: process.env.ZOHO_CLIENT_ID,
   ZOHO_CLIENT_SECRET: process.env.ZOHO_CLIENT_SECRET,
   ZOHO_REFRESH_TOKEN: process.env.ZOHO_REFRESH_TOKEN,

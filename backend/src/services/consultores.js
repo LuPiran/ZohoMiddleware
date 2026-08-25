@@ -1,4 +1,5 @@
 import { PutCommand, QueryCommand, ScanCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
+import { geocodeAddress } from "./geocoding.js";
 import { dynamoDocClient } from "../config/dynamodb.js";
 import { ENV } from "../config/env.js";
 
@@ -346,6 +347,8 @@ export async function syncConsultorZohoPerfil(email, dadosZoho) {
   const zohoId     = asString(dadosZoho.id || dadosZoho.ID);
   const agora      = new Date().toISOString();
 
+  let consultorId = null; // capturado para o geocoding posterior
+
   try {
     const existing = await findConsultorByEmail(normalizedEmail);
 
@@ -384,6 +387,7 @@ export async function syncConsultorZohoPerfil(email, dadosZoho) {
         ExpressionAttributeValues: ExprAttrValues,
       }));
 
+      consultorId = String(existing.id);
       console.log(`[SYNC PERFIL] ✓ ${normalizedEmail} atualizado no DynamoDB`);
     } else {
       // Cria registro: usa o ID do Zoho como chave do DynamoDB
@@ -416,6 +420,7 @@ export async function syncConsultorZohoPerfil(email, dadosZoho) {
         ConditionExpression: "attribute_not_exists(id)",
       }));
 
+      consultorId = newId;
       console.log(`[SYNC PERFIL] ✓ ${normalizedEmail} criado no DynamoDB (id: ${newId})`);
     }
   } catch (error) {
@@ -425,5 +430,38 @@ export async function syncConsultorZohoPerfil(email, dadosZoho) {
       return;
     }
     console.warn(`[SYNC PERFIL] ✗ Falha ao sincronizar ${normalizedEmail}:`, error.message);
+    return;
+  }
+
+  // ── Geocodificação do endereço do consultor (fire-and-forget) ──────────────
+  // Salva lat/lng no DynamoDB para o algoritmo de distribuição por proximidade.
+  // Só refaz se o endereço mudou (compara pelo endereçoChave) ou se nunca foi feito.
+  if (consultorId && (cidade || cep)) {
+    void (async () => {
+      try {
+        const enderecoCompleto =
+          endereco && cidade && estado ? `${endereco}, ${cidade}, ${estado}` : undefined;
+
+        const coords = await geocodeAddress({ cidade, estado, cep, enderecoCompleto });
+        if (!coords) return;
+
+        await dynamoDocClient.send(new UpdateCommand({
+          TableName: TABLE(),
+          Key: { id: consultorId },
+          UpdateExpression: "SET lat = :lat, lng = :lng, geoAtualizadoEm = :agora",
+          ExpressionAttributeValues: {
+            ":lat":   coords.lat,
+            ":lng":   coords.lng,
+            ":agora": new Date().toISOString(),
+          },
+        }));
+
+        console.log(
+          `[GEO] ✓ Consultor ${normalizedEmail} → lat=${coords.lat.toFixed(4)}, lng=${coords.lng.toFixed(4)}`,
+        );
+      } catch (geoErr) {
+        console.warn(`[GEO] Falha ao geocodificar consultor ${normalizedEmail}:`, geoErr.message);
+      }
+    })();
   }
 }
