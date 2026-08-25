@@ -331,9 +331,6 @@ export async function syncConsultorZohoPerfil(email, dadosZoho) {
   const normalizedEmail = normalizeEmail(email);
   if (!normalizedEmail) return;
 
-  // DEBUG TEMPORÁRIO — remover após confirmar campos
-  console.log(`[SYNC PERFIL DEBUG] Cidade=${dadosZoho.Cidade} CEP=${dadosZoho.CEP} Estado=${dadosZoho.Estado}`);
-
   // Lê campos do objeto Zoho — tenta variantes com e sem acento no nome da API
   const nome       = zohoField(dadosZoho, "Name", "Nome", "name", "nome");
   const gerencia   = zohoField(dadosZoho, "Gerencia", "gerencia");
