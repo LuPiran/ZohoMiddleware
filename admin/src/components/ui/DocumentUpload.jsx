@@ -1,89 +1,86 @@
 /**
- * DocumentUpload — 5 botões de ícone, um por tipo de documento.
+ * DocumentUpload — 5 slots fixos, um por tipo de documento.
  *
- * O consultor clica no ícone do tipo desejado → seleciona o arquivo →
- * o nome é gerado automaticamente com o padrão:
- *   1_Receita_Medica-Nome_Sobrenome.ext
- *   2_RG_CPF_CIN_CRM-Certidao_de_Nascimento-Nome_Sobrenome.ext
- *   3_Comprovante_de_Endereco-Nome_Sobrenome.ext
- *   4_Comprovante_de_Pagamento_PIX_Itau-Nome_Sobrenome.ext
- *   012345.67891012_2026-Autorizacao_Importacao_Anvisa-Nome_Sobrenome.ext
- *
- * Props:
- *   value              — Array<{ file: File, tipoDocumento: string, detalhe: string }>
- *   onChange           — (newValue) => void
- *   nomePaciente       — string
- *   sobrenomePaciente  — string
- *   maxFiles           — number (default 10)
- *   showToast          — (msg, type) => void
+ * Clica no card do tipo → abre o seletor de arquivo → arquivo categorizado.
+ * Nomes gerados automaticamente: 1_Receita_Medica-Neli_Barbosa.pdf, etc.
  */
 
 import { useRef } from "react";
-import { MdClose } from "react-icons/md";
+import {
+  MdClose,
+  MdCheckCircle,
+  MdAddCircleOutline,
+  MdLocalPharmacy,
+  MdBadge,
+  MdHome,
+  MdCreditCard,
+  MdVerifiedUser,
+  MdInsertDriveFile,
+} from "react-icons/md";
 import { gerarNomeArquivo } from "../../utils/fileNaming";
 
-/* ─── Definição dos 5 slots de documento ─────────────────────── */
+/* ─── 5 tipos de documento ─────────────────────────────────────── */
 const SLOTS = [
   {
-    value:      "receita",
-    num:        "1",
-    label:      "Receita Médica",
-    emoji:      "💊",
-    bg:         "bg-emerald-50",
-    border:     "border-emerald-300",
-    text:       "text-emerald-700",
-    hover:      "hover:bg-emerald-100",
-    badgeBg:    "bg-emerald-600",
+    value: "receita",
+    num: "1",
+    label: "Receita\nMédica",
+    Icon: MdLocalPharmacy,
+    gradientFrom: "#21b8a3",
+    gradientTo: "#16a085",
+    borderColor: "#21b8a3",
+    bgLight: "#e8faf8",
+    textColor: "#0d6e63",
     needsDetalhe: false,
   },
   {
-    value:      "rg_cpf",
-    num:        "2",
-    label:      "RG / CPF / CIN\nCRM + Certidão",
-    emoji:      "🪪",
-    bg:         "bg-blue-50",
-    border:     "border-blue-300",
-    text:       "text-blue-700",
-    hover:      "hover:bg-blue-100",
-    badgeBg:    "bg-blue-600",
+    value: "rg_cpf",
+    num: "2",
+    label: "RG / CPF / CIN\nCRM + Certidão",
+    Icon: MdBadge,
+    gradientFrom: "#4a90d9",
+    gradientTo: "#2471a3",
+    borderColor: "#4a90d9",
+    bgLight: "#eaf4fb",
+    textColor: "#1a5276",
     needsDetalhe: false,
   },
   {
-    value:      "endereco",
-    num:        "3",
-    label:      "Comprovante\nde Endereço",
-    emoji:      "🏠",
-    bg:         "bg-amber-50",
-    border:     "border-amber-300",
-    text:       "text-amber-700",
-    hover:      "hover:bg-amber-100",
-    badgeBg:    "bg-amber-500",
+    value: "endereco",
+    num: "3",
+    label: "Comprovante\nde Endereço",
+    Icon: MdHome,
+    gradientFrom: "#f39c12",
+    gradientTo: "#d68910",
+    borderColor: "#f39c12",
+    bgLight: "#fef9e7",
+    textColor: "#7d6608",
     needsDetalhe: false,
   },
   {
-    value:      "pagamento",
-    num:        "4",
-    label:      "Comprovante\nde Pagamento",
-    emoji:      "💳",
-    bg:         "bg-purple-50",
-    border:     "border-purple-300",
-    text:       "text-purple-700",
-    hover:      "hover:bg-purple-100",
-    badgeBg:    "bg-purple-600",
+    value: "pagamento",
+    num: "4",
+    label: "Comprovante\nde Pagamento",
+    Icon: MdCreditCard,
+    gradientFrom: "#8e44ad",
+    gradientTo: "#6c3483",
+    borderColor: "#8e44ad",
+    bgLight: "#f5eef8",
+    textColor: "#6c3483",
     needsDetalhe: true,
-    detalhePlaceholder: "ex: PIX Itaú, TED Itaú, Depósito Itaú, Conta Internacional",
+    detalhePlaceholder: "ex: PIX Itaú, TED Itaú, Conta Internacional",
     detalheLabel: "Forma de pagamento",
   },
   {
-    value:      "anvisa",
-    num:        "",
-    label:      "Autorização\nImportação ANVISA",
-    emoji:      "📋",
-    bg:         "bg-rose-50",
-    border:     "border-rose-300",
-    text:       "text-rose-700",
-    hover:      "hover:bg-rose-100",
-    badgeBg:    "bg-rose-600",
+    value: "anvisa",
+    num: "",
+    label: "Autorização\nImportação ANVISA",
+    Icon: MdVerifiedUser,
+    gradientFrom: "#c0392b",
+    gradientTo: "#a93226",
+    borderColor: "#c0392b",
+    bgLight: "#fdedec",
+    textColor: "#922b21",
     needsDetalhe: true,
     detalhePlaceholder: "ex: 012345.67891012_2026",
     detalheLabel: "Número da autorização ANVISA",
@@ -103,7 +100,6 @@ export default function DocumentUpload({
   maxFiles = 10,
   showToast,
 }) {
-  // Uma ref de input por slot
   const inputRefs = useRef(SLOTS.map(() => null));
 
   const handleSlotClick = (slotIndex) => {
@@ -117,42 +113,32 @@ export default function DocumentUpload({
   const handleFileChange = (e, slot) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
-
     if (value.length + files.length > maxFiles) {
       showToast?.(`⚠️ Máximo de ${maxFiles} arquivos permitidos`, "warning");
       e.target.value = "";
       return;
     }
-
-    const novos = files.map((file) => ({
-      file,
-      tipoDocumento: slot.value,
-      detalhe: "",
-    }));
-
-    onChange([...value, ...novos]);
+    onChange([...value, ...files.map((file) => ({ file, tipoDocumento: slot.value, detalhe: "" }))]);
     e.target.value = "";
   };
 
-  const handleRemove = (index) => {
-    onChange(value.filter((_, i) => i !== index));
-  };
+  const handleRemove = (index) => onChange(value.filter((_, i) => i !== index));
 
-  const handleDetalheChange = (index, detalhe) => {
+  const handleDetalhe = (index, detalhe) =>
     onChange(value.map((item, i) => (i === index ? { ...item, detalhe } : item)));
-  };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
 
-      {/* ── 5 botões de ícone ─────────────────────────────────── */}
+      {/* ── Grade de 5 slots ─────────────────────────────────────── */}
       <div className="grid grid-cols-5 gap-2 sm:gap-3">
         {SLOTS.map((slot, slotIndex) => {
-          // Conta quantos arquivos já foram adicionados para este tipo
           const count = value.filter((v) => v.tipoDocumento === slot.value).length;
+          const hasFile = count > 0;
+          const { Icon } = slot;
 
           return (
-            <div key={slot.value} className="flex flex-col items-center gap-1.5">
+            <div key={slot.value} className="flex flex-col items-center gap-2">
               {/* Input oculto */}
               <input
                 ref={(el) => { inputRefs.current[slotIndex] = el; }}
@@ -162,53 +148,83 @@ export default function DocumentUpload({
                 className="hidden"
               />
 
-              {/* Botão ícone */}
+              {/* Card clicável */}
               <button
                 type="button"
                 onClick={() => handleSlotClick(slotIndex)}
                 title={slot.label.replace("\n", " ")}
+                style={{
+                  borderColor: hasFile ? slot.borderColor : "#d1d5db",
+                  backgroundColor: hasFile ? slot.bgLight : "#fafafa",
+                }}
                 className={`
-                  relative w-full aspect-square flex flex-col items-center justify-center
-                  rounded-xl border-2 transition-all duration-150 cursor-pointer
-                  ${slot.bg} ${slot.border} ${slot.hover}
+                  relative w-full aspect-square flex flex-col items-center justify-center gap-1.5
+                  rounded-2xl border-2 transition-all duration-200 cursor-pointer group
+                  ${hasFile ? "shadow-md" : "border-dashed hover:border-current"}
                   active:scale-95
                 `}
               >
-                {/* Número badge */}
+                {/* Badge numérico */}
                 {slot.num && (
                   <span
-                    className={`
-                      absolute top-1 left-1 text-[10px] font-bold text-white
-                      rounded-full w-4 h-4 flex items-center justify-center
-                      ${slot.badgeBg}
-                    `}
+                    className="absolute top-1.5 left-1.5 text-[9px] font-black text-white rounded-full w-[18px] h-[18px] flex items-center justify-center shadow-sm"
+                    style={{ background: hasFile ? slot.gradientFrom : "#9ca3af" }}
                   >
                     {slot.num}
                   </span>
                 )}
 
-                {/* Badge de quantidade (se já tem arquivos) */}
-                {count > 0 && (
+                {/* Badge de contagem */}
+                {hasFile && (
                   <span
-                    className="
-                      absolute top-1 right-1 text-[10px] font-bold text-white
-                      bg-gray-700 rounded-full w-4 h-4 flex items-center justify-center
-                    "
+                    className="absolute top-1.5 right-1.5 text-[9px] font-black text-white rounded-full w-[18px] h-[18px] flex items-center justify-center shadow-sm"
+                    style={{ background: slot.gradientTo }}
                   >
                     {count}
                   </span>
                 )}
 
-                {/* Emoji / ícone */}
-                <span className="text-2xl sm:text-3xl leading-none select-none">
-                  {slot.emoji}
-                </span>
+                {/* Ícone com fundo circular */}
+                <div
+                  className="flex items-center justify-center rounded-full transition-all duration-200"
+                  style={{
+                    width: "clamp(36px, 40%, 52px)",
+                    height: "clamp(36px, 40%, 52px)",
+                    background: hasFile
+                      ? `linear-gradient(135deg, ${slot.gradientFrom}, ${slot.gradientTo})`
+                      : "linear-gradient(135deg, #e5e7eb, #d1d5db)",
+                  }}
+                >
+                  <Icon
+                    className="transition-colors"
+                    style={{
+                      color: hasFile ? "#ffffff" : "#9ca3af",
+                      fontSize: "clamp(16px, 45%, 26px)",
+                    }}
+                  />
+                </div>
+
+                {/* Indicador + / ✓ */}
+                {hasFile ? (
+                  <MdCheckCircle
+                    style={{ color: slot.gradientFrom, fontSize: "13px" }}
+                  />
+                ) : (
+                  <MdAddCircleOutline
+                    className="text-gray-300 group-hover:text-gray-400 transition-colors"
+                    style={{ fontSize: "13px" }}
+                  />
+                )}
               </button>
 
-              {/* Label abaixo do botão */}
+              {/* Label abaixo */}
               <p
-                className={`text-center text-[9px] sm:text-[10px] font-semibold leading-tight ${slot.text}`}
-                style={{ whiteSpace: "pre-line" }}
+                className="text-center leading-tight font-semibold"
+                style={{
+                  fontSize: "clamp(8px, 1.5vw, 11px)",
+                  color: hasFile ? slot.textColor : "#6b7280",
+                  whiteSpace: "pre-line",
+                }}
               >
                 {slot.label}
               </p>
@@ -218,15 +234,15 @@ export default function DocumentUpload({
       </div>
 
       <p className="text-xs text-tegra-text-secondary">
-        Clique no ícone do tipo de documento para adicionar o arquivo.
-        O nome será gerado automaticamente. Máximo {maxFiles} arquivos.
+        Clique no ícone para adicionar o arquivo correspondente — o nome é gerado automaticamente.
       </p>
 
-      {/* ── Lista de arquivos adicionados ─────────────────────── */}
+      {/* ── Lista de arquivos adicionados ─────────────────────────── */}
       {value.length > 0 && (
         <div className="space-y-2">
           {value.map((item, index) => {
             const slot = SLOTS.find((s) => s.value === item.tipoDocumento);
+            const { Icon: SlotIcon } = slot || { Icon: MdInsertDriveFile };
             const ext = extensaoArquivo(item.file.name);
             const nomeGerado = gerarNomeArquivo({
               tipoDocumento: item.tipoDocumento,
@@ -239,27 +255,43 @@ export default function DocumentUpload({
             return (
               <div
                 key={index}
-                className={`
-                  rounded-lg border p-3 space-y-2
-                  ${slot ? slot.bg : "bg-gray-50"}
-                  ${slot ? slot.border : "border-gray-200"}
-                `}
+                className="rounded-xl border p-3 space-y-2"
+                style={{
+                  background: slot ? slot.bgLight : "#f9fafb",
+                  borderColor: slot ? slot.borderColor + "55" : "#e5e7eb",
+                }}
               >
-                {/* Linha superior: emoji + nome original + remover */}
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-lg shrink-0">{slot?.emoji ?? "📄"}</span>
-                    <span className="text-xs text-tegra-text-secondary truncate">
-                      {item.file.name}
-                    </span>
+                {/* Linha superior */}
+                <div className="flex items-center gap-2.5">
+                  {/* Mini ícone */}
+                  <div
+                    className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center"
+                    style={{
+                      background: slot
+                        ? `linear-gradient(135deg, ${slot.gradientFrom}, ${slot.gradientTo})`
+                        : "#e5e7eb",
+                    }}
+                  >
+                    <SlotIcon className="text-white" style={{ fontSize: "16px" }} />
                   </div>
+
+                  <div className="flex-1 min-w-0">
+                    <p
+                      className="text-[10px] font-bold uppercase tracking-wider mb-0.5"
+                      style={{ color: slot?.textColor ?? "#374151" }}
+                    >
+                      {slot?.label.replace("\n", " ") ?? "Documento"}
+                    </p>
+                    <p className="text-xs text-gray-500 truncate">{item.file.name}</p>
+                  </div>
+
                   <button
                     type="button"
                     onClick={() => handleRemove(index)}
-                    className="shrink-0 text-tegra-error hover:text-red-700 transition-colors"
-                    aria-label="Remover arquivo"
+                    className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                    aria-label="Remover"
                   >
-                    <MdClose className="text-base" />
+                    <MdClose style={{ fontSize: "14px" }} />
                   </button>
                 </div>
 
@@ -268,24 +300,40 @@ export default function DocumentUpload({
                   <input
                     type="text"
                     value={item.detalhe}
-                    onChange={(e) => handleDetalheChange(index, e.target.value)}
+                    onChange={(e) => handleDetalhe(index, e.target.value)}
                     placeholder={slot.detalhePlaceholder}
-                    className="w-full rounded border border-gray-300 bg-white px-3 py-1.5 text-xs text-tegra-text-primary focus:outline-none focus:ring-2 focus:ring-tegra-blue"
+                    className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-tegra-text-primary focus:outline-none focus:ring-2 focus:border-transparent"
+                    style={{ "--tw-ring-color": slot.gradientFrom + "55" }}
                   />
                 )}
 
                 {/* Preview do nome gerado */}
                 {nomeGerado ? (
-                  <div className="rounded bg-white/70 border border-green-200 px-2.5 py-1.5">
-                    <p className="text-[10px] font-bold uppercase tracking-wide text-green-700 mb-0.5">
-                      Nome do arquivo
-                    </p>
-                    <p className="text-[11px] font-mono text-green-800 break-all">
-                      {nomeGerado}
-                    </p>
+                  <div
+                    className="rounded-lg px-2.5 py-2 flex items-start gap-2"
+                    style={{ background: slot?.gradientFrom + "12", border: `1px solid ${slot?.gradientFrom}30` }}
+                  >
+                    <MdCheckCircle
+                      className="shrink-0 mt-0.5"
+                      style={{ color: slot?.gradientFrom, fontSize: "13px" }}
+                    />
+                    <div className="min-w-0">
+                      <p
+                        className="text-[9px] font-bold uppercase tracking-wider mb-0.5"
+                        style={{ color: slot?.textColor }}
+                      >
+                        Nome do arquivo
+                      </p>
+                      <p
+                        className="text-[11px] font-mono break-all"
+                        style={{ color: slot?.textColor }}
+                      >
+                        {nomeGerado}
+                      </p>
+                    </div>
                   </div>
                 ) : slot?.needsDetalhe && !item.detalhe ? (
-                  <div className="rounded bg-amber-50 border border-amber-200 px-2.5 py-1.5">
+                  <div className="rounded-lg bg-amber-50 border border-amber-200 px-2.5 py-1.5">
                     <p className="text-xs text-amber-700">
                       ⚠️ Preencha o campo acima para gerar o nome do arquivo.
                     </p>
