@@ -11,6 +11,7 @@ import {
   isPerfilConsultorFila,
   isPerfilGerencia,
   isPerfilGestao,
+  listActiveConsultores,
   updateConsultorUltimaAtribuicao,
 } from "./consultores.js";
 import { notifyLeadOffer } from "./emailService.js";
@@ -32,7 +33,7 @@ const TABLE = () => ENV.DYNAMODB_LEADS_TABLE;
 export const SLA_REGIONAL_CYCLES = 2;
 
 function isGestaoPhase(lead) {
-  return Boolean(lead?.slaFaseGestao) || !lead?.regiao;
+  return Boolean(lead?.slaFaseGestao);
 }
 
 function regionalCycle(lead) {
@@ -199,9 +200,34 @@ export async function pickConsultorGestao(excludeIds = [], coords = null) {
   return scoreCandidates(people, coords);
 }
 
+/**
+ * Fallback geo: quando o lead não tem região mas tem coordenadas,
+ * busca entre TODOS os consultores ativos (exceto Gestão) e ordena por distância.
+ * Consultores da fila têm prioridade sobre gerentes.
+ *
+ * @param {string[]} excludeIds — já recusaram ou expiraram
+ * @param {{ lat: number, lng: number } | null} coords
+ */
+export async function pickConsultorGeoAll(excludeIds = [], coords = null) {
+  const all = await listActiveConsultores();
+  const people = availablePeople(all, excludeIds).filter(
+    (c) => !isPerfilGestao(c),
+  );
+  if (!people.length) return null;
+
+  const consultores = people.filter(isPerfilConsultorFila);
+  if (consultores.length) return scoreCandidates(consultores, coords) || null;
+
+  const gerentes = people.filter(isPerfilGerencia);
+  if (gerentes.length) return scoreCandidates(gerentes, coords) || null;
+
+  return null;
+}
+
 export async function resolveOfferTarget(lead, excludeIds = []) {
   const coords = leadCoords(lead);
   if (isGestaoPhase(lead)) return pickConsultorGestao(excludeIds, coords);
+  if (!lead.regiao) return pickConsultorGeoAll(excludeIds, coords);
   return pickConsultorForOffer(lead.regiao, excludeIds, coords);
 }
 
@@ -219,6 +245,27 @@ async function pickNextOffer(lead, recusadosInput) {
     return { next, recusados: [...recusados], historicoExtras, fieldUpdates };
   }
 
+  // ── Lead sem região mas com geo: distribui por proximidade entre todos os consultores ──
+  if (!lead.regiao) {
+    let next = await pickConsultorGeoAll([...recusados], coords);
+    if (next) {
+      return { next, recusados: [...recusados], historicoExtras, fieldUpdates };
+    }
+    // Todos os consultores geo esgotados → escala para Gestão
+    fieldUpdates.slaFaseGestao = true;
+    historicoExtras.push({
+      action: "sla_escalado_gestao",
+      label: "Lead escalado para a Gestão",
+      detail:
+        "Nenhum consultor disponível via geolocalização — lead encaminhado para a equipe de Gestão.",
+      by: "sistema",
+    });
+    const gestaoRecusados = [];
+    next = await pickConsultorGestao(gestaoRecusados, coords);
+    return { next, recusados: gestaoRecusados, historicoExtras, fieldUpdates };
+  }
+
+  // ── Fluxo regional normal ──
   let next = await pickConsultorForOffer(lead.regiao, [...recusados], coords);
   if (next) {
     return { next, recusados: [...recusados], historicoExtras, fieldUpdates };
@@ -272,12 +319,15 @@ function offerHistoryCopy(lead, consultor, { reoffer = false } = {}) {
   const regiao = lead.regiao || "—";
 
   if (isPerfilGestao(consultor)) {
-    const escalado = lead.slaFaseGestao && lead.regiao;
+    const escaladoRegional = lead.slaFaseGestao && lead.regiao;
+    const escaladoGeo = lead.slaFaseGestao && !lead.regiao;
     return {
       label: `Lead escalado para a Gestão`,
-      detail: escalado
+      detail: escaladoRegional
         ? `Após ${SLA_REGIONAL_CYCLES} rodadas na região ${regiao} sem aceite, o lead foi encaminhado para a equipe de Gestão (${nome}). Prazo: ${minutos} minutos para aceitar.`
-        : `Lead sem região definida. Enviado diretamente para a Gestão (${nome}). Prazo: ${minutos} minutos para aceitar.`,
+        : escaladoGeo
+          ? `Todos os consultores próximos foram acionados sem sucesso. Lead encaminhado para a Gestão (${nome}). Prazo: ${minutos} minutos para aceitar.`
+          : `Lead sem região definida. Enviado diretamente para a Gestão (${nome}). Prazo: ${minutos} minutos para aceitar.`,
     };
   }
   if (isPerfilGerencia(consultor)) {
@@ -288,7 +338,9 @@ function offerHistoryCopy(lead, consultor, { reoffer = false } = {}) {
   }
   return {
     label: `Lead ${acao} para ${nome}`,
-    detail: `Lead atribuído a ${nome} pela fila da região ${regiao}. Prazo: ${minutos} minutos para aceitar ou recusar.`,
+    detail: regiao === "—"
+      ? `Lead atribuído a ${nome} por geolocalização (sem região definida). Prazo: ${minutos} minutos para aceitar ou recusar.`
+      : `Lead atribuído a ${nome} pela fila da região ${regiao}. Prazo: ${minutos} minutos para aceitar ou recusar.`,
   };
 }
 
@@ -336,7 +388,12 @@ export async function offerLeadOnCreate(lead) {
   if (lead.regiao) {
     lead.slaCicloRegional = 1;
     lead.slaFaseGestao = false;
+  } else if (leadCoords(lead)) {
+    // Sem região mas tem coordenadas → distribui por proximidade (geo fallback)
+    lead.slaCicloRegional = 0;
+    lead.slaFaseGestao = false;
   } else {
+    // Sem região e sem geo → vai direto para Gestão
     lead.slaFaseGestao = true;
     lead.slaCicloRegional = 0;
   }
@@ -355,14 +412,19 @@ export async function offerLeadOnCreate(lead) {
     lead.slaStatus = "expirado_ciclo";
     delete lead.slaDeadline;
     const semRegiao = !lead.regiao;
+    const temGeo = Boolean(leadCoords(lead));
     appendCreateHistory(lead, {
       action: "sla_ciclo_encerrado",
-      label: semRegiao
+      label: semRegiao && !temGeo
         ? "Nenhum perfil Gestão disponível"
-        : "Ninguém disponível para aceitar o lead",
-      detail: semRegiao
-        ? "Lead sem UF/região e não há consultor com perfil Gestão ativo."
-        : `${SLA_REGIONAL_CYCLES} ciclos regionais em ${lead.regiao} e a Gestão esgotada — sem destinatário.`,
+        : semRegiao
+          ? "Nenhum consultor disponível (geo + Gestão)"
+          : "Ninguém disponível para aceitar o lead",
+      detail: semRegiao && !temGeo
+        ? "Lead sem região e sem geolocalização — não há consultor com perfil Gestão ativo."
+        : semRegiao
+          ? "Lead sem região: nenhum consultor encontrado por geolocalização e não há consultor Gestão ativo."
+          : `${SLA_REGIONAL_CYCLES} ciclos regionais em ${lead.regiao} e a Gestão esgotada — sem destinatário.`,
       by: "sistema",
     });
     console.warn(
