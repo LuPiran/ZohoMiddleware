@@ -45,6 +45,8 @@ import {
   MdContacts,
   MdCloudUpload,
 } from "react-icons/md";
+import DocumentUpload from "../../components/ui/DocumentUpload";
+import { gerarNomeArquivo } from "../../utils/fileNaming";
 
 export default function Recompra() {
   const navigate = useNavigate();
@@ -1102,23 +1104,31 @@ export default function Recompra() {
           ? parceiroEscolhido
           : getNomeUsuario(user) || "";
 
-      // Converte arquivos para base64
+      // Converte arquivos para base64, gerando nomes padronizados
       const arquivosBase64 =
         arquivos && arquivos.length > 0
           ? await Promise.all(
-              arquivos.map(async (arquivo) => {
+              arquivos.map(async ({ file, tipoDocumento, detalhe }) => {
                 return new Promise((resolve, reject) => {
                   const reader = new FileReader();
                   reader.onload = () => {
-                    const base64 = reader.result.split(",")[1]; // Remove o prefixo data:type;base64,
+                    const base64 = reader.result.split(",")[1];
+                    const ext = file.name.split(".").pop()?.toLowerCase() || "bin";
+                    const nomeGerado = gerarNomeArquivo({
+                      tipoDocumento,
+                      extensao: ext,
+                      nomePaciente,
+                      sobrenomePaciente,
+                      detalhe,
+                    });
                     resolve({
-                      fileName: arquivo.name,
-                      base64: base64,
-                      contentType: arquivo.type || "application/octet-stream",
+                      fileName: nomeGerado || file.name,
+                      base64,
+                      contentType: file.type || "application/octet-stream",
                     });
                   };
                   reader.onerror = reject;
-                  reader.readAsDataURL(arquivo);
+                  reader.readAsDataURL(file);
                 });
               }),
             )
@@ -2159,95 +2169,29 @@ export default function Recompra() {
             <div className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6">
               <h2 className="text-base sm:text-lg font-semibold text-tegra-text-primary mb-3 sm:mb-4">
                 <span className="font-bold text-tegra-blue-dark">
-                  Upload de arquivos
+                  Upload de documentos
                 </span>
               </h2>
-              <div className="space-y-3 sm:space-y-4">
-                {/* Campo de upload */}
-                <div className="relative">
-                  <input
-                    type="file"
-                    id="file-upload"
-                    multiple
-                    disabled={arquivos.length >= 10}
-                    onChange={(e) => {
-                      const novosArquivos = Array.from(e.target.files);
-                      const totalArquivos = arquivos.length + novosArquivos.length;
-                      
-                      if (totalArquivos > 10) {
-                        showToast(
-                          "⚠️ Máximo de 10 arquivos permitidos",
-                          "warning"
-                        );
-                        return;
-                      }
-                      
-                      setArquivos([...arquivos, ...novosArquivos]);
-                      // Limpa o input para permitir selecionar o mesmo arquivo novamente
-                      e.target.value = "";
-                    }}
-                    className="hidden"
-                  />
-                  <label
-                    htmlFor="file-upload"
-                    className={`flex items-center justify-between px-4 py-3 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${
-                      arquivos.length >= 10
-                        ? "bg-tegra-gray-light border-tegra-gray-medium cursor-not-allowed opacity-60"
-                        : "bg-blue-50 border-tegra-blue hover:bg-blue-100"
-                    }`}
-                  >
-                    <span className="text-tegra-blue-dark font-medium">
-                      Escolher ficheiro(s)
+              <DocumentUpload
+                value={arquivos}
+                onChange={setArquivos}
+                nomePaciente={nomePaciente}
+                sobrenomePaciente={sobrenomePaciente}
+                maxFiles={10}
+                showToast={showToast}
+              />
+              {/* Checkbox Documentos Completos */}
+              <div className="pt-4 mt-2 border-t border-tegra-gray-medium">
+                <Checkbox
+                  id="documentos-completos"
+                  label={
+                    <span className="font-bold text-tegra-blue-dark">
+                      Documentos Completos?
                     </span>
-                    <MdCloudUpload className="text-tegra-blue-dark text-xl" />
-                  </label>
-                </div>
-
-                {/* Texto de dica */}
-                <p className="text-sm text-tegra-text-secondary">
-                  Anexe evidências da ocorrência (fotos, vídeos ou documentos).
-                  Máximo 10 arquivos.
-                </p>
-
-                {/* Lista de arquivos selecionados */}
-                {arquivos.length > 0 && (
-                  <div className="space-y-2">
-                    {arquivos.map((arquivo, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center justify-between p-2 bg-tegra-gray-light rounded border border-tegra-gray-medium"
-                      >
-                        <span className="text-sm text-tegra-text-primary truncate flex-1">
-                          {arquivo.name}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setArquivos(arquivos.filter((_, i) => i !== index));
-                          }}
-                          className="ml-2 text-tegra-error hover:text-tegra-error-dark transition-colors"
-                          aria-label="Remover arquivo"
-                        >
-                          <MdClose className="text-lg" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Checkbox Documentos Completos */}
-                <div className="pt-2">
-                  <Checkbox
-                    id="documentos-completos"
-                    label={
-                      <span className="font-bold text-tegra-blue-dark">
-                        Documentos Completos?
-                      </span>
-                    }
-                    checked={documentosCompletos}
-                    onChange={(e) => setDocumentosCompletos(e.target.checked)}
-                  />
-                </div>
+                  }
+                  checked={documentosCompletos}
+                  onChange={(e) => setDocumentosCompletos(e.target.checked)}
+                />
               </div>
             </div>
 
