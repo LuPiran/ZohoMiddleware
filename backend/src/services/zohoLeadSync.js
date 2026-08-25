@@ -65,7 +65,8 @@ export function toZohoDateTime(iso) {
   if (!iso) return undefined;
   const parsed = iso instanceof Date ? iso : new Date(iso);
   if (Number.isNaN(parsed.getTime())) return undefined;
-  return parsed.toISOString().replace("Z", "+00:00");
+  // Zoho não aceita milissegundos — usa os primeiros 19 chars + offset
+  return parsed.toISOString().slice(0, 19) + "+00:00";
 }
 
 export function toZohoDate(iso) {
@@ -173,7 +174,9 @@ export function syncZohoLeadDistribuicao(lead) {
     ...field(ENV.ZOHO_LEAD_DIST_CONSULTOR_EMAIL_FIELD, lead.emailConsultor),
     ...field(ENV.ZOHO_LEAD_DIST_CONSULTOR_ID_FIELD, lead.consultorId ? String(lead.consultorId) : undefined),
     ...field(ENV.ZOHO_LEAD_DIST_DATA_ATRIBUICAO_FIELD, toZohoDateTime(lead.entradaEm)),
-    ...field(ENV.ZOHO_LEAD_DIST_REGIAO_FIELD, lead.regiao),
+    // Dist_Regiao omitida aqui — lead.regiao usa nomenclatura do webhook
+    // e pode não bater com o picklist (SP/SUL, CONNE, RIO+). Sincronizado
+    // separadamente quando o valor for confiável.
     ...field(ENV.ZOHO_LEAD_DIST_FILA_FIELD, fila),
     ...field(ENV.ZOHO_LEAD_DIST_STATUS_FIELD, "Oferecido"),
     ...(lead.slaOfertaRound != null
