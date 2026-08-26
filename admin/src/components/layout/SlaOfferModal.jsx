@@ -55,18 +55,31 @@ function TimerRing({ remaining, total }) {
   const isUrgent  = remaining <= urgentThreshold;
   const isWarning = remaining <= warningThreshold;
 
-  const size = 92;
-  const stroke = 5;
+  // Círculo maior para texto caber bem
+  const size = 104;
+  const stroke = 6;
   const r = (size - stroke) / 2;
   const circ = 2 * Math.PI * r;
   const dashOffset = circ * (1 - pct);
 
   const color = isUrgent ? "#ef4444" : isWarning ? "#f59e0b" : "#0d9488";
-  const textColor = isUrgent ? "text-red-600" : isWarning ? "text-amber-600" : "text-teal-700";
+  const textColor = isUrgent ? "#dc2626" : isWarning ? "#d97706" : "#0f766e";
+
+  // Texto do timer: horas (ex: "47h 49m") ou minutos:segundos (ex: "09:42")
+  const timeText = formatTime(remaining);
+  // Quando mostra HH MM, divide em duas linhas para caber no círculo
+  const isHourFormat = timeText.includes("h");
 
   return (
-    <div className={`relative flex items-center justify-center ${isUrgent ? "animate-pulse" : ""}`}>
-      <svg width={size} height={size} className="-rotate-90">
+    <div className={`relative shrink-0 ${isUrgent ? "animate-pulse" : ""}`}
+         style={{ width: size, height: size }}>
+      {/* Track e arco */}
+      <svg
+        width={size}
+        height={size}
+        style={{ transform: "rotate(-90deg)", display: "block" }}
+      >
+        {/* Track (fundo cinza) */}
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -75,6 +88,7 @@ function TimerRing({ remaining, total }) {
           stroke="#e5e7eb"
           strokeWidth={stroke}
         />
+        {/* Arco de progresso — drena conforme o tempo passa */}
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -88,11 +102,36 @@ function TimerRing({ remaining, total }) {
           style={{ transition: "stroke-dashoffset 1s linear, stroke 0.5s" }}
         />
       </svg>
-      <div className="absolute flex flex-col items-center">
-        <span className={`font-mono text-[15px] font-bold tabular-nums leading-none ${textColor}`}>
-          {formatTime(remaining)}
-        </span>
-        <span className="mt-0.5 text-[9px] font-medium uppercase tracking-wide text-slate-400">
+
+      {/* Texto centralizado via inset-0 */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 0,
+        }}
+      >
+        {isHourFormat ? (
+          /* "47h" e "49m" em duas linhas pequenas */
+          <>
+            <span style={{ fontFamily: "monospace", fontSize: 15, fontWeight: 800, lineHeight: 1, color: textColor, letterSpacing: "-0.02em" }}>
+              {timeText.split(" ")[0]}
+            </span>
+            <span style={{ fontFamily: "monospace", fontSize: 13, fontWeight: 700, lineHeight: 1.2, color: textColor }}>
+              {timeText.split(" ")[1]}
+            </span>
+          </>
+        ) : (
+          /* "09:42" em uma linha */
+          <span style={{ fontFamily: "monospace", fontSize: 17, fontWeight: 800, lineHeight: 1, color: textColor, letterSpacing: "-0.02em" }}>
+            {timeText}
+          </span>
+        )}
+        <span style={{ fontSize: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: "#94a3b8", marginTop: 3 }}>
           restante
         </span>
       </div>
