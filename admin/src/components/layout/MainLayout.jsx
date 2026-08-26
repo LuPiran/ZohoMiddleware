@@ -64,29 +64,11 @@ export default function MainLayout({ children }) {
         {!isFaqRoute && (
           <NavLink
             to={ROUTES.FAQ}
-            aria-label="Abrir FAQ e Ajuda"
+            aria-label="FAQ e Ajuda"
             title="FAQ e Ajuda"
-            className={[
-              "fixed z-40 transition-all duration-200",
-              "focus:outline-none focus:ring-2 focus:ring-tegra-blue-light focus:ring-offset-2",
-              // Mobile: ícone circular simples
-              "bottom-4 right-4 flex h-11 w-11 items-center justify-center rounded-full",
-              "bg-tegra-blue-dark text-white shadow-[0_6px_20px_rgba(27,52,108,0.35)]",
-              "hover:bg-tegra-blue active:scale-95",
-              // Desktop: pill completo com texto
-              "sm:bottom-6 sm:right-6 sm:h-auto sm:w-auto sm:inline-flex sm:items-center sm:gap-3 sm:rounded-full",
-              "sm:border sm:border-white/20 sm:bg-gradient-to-r sm:from-tegra-blue-dark sm:to-tegra-blue",
-              "sm:px-4 sm:py-3 sm:text-sm sm:font-semibold",
-              "sm:shadow-[0_14px_32px_rgba(27,52,108,0.28)]",
-              "sm:hover:-translate-y-0.5 sm:hover:from-tegra-blue sm:hover:to-tegra-blue-dark",
-              "sm:hover:shadow-[0_18px_36px_rgba(27,52,108,0.36)]",
-            ].join(" ")}
+            className="fixed bottom-5 right-5 z-40 flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-tegra-blue-dark shadow-sm transition-all duration-150 hover:border-tegra-blue/40 hover:shadow-md hover:text-tegra-blue active:scale-95 focus:outline-none focus:ring-2 focus:ring-tegra-blue-light focus:ring-offset-2 sm:bottom-6 sm:right-6 sm:h-11 sm:w-11"
           >
-            <MdHelpOutline className="text-xl sm:hidden" aria-hidden />
-            <span className="hidden sm:flex h-8 w-8 items-center justify-center rounded-full bg-white/12 ring-1 ring-white/20">
-              <MdHelpOutline className="text-lg" aria-hidden />
-            </span>
-            <span className="hidden sm:inline">FAQ e Ajuda</span>
+            <MdHelpOutline className="text-[22px]" aria-hidden />
           </NavLink>
         )}
 
