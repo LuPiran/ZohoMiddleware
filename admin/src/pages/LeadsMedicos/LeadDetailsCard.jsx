@@ -410,7 +410,8 @@ export default function LeadDetailsCard({ lead }) {
 
         {/* Endereço + Mapa */}
         {enderecoCompleto && (
-          <div className="border-t border-tegra-gray-medium/40 pt-4">
+          <div className="border-t border-tegra-gray-medium/40 pt-4 space-y-3">
+            {/* Linha do endereço */}
             <div className="flex items-start gap-2.5">
               <span className="mt-0.5 shrink-0 text-tegra-teal">
                 <MdHome className="text-base" aria-hidden />
@@ -431,9 +432,10 @@ export default function LeadDetailsCard({ lead }) {
                     size="sm"
                   />
                 </div>
-                <LeadMapEmbed lead={lead} address={enderecoCompleto} />
               </div>
             </div>
+            {/* Mapa — largura total, fora do flex do ícone */}
+            <LeadMapEmbed lead={lead} />
           </div>
         )}
 
