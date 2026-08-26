@@ -3,15 +3,26 @@ import { MdClose, MdPhone, MdBadge, MdLocationOn, MdMedicalServices } from "reac
 import { useSlaOffers } from "../../contexts/SlaOfferContext";
 import { useEffect, useRef, useState } from "react";
 
-const SLA_TOTAL_MS = 10 * 60 * 1000;
-
+/**
+ * Retorna { remaining, total } onde:
+ * - remaining: ms restantes até o deadline
+ * - total: ms totais da oferta (capturado na primeira renderização)
+ */
 function useCountdown(deadline) {
-  const [remaining, setRemaining] = useState(() =>
-    deadline ? Math.max(0, new Date(deadline).getTime() - Date.now()) : 0,
-  );
+  const totalRef = useRef(null);
+
+  const [remaining, setRemaining] = useState(() => {
+    const r = deadline ? Math.max(0, new Date(deadline).getTime() - Date.now()) : 0;
+    totalRef.current = r;
+    return r;
+  });
 
   useEffect(() => {
     if (!deadline) return undefined;
+    const initial = Math.max(0, new Date(deadline).getTime() - Date.now());
+    totalRef.current = initial;
+    setRemaining(initial);
+
     function tick() {
       setRemaining(Math.max(0, new Date(deadline).getTime() - Date.now()));
     }
@@ -20,7 +31,7 @@ function useCountdown(deadline) {
     return () => clearInterval(id);
   }, [deadline]);
 
-  return remaining;
+  return { remaining, total: totalRef.current ?? remaining };
 }
 
 function formatTime(ms) {
@@ -28,19 +39,24 @@ function formatTime(ms) {
   const hours = Math.floor(totalSecs / 3600);
   const mins  = Math.floor((totalSecs % 3600) / 60);
   const secs  = totalSecs % 60;
-  if (hours > 0) {
-    return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+  if (hours >= 1) {
+    // Ex: "47h 49m" — mais legível que 47:49:49
+    return `${hours}h ${String(mins).padStart(2, "0")}m`;
   }
   return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
 }
 
 function TimerRing({ remaining, total }) {
-  const pct = total > 0 ? Math.max(0, remaining / total) : 0;
-  const isUrgent = remaining < 2 * 60 * 1000;
-  const isWarning = remaining < 5 * 60 * 1000;
+  // pct sempre entre 0 e 1 — evita anel quebrado quando remaining > total
+  const pct = total > 0 ? Math.min(1, Math.max(0, remaining / total)) : 0;
+  // Urgência relativa ao total (últimos 5%) ou absoluta (< 2min) — o que vier primeiro
+  const urgentThreshold  = Math.min(2 * 60 * 1000, total * 0.05);
+  const warningThreshold = Math.min(5 * 60 * 1000, total * 0.20);
+  const isUrgent  = remaining <= urgentThreshold;
+  const isWarning = remaining <= warningThreshold;
 
-  const size = 88;
-  const stroke = 6;
+  const size = 92;
+  const stroke = 5;
   const r = (size - stroke) / 2;
   const circ = 2 * Math.PI * r;
   const dashOffset = circ * (1 - pct);
@@ -73,7 +89,7 @@ function TimerRing({ remaining, total }) {
         />
       </svg>
       <div className="absolute flex flex-col items-center">
-        <span className={`font-mono text-lg font-bold tabular-nums leading-none ${textColor}`}>
+        <span className={`font-mono text-[15px] font-bold tabular-nums leading-none ${textColor}`}>
           {formatTime(remaining)}
         </span>
         <span className="mt-0.5 text-[9px] font-medium uppercase tracking-wide text-slate-400">
@@ -107,8 +123,9 @@ export default function SlaOfferModal() {
     offers,
   } = useSlaOffers();
 
-  const remaining = useCountdown(offer?.slaDeadline);
-  const isUrgent = remaining < 2 * 60 * 1000;
+  const { remaining, total: slaTotal } = useCountdown(offer?.slaDeadline);
+  const urgentThreshold = Math.min(2 * 60 * 1000, slaTotal * 0.05);
+  const isUrgent = remaining <= urgentThreshold;
   const overlayRef = useRef(null);
 
   useEffect(() => {
@@ -193,11 +210,11 @@ export default function SlaOfferModal() {
           <div className={`flex items-center gap-4 rounded-xl border px-4 py-3 transition-colors ${
             isUrgent
               ? "border-red-200 bg-red-50"
-              : remaining < 5 * 60 * 1000
+              : remaining <= Math.min(5 * 60 * 1000, slaTotal * 0.20)
                 ? "border-amber-200 bg-amber-50"
                 : "border-teal-100 bg-teal-50"
           }`}>
-            <TimerRing remaining={remaining} total={SLA_TOTAL_MS} />
+            <TimerRing remaining={remaining} total={slaTotal} />
             <div className="min-w-0">
               <p className="text-sm font-semibold text-slate-700">
                 {isUrgent ? "⚠️ Tempo quase esgotado!" : "Tempo para aceitar"}

@@ -1,6 +1,31 @@
+import { readFileSync } from "fs";
+import { fileURLToPath } from "url";
+import { dirname, resolve } from "path";
 import axios from "axios";
 import { ENV } from "../config/env.js";
 import { findConsultoresGestao } from "./consultores.js";
+
+/* ─── Logo em base64 ────────────────────────────────────────────────────── */
+
+function loadLogoBase64() {
+  try {
+    const __dir = dirname(fileURLToPath(import.meta.url));
+    // Tenta carregar do volume montado (Docker) ou fallback local
+    const paths = [
+      resolve(__dir, "../../../admin/public/logoCorp.png"),
+      resolve(__dir, "../../admin/public/logoCorp.png"),
+    ];
+    for (const p of paths) {
+      try {
+        const buf = readFileSync(p);
+        return `data:image/png;base64,${buf.toString("base64")}`;
+      } catch { /* tenta próximo */ }
+    }
+  } catch { /* ignora */ }
+  return null;
+}
+
+const LOGO_DATA_URI = loadLogoBase64();
 
 /* ─── Helpers ──────────────────────────────────────────────────────────── */
 
@@ -10,6 +35,45 @@ function portalBaseUrl() {
 
 function leadPortalUrl(leadId) {
   return `${portalBaseUrl()}/leads-medicos/${leadId}`;
+}
+
+/** Formata minutos em texto legível: 10 → "10 minutos", 120 → "2 horas", 2880 → "48 horas" */
+function formatMinutes(min) {
+  if (!min) return "—";
+  if (min >= 1440) {
+    const d = Math.round(min / 1440);
+    return `${d} dia${d > 1 ? "s" : ""}`;
+  }
+  if (min >= 60) {
+    const h = Math.round(min / 60);
+    return `${h} hora${h > 1 ? "s" : ""}`;
+  }
+  return `${min} minuto${min > 1 ? "s" : ""}`;
+}
+
+/** Data/hora de prazo: "até 18:30 de 26/08" */
+function formatDeadlineTime(minutes) {
+  const d = new Date(Date.now() + minutes * 60 * 1000);
+  const hora = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
+  const data = d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", timeZone: "America/Sao_Paulo" });
+  return `até ${hora} de ${data}`;
+}
+
+/** Data/hora atual formatada */
+function nowBR() {
+  const d = new Date();
+  const hora = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
+  const data = d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "America/Sao_Paulo" });
+  return `${data} às ${hora}`;
+}
+
+/** "SUDESTE (Guarulhos / SP)" */
+function formatRegiao(lead) {
+  const cidade = [lead?.cidade, lead?.estado || lead?.ufCrm].filter(Boolean).join(" / ");
+  if (lead?.regiao && cidade) return `${lead.regiao} (${cidade})`;
+  if (lead?.regiao) return lead.regiao;
+  if (cidade) return cidade;
+  return null;
 }
 
 async function getGestaoEmails() {
@@ -51,8 +115,17 @@ function statusBadge(status) {
 /* ─── Template HTML base ────────────────────────────────────────────────── */
 
 function buildHtml({ badgeStatus, title, intro, leadInfo, bodyExtra = "", ctaUrl, ctaLabel, footerNote = "" }) {
-  const { nome, cidade, estado, especialidade, consultor } = leadInfo || {};
-  const cidadeStr = [cidade, estado].filter(Boolean).join(" / ");
+  const { nome, regiao, especialidade, consultor } = leadInfo || {};
+
+  const headerLogo = LOGO_DATA_URI
+    ? `<img src="${LOGO_DATA_URI}" alt="TegraPharma Corp" height="46"
+         style="display:block;max-height:46px;border:0;">`
+    : `<p style="margin:0;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:-0.3px;">
+         TegraPharma<span style="color:#E5989B;">Corp</span>
+       </p>`;
+
+  const labelCell = `font-size:11px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:0.09em;width:108px;white-space:nowrap;padding:5px 0;vertical-align:top;`;
+  const valueCell = `font-size:14px;color:#1e293b;padding:5px 0 5px 8px;vertical-align:top;`;
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -65,9 +138,9 @@ function buildHtml({ badgeStatus, title, intro, leadInfo, bodyExtra = "", ctaUrl
 
         <!-- Header -->
         <tr>
-          <td style="background:#1a2f5b;border-radius:12px 12px 0 0;padding:28px 32px;">
-            <p style="margin:0;color:#8FA9C1;font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;">Portal do Consultor</p>
-            <p style="margin:6px 0 0;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:-0.3px;">TegraPharma<span style="color:#E5989B;">Corp</span></p>
+          <td style="background:#1a2f5b;border-radius:12px 12px 0 0;padding:24px 32px 20px;">
+            ${headerLogo}
+            <p style="margin:8px 0 0;color:#8FA9C1;font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;">Portal do Consultor</p>
           </td>
         </tr>
 
@@ -78,36 +151,36 @@ function buildHtml({ badgeStatus, title, intro, leadInfo, bodyExtra = "", ctaUrl
 
         <!-- Corpo -->
         <tr>
-          <td style="background:#ffffff;padding:32px;">
+          <td style="background:#ffffff;padding:28px 32px 32px;">
 
             <!-- Badge de status -->
-            ${badgeStatus ? `<p style="margin:0 0 20px;">${statusBadge(badgeStatus)}</p>` : ""}
+            ${badgeStatus ? `<p style="margin:0 0 18px;">${statusBadge(badgeStatus)}</p>` : ""}
 
             <!-- Título -->
-            <h2 style="margin:0 0 8px;font-size:20px;font-weight:700;color:#1a2f5b;line-height:1.3;">${title}</h2>
-            <p style="margin:0 0 24px;font-size:15px;color:#475569;line-height:1.6;">${intro}</p>
+            <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:#1a2f5b;line-height:1.3;">${title}</h2>
+            <p style="margin:0 0 22px;font-size:15px;color:#475569;line-height:1.6;">${intro}</p>
 
             <!-- Card do lead -->
             <table width="100%" cellpadding="0" cellspacing="0"
               style="border:1px solid #e2e8f0;border-left:4px solid #8FA9C1;border-radius:8px;margin-bottom:24px;background:#f8fafc;">
               <tr>
-                <td style="padding:20px 24px;">
-                  <table width="100%" cellpadding="4" cellspacing="0">
+                <td style="padding:18px 22px;">
+                  <table width="100%" cellpadding="0" cellspacing="0">
                     ${nome ? `<tr>
-                      <td style="font-size:12px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;width:110px;white-space:nowrap;">Paciente</td>
-                      <td style="font-size:14px;color:#1e293b;font-weight:600;">${nome}</td>
+                      <td style="${labelCell}">Paciente</td>
+                      <td style="${valueCell}font-weight:700;">${nome}</td>
                     </tr>` : ""}
-                    ${cidadeStr ? `<tr>
-                      <td style="font-size:12px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;">Cidade</td>
-                      <td style="font-size:14px;color:#334155;">${cidadeStr}</td>
+                    ${regiao ? `<tr>
+                      <td style="${labelCell}">Região</td>
+                      <td style="${valueCell}">${regiao}</td>
                     </tr>` : ""}
                     ${especialidade ? `<tr>
-                      <td style="font-size:12px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;">Especialidade</td>
-                      <td style="font-size:14px;color:#334155;">${especialidade}</td>
+                      <td style="${labelCell}">Especialidade</td>
+                      <td style="${valueCell}">${especialidade}</td>
                     </tr>` : ""}
                     ${consultor ? `<tr>
-                      <td style="font-size:12px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;">Consultor</td>
-                      <td style="font-size:14px;color:#334155;">${consultor}</td>
+                      <td style="${labelCell}">Consultor</td>
+                      <td style="${valueCell}">${consultor}</td>
                     </tr>` : ""}
                   </table>
                 </td>
@@ -118,7 +191,7 @@ function buildHtml({ badgeStatus, title, intro, leadInfo, bodyExtra = "", ctaUrl
 
             <!-- CTA -->
             ${ctaUrl ? `<p style="margin:0;text-align:center;">
-              <a href="${ctaUrl}" style="display:inline-block;padding:13px 28px;background:#1a2f5b;color:#ffffff;text-decoration:none;border-radius:8px;font-size:14px;font-weight:700;letter-spacing:0.02em;">
+              <a href="${ctaUrl}" style="display:inline-block;padding:13px 32px;background:#1a2f5b;color:#ffffff;text-decoration:none;border-radius:8px;font-size:14px;font-weight:700;letter-spacing:0.02em;">
                 ${ctaLabel || "Abrir no Portal →"}
               </a>
             </p>` : ""}
@@ -128,11 +201,11 @@ function buildHtml({ badgeStatus, title, intro, leadInfo, bodyExtra = "", ctaUrl
 
         <!-- Footer -->
         <tr>
-          <td style="background:#f8fafc;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 12px 12px;padding:18px 32px;text-align:center;">
-            <p style="margin:0;font-size:12px;color:#94a3b8;line-height:1.6;">
+          <td style="background:#f8fafc;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 12px 12px;padding:16px 32px;text-align:center;">
+            <p style="margin:0;font-size:12px;color:#94a3b8;line-height:1.7;">
               TegraPharma Corp · Portal do Consultor<br>
-              ${footerNote ? `<span style="color:#cbd5e1;">${footerNote}</span><br>` : ""}
-              <span style="color:#cbd5e1;">Este é um e-mail automático, não responda.</span>
+              ${footerNote ? `<span style="color:#64748b;">${footerNote}</span><br>` : ""}
+              <span style="color:#cbd5e1;">E-mail automático — não responda a esta mensagem.</span>
             </p>
           </td>
         </tr>
@@ -150,8 +223,7 @@ function buildHtml({ badgeStatus, title, intro, leadInfo, bodyExtra = "", ctaUrl
 function leadInfoFrom(lead) {
   return {
     nome: lead?.nome || null,
-    cidade: lead?.cidade || null,
-    estado: lead?.estado || lead?.ufCrm || null,
+    regiao: formatRegiao(lead),            // "SUDESTE (Guarulhos / SP)"
     especialidade: lead?.especialidade || null,
     consultor: lead?.consultor || null,
   };
@@ -159,34 +231,53 @@ function leadInfoFrom(lead) {
 
 // 1. Oferta SLA → consultor
 function contentLeadOffer(lead, consultorNome) {
-  const minutos = ENV.SLA_OFFER_MINUTES || 10;
-  const fila = lead.regiao ? `da regional ${lead.regiao}` : "sem UF/região (fila da Gestão)";
+  const minutos = Number(ENV.SLA_OFFER_MINUTES) || 10;
+  const tempoStr   = formatMinutes(minutos);          // "2 horas" / "10 minutos"
+  const deadlineStr = formatDeadlineTime(minutos);    // "até 18:30 de 26/08"
+  const fila = lead.regiao ? `da regional <strong>${lead.regiao}</strong>` : "sem região (fila da Gestão)";
+
+  const prazoBox = `
+    <table width="100%" cellpadding="0" cellspacing="0"
+      style="border:1px solid #fde68a;border-left:4px solid #f59e0b;border-radius:8px;background:#fffbeb;margin-bottom:24px;">
+      <tr>
+        <td style="padding:14px 20px;">
+          <p style="margin:0;font-size:13px;color:#78350f;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;">⏱ Prazo para aceitar</p>
+          <p style="margin:6px 0 0;font-size:22px;font-weight:800;color:#92400e;line-height:1.2;">${tempoStr}</p>
+          <p style="margin:4px 0 0;font-size:13px;color:#b45309;">${deadlineStr}</p>
+        </td>
+      </tr>
+    </table>`;
+
   return {
-    subject: `Novo lead ${lead.regiao || "Gestão"} — ${minutos} min para aceitar`,
+    subject: `Novo lead ${lead.regiao || "Gestão"} — responda em ${tempoStr}`,
     html: buildHtml({
       badgeStatus: "Novo Lead",
-      title: `Novo lead aguardando sua resposta`,
-      intro: `Olá${consultorNome ? `, <strong>${consultorNome}</strong>` : ""}! Um lead <strong>${fila}</strong> foi oferecido a você. Você tem <strong>${minutos} minutos</strong> para aceitar ou recusar no portal.`,
+      title: "Novo lead aguardando sua resposta",
+      intro: `Olá${consultorNome ? `, <strong>${consultorNome}</strong>` : ""}! Um lead ${fila} foi oferecido a você. Aceite ou recuse no portal dentro do prazo.`,
       leadInfo: leadInfoFrom(lead),
+      bodyExtra: prazoBox,
       ctaUrl: leadPortalUrl(lead.id),
       ctaLabel: "Aceitar ou Recusar Lead →",
-      footerNote: `Prazo: ${minutos} minutos a partir do recebimento deste e-mail.`,
+      footerNote: `Gerado em: ${nowBR()}`,
     }),
   };
 }
 
 // 1b. Oferta SLA → gestão (aviso informativo)
 function contentLeadOfferGestao(lead, consultorNome) {
-  const minutos = ENV.SLA_OFFER_MINUTES || 10;
+  const minutos = Number(ENV.SLA_OFFER_MINUTES) || 10;
+  const tempoStr = formatMinutes(minutos);
+  const deadlineStr = formatDeadlineTime(minutos);
   return {
     subject: `Lead oferecido a ${consultorNome || "consultor"} — ${lead.regiao || "Gestão"}`,
     html: buildHtml({
       badgeStatus: "Novo Lead",
-      title: `Lead distribuído para consultor`,
-      intro: `O lead abaixo foi oferecido a <strong>${consultorNome || "um consultor"}</strong> com prazo de <strong>${minutos} minutos</strong> para aceite.`,
+      title: "Lead distribuído para consultor",
+      intro: `O lead abaixo foi oferecido a <strong>${consultorNome || "um consultor"}</strong>. Prazo de aceite: <strong>${tempoStr}</strong> (${deadlineStr}).`,
       leadInfo: leadInfoFrom(lead),
       ctaUrl: leadPortalUrl(lead.id),
       ctaLabel: "Ver no Portal →",
+      footerNote: `Gerado em: ${nowBR()}`,
     }),
   };
 }
