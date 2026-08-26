@@ -79,6 +79,11 @@ export function gerarNomeArquivo({
       return `${numNorm}-Autorizacao_Importacao_Anvisa-${nomeP}.${ext}`;
     }
 
+    case "outros": {
+      const detalheNorm = normalizarParaArquivo(detalhe || "Documento");
+      return `Outros_${detalheNorm}-${nomeP}.${ext}`;
+    }
+
     default:
       return null; // null = manter nome original
   }
@@ -91,5 +96,5 @@ export const TIPOS_DOCUMENTO = [
   { value: "rg_cpf",   label: "2 — RG / CPF / CIN / CRM + Certidão de Nascimento" },
   { value: "endereco", label: "3 — Comprovante de Endereço" },
   { value: "pagamento",label: "4 — Comprovante de Pagamento" },
-  { value: "anvisa",   label: "Autorização de Importação Anvisa" },
+  { value: "outros",   label: "Outros Documentos" },
 ];

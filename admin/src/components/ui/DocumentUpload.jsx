@@ -14,7 +14,7 @@ import {
   MdBadge,
   MdHome,
   MdCreditCard,
-  MdVerifiedUser,
+  MdFolderOpen,
   MdInsertDriveFile,
 } from "react-icons/md";
 import { gerarNomeArquivo } from "../../utils/fileNaming";
@@ -72,18 +72,18 @@ const SLOTS = [
     detalheLabel: "Forma de pagamento",
   },
   {
-    value: "anvisa",
+    value: "outros",
     num: "",
-    label: "Autorização\nImportação ANVISA",
-    Icon: MdVerifiedUser,
-    gradientFrom: "#c0392b",
-    gradientTo: "#a93226",
-    borderColor: "#c0392b",
-    bgLight: "#fdedec",
-    textColor: "#922b21",
+    label: "Outros\nDocumentos",
+    Icon: MdFolderOpen,
+    gradientFrom: "#6d28d9",
+    gradientTo: "#4c1d95",
+    borderColor: "#6d28d9",
+    bgLight: "#f5f3ff",
+    textColor: "#4c1d95",
     needsDetalhe: true,
-    detalhePlaceholder: "ex: 012345.67891012_2026",
-    detalheLabel: "Número da autorização ANVISA",
+    detalhePlaceholder: "ex: Autorização ANVISA, Declaração, Laudo...",
+    detalheLabel: "Tipo do documento",
   },
 ];
 
@@ -234,7 +234,7 @@ export default function DocumentUpload({
       </div>
 
       <p className="text-xs text-tegra-text-secondary">
-        Clique no ícone para adicionar o arquivo correspondente — o nome é gerado automaticamente.
+        Clique no ícone para adicionar o arquivo correspondente.
       </p>
 
       {/* ── Lista de arquivos adicionados ─────────────────────────── */}
