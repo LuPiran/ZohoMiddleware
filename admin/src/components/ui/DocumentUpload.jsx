@@ -128,18 +128,17 @@ export default function DocumentUpload({
     onChange(value.map((item, i) => (i === index ? { ...item, detalhe } : item)));
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
 
-      {/* ── Grade de 5 slots ─────────────────────────────────────── */}
-      <div className="grid grid-cols-5 gap-2 sm:gap-3">
+      {/* ══ MOBILE: lista de linhas ══════════════════════════════════ */}
+      <div className="sm:hidden flex flex-col divide-y divide-gray-100 rounded-2xl border border-gray-200 overflow-hidden bg-white">
         {SLOTS.map((slot, slotIndex) => {
           const count = value.filter((v) => v.tipoDocumento === slot.value).length;
           const hasFile = count > 0;
           const { Icon } = slot;
 
           return (
-            <div key={slot.value} className="flex flex-col items-center gap-2">
-              {/* Input oculto */}
+            <div key={slot.value}>
               <input
                 ref={(el) => { inputRefs.current[slotIndex] = el; }}
                 type="file"
@@ -147,8 +146,85 @@ export default function DocumentUpload({
                 onChange={(e) => handleFileChange(e, slot)}
                 className="hidden"
               />
+              <button
+                type="button"
+                onClick={() => handleSlotClick(slotIndex)}
+                className="w-full flex items-center gap-3 px-4 py-3 active:opacity-70 transition-opacity text-left"
+                style={{ backgroundColor: hasFile ? slot.bgLight : "transparent" }}
+              >
+                {/* Círculo com ícone */}
+                <div
+                  className="shrink-0 w-10 h-10 rounded-full flex items-center justify-center"
+                  style={{
+                    background: hasFile
+                      ? `linear-gradient(135deg, ${slot.gradientFrom}, ${slot.gradientTo})`
+                      : "linear-gradient(135deg, #e5e7eb, #d1d5db)",
+                  }}
+                >
+                  <Icon style={{ color: hasFile ? "#fff" : "#9ca3af", fontSize: 20 }} />
+                </div>
 
-              {/* Card clicável */}
+                {/* Texto */}
+                <div className="flex-1 min-w-0">
+                  {slot.num && (
+                    <span
+                      className="text-[10px] font-black mr-1"
+                      style={{ color: hasFile ? slot.gradientFrom : "#9ca3af" }}
+                    >
+                      {slot.num}.
+                    </span>
+                  )}
+                  <span
+                    className="text-sm font-semibold"
+                    style={{ color: hasFile ? slot.textColor : "#374151" }}
+                  >
+                    {slot.label.replace("\n", " ")}
+                  </span>
+                  {hasFile && (
+                    <p className="text-xs mt-0.5" style={{ color: slot.gradientFrom }}>
+                      {count} arquivo{count > 1 ? "s" : ""} adicionado{count > 1 ? "s" : ""}
+                    </p>
+                  )}
+                </div>
+
+                {/* Badge direita */}
+                <div className="shrink-0">
+                  {hasFile ? (
+                    <span
+                      className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold text-white"
+                      style={{ background: `linear-gradient(135deg, ${slot.gradientFrom}, ${slot.gradientTo})` }}
+                    >
+                      <MdCheckCircle style={{ fontSize: 12 }} />
+                      {count}
+                    </span>
+                  ) : (
+                    <span className="w-8 h-8 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center">
+                      <MdAddCircleOutline className="text-gray-400" style={{ fontSize: 16 }} />
+                    </span>
+                  )}
+                </div>
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* ══ DESKTOP: grade de 5 quadrados ═══════════════════════════ */}
+      <div className="hidden sm:grid grid-cols-5 gap-3">
+        {SLOTS.map((slot, slotIndex) => {
+          const count = value.filter((v) => v.tipoDocumento === slot.value).length;
+          const hasFile = count > 0;
+          const { Icon } = slot;
+
+          return (
+            <div key={slot.value} className="flex flex-col items-center gap-2">
+              <input
+                ref={(el) => { inputRefs.current[slotIndex] = el; }}
+                type="file"
+                multiple
+                onChange={(e) => handleFileChange(e, slot)}
+                className="hidden"
+              />
               <button
                 type="button"
                 onClick={() => handleSlotClick(slotIndex)}
@@ -164,7 +240,6 @@ export default function DocumentUpload({
                   active:scale-95
                 `}
               >
-                {/* Badge numérico */}
                 {slot.num && (
                   <span
                     className="absolute top-1.5 left-1.5 text-[9px] font-black text-white rounded-full w-[18px] h-[18px] flex items-center justify-center shadow-sm"
@@ -173,8 +248,6 @@ export default function DocumentUpload({
                     {slot.num}
                   </span>
                 )}
-
-                {/* Badge de contagem */}
                 {hasFile && (
                   <span
                     className="absolute top-1.5 right-1.5 text-[9px] font-black text-white rounded-full w-[18px] h-[18px] flex items-center justify-center shadow-sm"
@@ -183,8 +256,6 @@ export default function DocumentUpload({
                     {count}
                   </span>
                 )}
-
-                {/* Ícone com fundo circular */}
                 <div
                   className="flex items-center justify-center rounded-full transition-all duration-200"
                   style={{
@@ -196,19 +267,14 @@ export default function DocumentUpload({
                   }}
                 >
                   <Icon
-                    className="transition-colors"
                     style={{
                       color: hasFile ? "#ffffff" : "#9ca3af",
                       fontSize: "clamp(16px, 45%, 26px)",
                     }}
                   />
                 </div>
-
-                {/* Indicador + / ✓ */}
                 {hasFile ? (
-                  <MdCheckCircle
-                    style={{ color: slot.gradientFrom, fontSize: "13px" }}
-                  />
+                  <MdCheckCircle style={{ color: slot.gradientFrom, fontSize: "13px" }} />
                 ) : (
                   <MdAddCircleOutline
                     className="text-gray-300 group-hover:text-gray-400 transition-colors"
@@ -216,8 +282,6 @@ export default function DocumentUpload({
                   />
                 )}
               </button>
-
-              {/* Label abaixo */}
               <p
                 className="text-center leading-tight font-semibold"
                 style={{
@@ -234,7 +298,7 @@ export default function DocumentUpload({
       </div>
 
       <p className="text-xs text-tegra-text-secondary">
-        Clique no ícone para adicionar o arquivo correspondente.
+        Toque no documento para adicionar o arquivo correspondente.
       </p>
 
       {/* ── Lista de arquivos adicionados ─────────────────────────── */}
