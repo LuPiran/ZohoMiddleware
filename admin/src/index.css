@@ -1065,32 +1065,50 @@ textarea:focus {
 }
 
 @keyframes routeFadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 @keyframes routeFadeOut {
-  from {
-    opacity: 1;
-  }
-  to {
-    opacity: 0;
-  }
+  from { opacity: 1; }
+  to   { opacity: 0; }
 }
 
+/* Barra shimmer no topo da tela */
+.route-top-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  z-index: 10;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    #8FA9C1 20%,
+    #E5989B 50%,
+    #8FA9C1 80%,
+    transparent 100%
+  );
+  background-size: 300% 100%;
+  animation: routeTopBarShimmer 1.6s ease-in-out infinite;
+}
+
+@keyframes routeTopBarShimmer {
+  0%   { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+
+/* Overlay glass */
 .route-transition-glass {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(80px) saturate(200%);
-  -webkit-backdrop-filter: blur(80px) saturate(200%);
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(80px) saturate(180%);
+  -webkit-backdrop-filter: blur(80px) saturate(180%);
 }
 
 .route-transition-content {
@@ -1107,27 +1125,16 @@ textarea:focus {
 }
 
 @keyframes routeContentFade {
-  from {
-    opacity: 0;
-    transform: scale(0.92);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
+  from { opacity: 0; transform: scale(0.92); }
+  to   { opacity: 1; transform: scale(1); }
 }
 
 @keyframes routeContentFadeOut {
-  from {
-    opacity: 1;
-    transform: scale(1);
-  }
-  to {
-    opacity: 0;
-    transform: scale(0.92);
-  }
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0; transform: scale(0.92); }
 }
 
+/* Container do loader — fixo, sem pulse próprio */
 .route-loader-container {
   position: relative;
   width: 200px;
@@ -1135,78 +1142,101 @@ textarea:focus {
   display: flex;
   align-items: center;
   justify-content: center;
-  animation: routeLoaderPulse 2s ease-in-out infinite;
 }
 
+/* Halos radiais pulsantes atrás do logo */
+.route-glow-blue,
+.route-glow-teal {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.route-glow-blue {
+  width: 150px;
+  height: 150px;
+  background: radial-gradient(circle, rgba(143, 169, 193, 0.38) 0%, transparent 70%);
+  animation: routeGlowPulse 2.8s ease-in-out infinite;
+}
+
+.route-glow-teal {
+  width: 120px;
+  height: 120px;
+  background: radial-gradient(circle, rgba(229, 152, 155, 0.30) 0%, transparent 70%);
+  animation: routeGlowPulse 2.8s ease-in-out infinite 0.9s;
+}
+
+@keyframes routeGlowPulse {
+  0%, 100% { transform: scale(0.85); opacity: 0.5; }
+  50%       { transform: scale(1.25); opacity: 1; }
+}
+
+/* Logo */
 .route-logo {
   position: absolute;
   width: 140px;
   height: 140px;
   object-fit: contain;
   z-index: 2;
-  filter: drop-shadow(0 10px 20px rgba(143, 169, 193, 0.25));
+  filter: drop-shadow(0 8px 18px rgba(143, 169, 193, 0.30));
+  animation: routeLogoPulse 2.8s ease-in-out infinite;
 }
 
-.route-spinner {
+@keyframes routeLogoPulse {
+  0%, 100% { transform: scale(1);    filter: drop-shadow(0 8px 18px rgba(143, 169, 193, 0.30)); }
+  50%       { transform: scale(1.04); filter: drop-shadow(0 12px 28px rgba(229, 152, 155, 0.35)); }
+}
+
+/* SVG dos dois anéis — ocupa todo o container */
+.route-rings-svg {
   position: absolute;
   width: 100%;
   height: 100%;
-  animation: routeSpinning 1.8s linear infinite;
+  overflow: visible;
 }
 
-@keyframes routeSpinning {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes routeLoaderPulse {
-  0% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.08);
-  }
-  100% {
-    transform: scale(1);
-  }
-}
-
-.route-spinner-circle {
-  stroke-dasharray: 280;
-  stroke-dashoffset: 80;
+/* Anel externo — horário */
+.route-ring-outer {
+  transform-box: fill-box;
   transform-origin: center;
+  animation: routeSpinCW 2.1s linear infinite;
 }
 
+/* Anel interno — anti-horário */
+.route-ring-inner {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: routeSpinCCW 3s linear infinite;
+}
+
+@keyframes routeSpinCW {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes routeSpinCCW {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(-360deg); }
+}
+
+/* Texto de loading com dots dinâmicos (via JS) */
 .route-loading-text {
   position: absolute;
-  bottom: -50px;
-  font-size: 16px;
+  bottom: -52px;
+  font-size: 14px;
   font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
   background: linear-gradient(135deg, #8FA9C1 0%, #E5989B 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  letter-spacing: 2px;
-  animation: routeLoadingDots 1.2s steps(4, end) infinite;
+  white-space: nowrap;
 }
 
-@keyframes routeLoadingDots {
-  0%,
-  20% {
-    content: "Carregando";
-  }
-  40% {
-    content: "Carregando.";
-  }
-  60% {
-    content: "Carregando..";
-  }
-  80%,
-  100% {
-    content: "Carregando...";
-  }
+/* Dots têm a mesma cor que o texto */
+.route-dots {
+  display: inline-block;
+  min-width: 1.6em;
+  text-align: left;
 }

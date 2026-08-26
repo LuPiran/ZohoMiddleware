@@ -1,11 +1,23 @@
 import { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 
+const DOTS = ['', '.', '..', '...'];
+function useLoadingDots(active) {
+  const [step, setStep] = useState(0);
+  useEffect(() => {
+    if (!active) { setStep(0); return; }
+    const id = setInterval(() => setStep(s => (s + 1) % 4), 420);
+    return () => clearInterval(id);
+  }, [active]);
+  return DOTS[step];
+}
+
 export default function RouteTransition({ children }) {
   const MAX_TRANSITION_MS = 5000;
   const location = useLocation();
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
+  const dots = useLoadingDots(isTransitioning);
   const previousPathRef = useRef(location.pathname);
   const exitTimerRef = useRef(null);
   const transitionTimerRef = useRef(null);
@@ -85,31 +97,52 @@ export default function RouteTransition({ children }) {
       {children}
       {isTransitioning && (
         <div className={`route-transition-overlay ${isExiting ? 'route-transition-exit' : ''}`}>
-          <div className="route-transition-glass"></div>
+          {/* Barra shimmer no topo */}
+          <div className="route-top-bar" />
+
+          <div className="route-transition-glass" />
           <div className="route-transition-content">
             <div className="route-loader-container">
+              {/* Halos de glow pulsantes */}
+              <div className="route-glow-blue" />
+              <div className="route-glow-teal" />
+
+              {/* Logo centralizado */}
               <img src="/logoCorp.png" alt="Logo corporativo" className="route-logo" />
-              <svg className="route-spinner" viewBox="0 0 120 120">
+
+              {/* Dois anéis orbitando em direções opostas */}
+              <svg className="route-rings-svg" viewBox="0 0 120 120" aria-hidden="true">
                 <defs>
-                  <linearGradient id="spinnerGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" style={{ stopColor: '#8FA9C1', stopOpacity: 1 }} />
-                    <stop offset="50%" style={{ stopColor: '#E5989B', stopOpacity: 1 }} />
-                    <stop offset="100%" style={{ stopColor: '#8FA9C1', stopOpacity: 0.3 }} />
+                  <linearGradient id="sgOuter" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%"   style={{ stopColor: '#8FA9C1', stopOpacity: 1 }} />
+                    <stop offset="55%"  style={{ stopColor: '#E5989B', stopOpacity: 1 }} />
+                    <stop offset="100%" style={{ stopColor: '#8FA9C1', stopOpacity: 0.15 }} />
+                  </linearGradient>
+                  <linearGradient id="sgInner" x1="100%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%"   style={{ stopColor: '#E5989B', stopOpacity: 0.9 }} />
+                    <stop offset="60%"  style={{ stopColor: '#8FA9C1', stopOpacity: 0.6 }} />
+                    <stop offset="100%" style={{ stopColor: '#E5989B', stopOpacity: 0.05 }} />
                   </linearGradient>
                 </defs>
-                <circle
-                  className="route-spinner-circle"
-                  cx="60"
-                  cy="60"
-                  r="54"
-                  fill="none"
-                  stroke="url(#spinnerGradient)"
-                  strokeWidth="4"
-                  strokeLinecap="round"
-                />
+                {/* Anel externo — sentido horário */}
+                <g className="route-ring-outer">
+                  <circle cx="60" cy="60" r="54" fill="none"
+                    stroke="url(#sgOuter)" strokeWidth="4.5" strokeLinecap="round"
+                    strokeDasharray="280" strokeDashoffset="70" />
+                </g>
+                {/* Anel interno — anti-horário */}
+                <g className="route-ring-inner">
+                  <circle cx="60" cy="60" r="38" fill="none"
+                    stroke="url(#sgInner)" strokeWidth="3" strokeLinecap="round"
+                    strokeDasharray="190" strokeDashoffset="52" />
+                </g>
               </svg>
+
+              {/* Texto posicionado abaixo do container */}
+              <p className="route-loading-text">
+                Carregando<span className="route-dots">{dots}</span>
+              </p>
             </div>
-            <p className="route-loading-text">Carregando</p>
           </div>
         </div>
       )}
