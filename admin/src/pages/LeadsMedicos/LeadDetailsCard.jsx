@@ -175,6 +175,43 @@ function formatEndereco(lead) {
 }
 
 /* ─────────────────────────────────────────
+   Mapa embutido — preto e branco
+───────────────────────────────────────── */
+function LeadMapEmbed({ lead, address }) {
+  const lat = lead?.geoLat ?? lead?.lat ?? lead?.latitude ?? null;
+  const lng = lead?.geoLng ?? lead?.lng ?? lead?.longitude ?? null;
+
+  if (!address && !lat) return null;
+
+  // Coordenadas → OpenStreetMap (grátis, sem API key)
+  // Só endereço → Google Maps legacy embed
+  const src =
+    lat && lng
+      ? `https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.007},${lat - 0.007},${lng + 0.007},${lat + 0.007}&layer=mapnik&marker=${lat},${lng}`
+      : `https://maps.google.com/maps?q=${encodeURIComponent(address)}&output=embed&z=15`;
+
+  return (
+    <div className="mt-3">
+      <div
+        className="rounded-xl overflow-hidden border border-tegra-gray-medium/30 shadow-sm"
+        style={{ filter: "grayscale(1) contrast(1.08) brightness(1.02)" }}
+      >
+        <iframe
+          title="Localização do cliente"
+          src={src}
+          width="100%"
+          height="200"
+          style={{ border: 0, display: "block" }}
+          loading="lazy"
+          referrerPolicy="no-referrer-when-downgrade"
+          allowFullScreen
+        />
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────
    Componente principal
 ───────────────────────────────────────── */
 export default function LeadDetailsCard({ lead }) {
@@ -309,17 +346,20 @@ export default function LeadDetailsCard({ lead }) {
                 : <MdExpandMore className="text-slate-400" />}
             </button>
             {showEndereco && (
-              <div className="px-4 pb-4 flex items-start gap-3">
-                <p className="text-sm text-slate-600 leading-relaxed flex-1">
-                  {enderecoCompleto}
-                </p>
-                <QuickActionBtn
-                  href={mapsAction?.href}
-                  Icon={MdDirections}
-                  label="Abrir no Google Maps"
-                  colorClass="text-blue-400 hover:bg-blue-50 hover:text-blue-600"
-                  size="lg"
-                />
+              <div className="px-4 pb-4 space-y-3">
+                <div className="flex items-start gap-3">
+                  <p className="text-sm text-slate-600 leading-relaxed flex-1">
+                    {enderecoCompleto}
+                  </p>
+                  <QuickActionBtn
+                    href={mapsAction?.href}
+                    Icon={MdDirections}
+                    label="Abrir no Google Maps"
+                    colorClass="text-blue-400 hover:bg-blue-50 hover:text-blue-600"
+                    size="lg"
+                  />
+                </div>
+                <LeadMapEmbed lead={lead} address={enderecoCompleto} />
               </div>
             )}
           </div>
@@ -355,7 +395,7 @@ export default function LeadDetailsCard({ lead }) {
           <DetailItem icon={MdBusiness}   label="Gerência"         value={lead.gerencia} />
         </div>
 
-        {/* Endereço */}
+        {/* Endereço + Mapa */}
         {enderecoCompleto && (
           <div className="border-t border-tegra-gray-medium/40 pt-4">
             <div className="flex items-start gap-2.5">
@@ -378,6 +418,7 @@ export default function LeadDetailsCard({ lead }) {
                     size="sm"
                   />
                 </div>
+                <LeadMapEmbed lead={lead} address={enderecoCompleto} />
               </div>
             </div>
           </div>
