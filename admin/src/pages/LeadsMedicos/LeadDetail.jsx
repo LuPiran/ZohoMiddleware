@@ -77,9 +77,12 @@ function SlaTimer({ lead, onAccept, onRefuse, submitting }) {
 
   if (isOfferedStatus(slaStatus) && remaining !== null) {
     const totalSecs = Math.floor(remaining / 1000);
-    const mins = Math.floor(totalSecs / 60);
-    const secs = totalSecs % 60;
-    const display = `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+    const hours = Math.floor(totalSecs / 3600);
+    const mins  = Math.floor((totalSecs % 3600) / 60);
+    const secs  = totalSecs % 60;
+    const display = hours >= 1
+      ? `${hours}h ${String(mins).padStart(2, "0")}m`
+      : `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
     const isUrgent = remaining < 2 * 60 * 1000;
     const isWarning = remaining < 5 * 60 * 1000;
 
