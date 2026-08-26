@@ -175,7 +175,7 @@ function formatEndereco(lead) {
 }
 
 /* ─────────────────────────────────────────
-   Mapa embutido — preto e branco
+   Card de localização (sem iframe — CSP safe)
 ───────────────────────────────────────── */
 function LeadMapEmbed({ lead, address }) {
   const lat = lead?.geoLat ?? lead?.lat ?? lead?.latitude ?? null;
@@ -183,30 +183,101 @@ function LeadMapEmbed({ lead, address }) {
 
   if (!address && !lat) return null;
 
-  // Coordenadas → OpenStreetMap (grátis, sem API key)
-  // Só endereço → Google Maps legacy embed
-  const src =
-    lat && lng
-      ? `https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.007},${lat - 0.007},${lng + 0.007},${lat + 0.007}&layer=mapnik&marker=${lat},${lng}`
-      : `https://maps.google.com/maps?q=${encodeURIComponent(address)}&output=embed&z=15`;
+  const mapsUrl = lat && lng
+    ? `https://maps.google.com/?q=${lat},${lng}`
+    : `https://maps.google.com/?q=${encodeURIComponent(address)}`;
+
+  const osmUrl = lat && lng
+    ? `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=16/${lat}/${lng}`
+    : null;
 
   return (
     <div className="mt-3">
-      <div
-        className="rounded-xl overflow-hidden border border-tegra-gray-medium/30 shadow-sm"
-        style={{ filter: "grayscale(1) contrast(1.08) brightness(1.02)" }}
+      <a
+        href={mapsUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="group block rounded-xl overflow-hidden border border-slate-200 shadow-sm hover:shadow-md transition-shadow"
+        title="Abrir no Google Maps"
       >
-        <iframe
-          title="Localização do cliente"
-          src={src}
-          width="100%"
-          height="200"
-          style={{ border: 0, display: "block" }}
-          loading="lazy"
-          referrerPolicy="no-referrer-when-downgrade"
-          allowFullScreen
-        />
-      </div>
+        {/* Fundo simulando mapa — grid de quadradinhos cinza */}
+        <div
+          className="relative w-full flex items-center justify-center"
+          style={{
+            height: "120px",
+            background: `
+              linear-gradient(rgba(241,245,249,0.97) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(241,245,249,0.97) 1px, transparent 1px),
+              #f8fafc
+            `,
+            backgroundSize: "28px 28px",
+          }}
+        >
+          {/* Anel pulsante */}
+          <div className="relative flex items-center justify-center">
+            <span
+              className="absolute rounded-full opacity-20 group-hover:opacity-30 transition-all"
+              style={{
+                width: 56, height: 56,
+                background: "radial-gradient(circle, #8FA9C1 0%, transparent 70%)",
+              }}
+            />
+            {/* Pin */}
+            <div
+              className="relative z-10 flex flex-col items-center"
+              style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.18))" }}
+            >
+              <div
+                className="w-9 h-9 rounded-full border-2 border-white flex items-center justify-center"
+                style={{ background: "linear-gradient(135deg, #8FA9C1, #1a2f5b)" }}
+              >
+                <MdLocationOn className="text-white text-xl" />
+              </div>
+              <div
+                className="w-2 h-2 rounded-full mt-0.5"
+                style={{ background: "#1a2f5b" }}
+              />
+            </div>
+          </div>
+
+          {/* Linhas decorativas de rua */}
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{ opacity: 0.12 }}
+          >
+            <div className="absolute top-1/2 left-0 right-0 h-px bg-slate-400" />
+            <div className="absolute left-1/3 top-0 bottom-0 w-px bg-slate-400" />
+            <div className="absolute left-2/3 top-0 bottom-0 w-px bg-slate-400" />
+          </div>
+
+          {/* Overlay hover */}
+          <div className="absolute inset-0 bg-tegra-blue-dark/0 group-hover:bg-tegra-blue-dark/5 transition-colors" />
+        </div>
+
+        {/* Rodapé do card */}
+        <div className="flex items-center justify-between px-3 py-2 bg-white border-t border-slate-100">
+          <p className="text-xs text-slate-500 truncate flex-1 mr-2">
+            {lat && lng
+              ? `${parseFloat(lat).toFixed(5)}, ${parseFloat(lng).toFixed(5)}`
+              : address?.split(",").slice(0, 2).join(",")}
+          </p>
+          <span className="shrink-0 text-[10px] font-semibold text-tegra-blue-dark bg-slate-100 group-hover:bg-tegra-blue group-hover:text-white transition-colors rounded-full px-2.5 py-1">
+            Abrir mapa →
+          </span>
+        </div>
+      </a>
+
+      {/* Link alternativo OSM se tiver coords */}
+      {osmUrl && (
+        <a
+          href={osmUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block mt-1 text-center text-[10px] text-slate-400 hover:text-slate-600 transition-colors"
+        >
+          ver no OpenStreetMap
+        </a>
+      )}
     </div>
   );
 }
