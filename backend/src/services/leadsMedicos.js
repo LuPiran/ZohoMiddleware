@@ -1,5 +1,13 @@
 import { randomUUID } from "crypto";
 import {
+  notifyLeadAceito,
+  notifyLeadConvertido,
+  notifyLeadRecusado,
+  notifyLeadSemTratativa,
+  notifyStatusChange,
+  notifyTentativa,
+} from "./emailService.js";
+import {
   GetCommand,
   PutCommand,
   QueryCommand,
@@ -1590,6 +1598,7 @@ export async function registerContactAttempt(leadId, user, round, { observacao, 
     syncZohoLeadProtocolo(updated);
   }
   syncZohoLeadAttemptTreated(updated, n, { observacao: note, at: now });
+  void notifyTentativa(updated, n, user);
   return toLeadDetail(updated);
 }
 
@@ -1636,6 +1645,7 @@ async function applyAttemptTimeout(raw, round) {
     observacao,
     leadTerminal,
   });
+  if (leadTerminal) void notifyLeadSemTratativa(updated);
   return updated;
 }
 
@@ -1730,6 +1740,7 @@ export async function markLeadSemInteresse(leadId, user, { observacao, files } =
   if (isSlaAccepted(raw)) {
     void decrementCargaAceita(raw.consultorId);
   }
+  void notifyStatusChange(updated, user, "Lead Sem Interesse");
   return toLeadDetail(updated);
 }
 
@@ -1775,6 +1786,7 @@ export async function markLeadSemContato(leadId, user, { files } = {}) {
   if (isSlaAccepted(raw)) {
     void decrementCargaAceita(raw.consultorId);
   }
+  void notifyStatusChange(updated, user, "Lead Sem Contato");
   return toLeadDetail(updated);
 }
 
@@ -1971,6 +1983,7 @@ export async function checkinLead(leadId, user) {
 
   syncZohoLeadAccepted(updated);
   void incrementCargaAceita(updated.consultorId);
+  void notifyLeadAceito(updated, user);
   return toLeadDetail(updated);
 }
 
@@ -2020,6 +2033,7 @@ export async function recusarLead(leadId, user) {
     throw err;
   }
 
+  void notifyLeadRecusado(updated, user);
   return toLeadDetail(updated);
 }
 
@@ -2087,6 +2101,7 @@ export async function markLeadConvertedFromZoho(payload) {
   if (isSlaAccepted(existing)) {
     void decrementCargaAceita(existing.consultorId);
   }
+  void notifyLeadConvertido(updated);
 
   return {
     updated: true,
