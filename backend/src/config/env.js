@@ -164,6 +164,8 @@ export const ENV = {
   // E-mail transacional: none | microsoft | resend
   MAIL_PROVIDER: (process.env.MAIL_PROVIDER || "none").toLowerCase(),
   MAIL_FROM: process.env.MAIL_FROM || "",
+  /** Quando setado, todos os e-mails são redirecionados para este endereço (modo teste). */
+  MAIL_REDIRECT_TO: process.env.MAIL_REDIRECT_TO || "",
   GRAPH_MAIL_TENANT_ID:
     process.env.GRAPH_MAIL_TENANT_ID || process.env.ENTRA_TENANT_ID,
   GRAPH_MAIL_CLIENT_ID: process.env.GRAPH_MAIL_CLIENT_ID,

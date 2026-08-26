@@ -458,14 +458,24 @@ export async function sendEmail({ to, subject, html, text }) {
   if (!to) return { sent: false, reason: "sem destinatário" };
   if (!provider || provider === "none") return { sent: false, reason: "MAIL_PROVIDER=none" };
 
+  // ── Modo teste: redireciona todos os e-mails para MAIL_REDIRECT_TO ──────────
+  const redirectTo = ENV.MAIL_REDIRECT_TO;
+  let actualTo = to;
+  if (redirectTo) {
+    console.log(`[MAIL] REDIRECT ativo: ${to} → ${redirectTo}`);
+    actualTo = redirectTo;
+    subject = `[TEST → ${to}] ${subject}`;
+  }
+  // ─────────────────────────────────────────────────────────────────────────────
+
   const htmlContent = html || (text ? `<pre>${text}</pre>` : "<p>—</p>");
 
   if (provider === "microsoft") {
-    await sendViaMicrosoft({ to, subject, html: htmlContent });
+    await sendViaMicrosoft({ to: actualTo, subject, html: htmlContent });
     return { sent: true, provider };
   }
   if (provider === "resend") {
-    await sendViaResend({ to, subject, html: htmlContent });
+    await sendViaResend({ to: actualTo, subject, html: htmlContent });
     return { sent: true, provider };
   }
   return { sent: false, reason: `provider desconhecido: ${provider}` };
