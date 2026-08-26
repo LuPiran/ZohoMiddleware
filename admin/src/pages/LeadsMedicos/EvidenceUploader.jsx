@@ -171,8 +171,10 @@ function isDirectImageUrl(url) {
 function EvidenceImage({ leadId, evidencia, className }) {
   const direct = evidenceImageSrc(evidencia);
   const [src, setSrc] = useState(isDirectImageUrl(direct) ? direct : "");
+  const [errored, setErrored] = useState(false);
 
   useEffect(() => {
+    setErrored(false);
     if (isDirectImageUrl(direct)) {
       setSrc(direct);
       return undefined;
@@ -199,8 +201,15 @@ function EvidenceImage({ leadId, evidencia, className }) {
     };
   }, [leadId, evidencia.id, direct]);
 
-  if (!src) {
-    return <div className={`${className} animate-pulse bg-tegra-gray-medium/40`} />;
+  if (!src || errored) {
+    return (
+      <div className={`${className} flex flex-col items-center justify-center gap-1 bg-slate-50`}>
+        <MdImage className="text-slate-300" style={{ fontSize: 28 }} />
+        <span className="text-[9px] text-slate-400 text-center px-1 w-full truncate">
+          {evidencia.fileName || "imagem"}
+        </span>
+      </div>
+    );
   }
   return (
     <img
@@ -208,6 +217,7 @@ function EvidenceImage({ leadId, evidencia, className }) {
       alt={evidencia.fileName || `Evidência ${evidencia.n}`}
       className={className}
       referrerPolicy="no-referrer"
+      onError={() => setErrored(true)}
     />
   );
 }

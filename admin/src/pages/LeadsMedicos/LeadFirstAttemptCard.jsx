@@ -58,31 +58,44 @@ function formatDeadline(iso) {
 
 function RoundHistory({ title, date, status, description, evidencias, leadId }) {
   const noReturn = String(status || "").toLowerCase().includes("retorno");
+  const isPositive = status && !noReturn;
+
   return (
-    <div className="rounded-lg border border-tegra-gray-medium/70 bg-white px-3 py-3">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <p className="text-sm font-semibold text-tegra-blue-dark">{title}</p>
-        <p className="text-xs text-tegra-text-secondary">{formatWhen(date)}</p>
+    <div className="rounded-xl border border-tegra-gray-medium/50 bg-white overflow-hidden">
+      {/* Cabeçalho com barra colorida */}
+      <div
+        className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 border-b border-tegra-gray-medium/30"
+        style={{ background: isPositive ? "#f0faf8" : noReturn ? "#fffbeb" : "#f8fafc" }}
+      >
+        <p className="text-sm font-bold text-tegra-blue-dark">{title}</p>
+        <p className="text-[11px] text-tegra-text-secondary">{formatWhen(date)}</p>
       </div>
-      {status && (
-        <p
-          className={`mt-1 text-xs font-semibold ${
-            noReturn ? "text-amber-700" : "text-teal-700"
-          }`}
-        >
-          {status}
-        </p>
-      )}
-      {description ? (
-        <p className="mt-2 text-sm text-tegra-text-primary whitespace-pre-wrap">
-          {description}
-        </p>
-      ) : null}
-      {evidencias?.length ? (
-        <div className="mt-3">
-          <EvidenceGallery evidencias={evidencias} leadId={leadId} />
-        </div>
-      ) : null}
+
+      <div className="px-4 py-3 space-y-2">
+        {status && (
+          <span
+            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+              isPositive
+                ? "bg-teal-50 text-teal-700 ring-1 ring-teal-200"
+                : noReturn
+                ? "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
+                : "bg-slate-50 text-slate-600 ring-1 ring-slate-200"
+            }`}
+          >
+            {status}
+          </span>
+        )}
+        {description && (
+          <p className="text-sm text-tegra-text-primary whitespace-pre-wrap leading-relaxed">
+            {description}
+          </p>
+        )}
+        {evidencias?.length ? (
+          <div className="pt-1">
+            <EvidenceGallery evidencias={evidencias} leadId={leadId} />
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }
