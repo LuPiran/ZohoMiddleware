@@ -5,6 +5,7 @@ import {
   MdGroup,
   MdLanguage,
   MdPublic,
+  MdClose,
 } from "react-icons/md";
 import { getOpcoesParceiro } from "../../../utils/constants";
 
@@ -69,13 +70,28 @@ export default function PlatformUpdatePopup({ isOpen, onContinue, user = null })
   }
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-start justify-center overflow-hidden p-2 sm:items-center sm:p-6">
-      <div className="absolute inset-0 bg-tegra-blue-dark/35 backdrop-blur-sm" />
+    <div className="fixed inset-0 z-[9999] flex items-end justify-center overflow-hidden sm:items-center sm:p-6">
+      <div
+        className="absolute inset-0 bg-tegra-blue-dark/35 backdrop-blur-sm"
+        onClick={onContinue}
+      />
 
-      <div className="relative my-1 flex h-[calc(100dvh-0.5rem)] max-h-[calc(100dvh-0.5rem)] w-full max-w-4xl flex-col overflow-hidden rounded-[24px] border border-white/60 bg-white/92 shadow-[0_36px_120px_rgba(26,47,91,0.24)] backdrop-blur-xl sm:my-0 sm:h-auto sm:max-h-[92dvh] sm:rounded-[30px]">
+      <div className="relative flex w-full max-w-4xl flex-col overflow-hidden rounded-t-[28px] border border-white/60 bg-white/92 shadow-[0_36px_120px_rgba(26,47,91,0.24)] backdrop-blur-xl sm:rounded-[30px]"
+        style={{ maxHeight: "92svh" }}
+      >
         <div className="absolute -top-24 -right-16 h-48 w-48 rounded-full bg-tegra-blue/10 blur-3xl" />
         <div className="absolute -bottom-24 -left-12 h-44 w-44 rounded-full bg-tegra-teal/10 blur-3xl" />
         <div className="h-1.5 w-full bg-gradient-to-r from-tegra-blue via-tegra-blue-green to-tegra-teal" />
+
+        {/* Botão fechar — sempre visível no topo direito */}
+        <button
+          type="button"
+          onClick={onContinue}
+          aria-label="Fechar"
+          className="absolute top-4 right-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white/80 text-tegra-blue-dark shadow-sm hover:bg-white transition-colors"
+        >
+          <MdClose className="text-lg" />
+        </button>
 
         <div
           className="relative min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 py-5 pb-6 [touch-action:pan-y] sm:px-8 sm:py-8 lg:px-10"
