@@ -5,33 +5,33 @@ import { useEffect, useRef, useState } from "react";
 
 /**
  * Retorna { remaining, total } onde:
- * - remaining: ms restantes até o deadline
- * - total: ms totais da oferta (capturado na primeira renderização)
+ * - remaining: ms restantes até o deadline (atualizado a cada segundo)
+ * - total: ms totais da oferta (capturado uma vez por deadline, nunca muda)
  */
 function useCountdown(deadline) {
-  const totalRef = useRef(null);
-
-  const [remaining, setRemaining] = useState(() => {
-    const r = deadline ? Math.max(0, new Date(deadline).getTime() - Date.now()) : 0;
-    totalRef.current = r;
-    return r;
-  });
+  const totalRef = useRef(0);
+  const [remaining, setRemaining] = useState(0);
 
   useEffect(() => {
-    if (!deadline) return undefined;
-    const initial = Math.max(0, new Date(deadline).getTime() - Date.now());
+    if (!deadline) {
+      totalRef.current = 0;
+      setRemaining(0);
+      return;
+    }
+
+    // Captura o total UMA VEZ por deadline — resetado quando muda de oferta
+    const initial = Math.max(1, new Date(deadline).getTime() - Date.now());
     totalRef.current = initial;
     setRemaining(initial);
 
-    function tick() {
+    const id = setInterval(() => {
       setRemaining(Math.max(0, new Date(deadline).getTime() - Date.now()));
-    }
-    tick();
-    const id = setInterval(tick, 1000);
+    }, 1000);
+
     return () => clearInterval(id);
   }, [deadline]);
 
-  return { remaining, total: totalRef.current ?? remaining };
+  return { remaining, total: totalRef.current || 1 };
 }
 
 function formatTime(ms) {
