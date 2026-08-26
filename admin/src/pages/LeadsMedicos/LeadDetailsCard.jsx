@@ -175,34 +175,33 @@ function formatEndereco(lead) {
 }
 
 /* ─────────────────────────────────────────
-   Mapa estático — OpenStreetMap (grátis, sem billing)
-   Clica → abre Google Maps
+   Mapa — iframe Google Maps legado (sem API key, sem billing)
+   CSP: frame-src liberado em nginx.conf
 ───────────────────────────────────────── */
-function LeadMapEmbed({ lead, address }) {
-  const lat = lead?.geoLat ?? lead?.lat ?? lead?.latitude ?? null;
-  const lng = lead?.geoLng ?? lead?.lng ?? lead?.longitude ?? null;
+function LeadMapEmbed({ lead }) {
+  const lat = parseFloat(lead?.lat ?? lead?.geoLat ?? lead?.latitude);
+  const lng = parseFloat(lead?.lng ?? lead?.geoLng ?? lead?.longitude);
 
-  if (!lat || !lng) return null;
+  if (!lat || !lng || isNaN(lat) || isNaN(lng)) return null;
 
-  // OSM Static Map — sem API key, sem billing
-  const staticSrc =
-    `https://staticmap.openstreetmap.de/staticmap.php` +
-    `?center=${lat},${lng}&zoom=16&size=640x200` +
-    `&markers=${lat},${lng},red-pushpin`;
-
-  const mapsUrl = `https://maps.google.com/?q=${lat},${lng}`;
+  const embedSrc = `https://maps.google.com/maps?q=${lat},${lng}&t=&z=16&ie=UTF8&iwloc=&output=embed`;
+  const mapsUrl  = `https://maps.google.com/?q=${lat},${lng}`;
 
   return (
     <div className="mt-3 rounded-xl overflow-hidden border border-slate-200 shadow-sm">
-      <a href={mapsUrl} target="_blank" rel="noopener noreferrer" title="Abrir no Google Maps">
-        <img
-          src={staticSrc}
-          alt="Localização do cliente"
-          className="w-full block"
-          style={{ height: 180, objectFit: "cover", filter: "grayscale(1) contrast(1.05)" }}
+      {/* iframe Google Maps legado — grayscale via CSS */}
+      <div style={{ filter: "grayscale(1) contrast(1.05) brightness(1.02)" }}>
+        <iframe
+          title="Localização do cliente"
+          src={embedSrc}
+          width="100%"
+          height="200"
+          style={{ border: 0, display: "block" }}
           loading="lazy"
+          referrerPolicy="no-referrer-when-downgrade"
+          allowFullScreen
         />
-      </a>
+      </div>
 
       {/* Rodapé */}
       <a
@@ -214,7 +213,7 @@ function LeadMapEmbed({ lead, address }) {
         <div className="flex items-center gap-1.5 min-w-0">
           <MdLocationOn className="shrink-0 text-[#8FA9C1]" style={{ fontSize: 13 }} />
           <span className="text-[11px] text-slate-300 truncate">
-            {parseFloat(lat).toFixed(5)}, {parseFloat(lng).toFixed(5)}
+            {lat.toFixed(5)}, {lng.toFixed(5)}
           </span>
         </div>
         <span className="shrink-0 text-[11px] font-semibold text-white whitespace-nowrap">
