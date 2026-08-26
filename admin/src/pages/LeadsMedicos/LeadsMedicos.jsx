@@ -452,11 +452,11 @@ export default function LeadsMedicos() {
 
             {/* Toggle Equipe / Meus leads — só para gerente */}
             {role === "gerente" && (
-              <div className="flex items-center rounded-lg border border-tegra-gray-medium overflow-hidden shrink-0 text-sm">
+              <div className="flex items-center rounded-lg border border-tegra-gray-medium overflow-hidden text-sm w-full sm:w-auto sm:shrink-0">
                 <button
                   type="button"
                   onClick={() => { setTeamView("equipe"); setCurrentPage(1); }}
-                  className={`px-3 py-2 font-medium transition cursor-pointer ${
+                  className={`flex-1 sm:flex-none px-4 py-2.5 font-medium transition cursor-pointer text-center ${
                     teamView === "equipe"
                       ? "bg-tegra-blue-dark text-white"
                       : "text-tegra-text-secondary hover:bg-tegra-gray-light"
@@ -467,7 +467,7 @@ export default function LeadsMedicos() {
                 <button
                   type="button"
                   onClick={() => { setTeamView("meus"); setCurrentPage(1); }}
-                  className={`px-3 py-2 font-medium transition cursor-pointer border-l border-tegra-gray-medium ${
+                  className={`flex-1 sm:flex-none px-4 py-2.5 font-medium transition cursor-pointer border-l border-tegra-gray-medium text-center ${
                     teamView === "meus"
                       ? "bg-tegra-blue-dark text-white"
                       : "text-tegra-text-secondary hover:bg-tegra-gray-light"
