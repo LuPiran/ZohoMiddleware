@@ -177,13 +177,17 @@ function formatEndereco(lead) {
 /* ─────────────────────────────────────────
    Mapa estático — Google Maps Static API
 ───────────────────────────────────────── */
-const GMAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_KEY;
+// Chave client-side (protegida por HTTP referrer no Google Cloud)
+const GMAPS_KEY =
+  import.meta.env.VITE_GOOGLE_MAPS_KEY ||
+  "AIzaSyA3AAmx-mensVq1F5ZGRuShkj_JRRFHe2g";
 
 function LeadMapEmbed({ lead, address }) {
   const lat = lead?.geoLat ?? lead?.lat ?? lead?.latitude ?? null;
   const lng = lead?.geoLng ?? lead?.lng ?? lead?.longitude ?? null;
 
-  if (!lat || !lng || !GMAPS_KEY) return null;
+  // Precisa de coords OU endereço
+  if (!lat && !address) return null;
 
   // Imagem estática B&W — sem iframe, sem CSP issues
   const style = [
@@ -196,14 +200,20 @@ function LeadMapEmbed({ lead, address }) {
     "feature:administrative|element:labels|visibility:off",
   ].map(s => `&style=${encodeURIComponent(s)}`).join("");
 
+  const center = lat && lng ? `${lat},${lng}` : encodeURIComponent(address);
+  const marker = lat && lng
+    ? `&markers=color:0x1a2f5b%7Csize:mid%7C${lat},${lng}`
+    : `&markers=color:0x1a2f5b%7Csize:mid%7C${encodeURIComponent(address)}`;
+
   const staticSrc =
     `https://maps.googleapis.com/maps/api/staticmap` +
-    `?center=${lat},${lng}&zoom=16&size=640x200&scale=2` +
-    `&markers=color:0x1a2f5b%7Csize:mid%7C${lat},${lng}` +
-    `${style}` +
+    `?center=${center}&zoom=16&size=640x200&scale=2` +
+    `${marker}${style}` +
     `&key=${GMAPS_KEY}`;
 
-  const mapsUrl = `https://maps.google.com/?q=${lat},${lng}`;
+  const mapsUrl = lat && lng
+    ? `https://maps.google.com/?q=${lat},${lng}`
+    : `https://maps.google.com/?q=${encodeURIComponent(address)}`;
 
   return (
     <div className="mt-3 rounded-xl overflow-hidden border border-slate-200 shadow-sm">
@@ -227,7 +237,9 @@ function LeadMapEmbed({ lead, address }) {
         <div className="flex items-center gap-1.5 min-w-0">
           <MdLocationOn className="shrink-0 text-[#8FA9C1]" style={{ fontSize: 13 }} />
           <span className="text-[11px] text-slate-300 truncate">
-            {parseFloat(lat).toFixed(5)}, {parseFloat(lng).toFixed(5)}
+            {lat && lng
+              ? `${parseFloat(lat).toFixed(5)}, ${parseFloat(lng).toFixed(5)}`
+              : address?.split(",").slice(0, 2).join(",")}
           </span>
         </div>
         <span className="shrink-0 text-[11px] font-semibold text-white whitespace-nowrap">
