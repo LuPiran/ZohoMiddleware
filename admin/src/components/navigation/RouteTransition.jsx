@@ -103,38 +103,27 @@ export default function RouteTransition({ children }) {
           <div className="route-transition-glass" />
           <div className="route-transition-content">
             <div className="route-loader-container">
-              {/* Halos de glow pulsantes */}
-              <div className="route-glow-blue" />
-              <div className="route-glow-teal" />
-
               {/* Logo centralizado */}
               <img src="/logoCorp.png" alt="Logo corporativo" className="route-logo" />
 
-              {/* Dois anéis orbitando em direções opostas */}
+              {/* Comet spinner — trilha que some, arco curto */}
               <svg className="route-rings-svg" viewBox="0 0 120 120" aria-hidden="true">
                 <defs>
-                  <linearGradient id="sgOuter" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%"   style={{ stopColor: '#8FA9C1', stopOpacity: 1 }} />
-                    <stop offset="55%"  style={{ stopColor: '#E5989B', stopOpacity: 1 }} />
-                    <stop offset="100%" style={{ stopColor: '#8FA9C1', stopOpacity: 0.15 }} />
-                  </linearGradient>
-                  <linearGradient id="sgInner" x1="100%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="0%"   style={{ stopColor: '#E5989B', stopOpacity: 0.9 }} />
-                    <stop offset="60%"  style={{ stopColor: '#8FA9C1', stopOpacity: 0.6 }} />
-                    <stop offset="100%" style={{ stopColor: '#E5989B', stopOpacity: 0.05 }} />
+                  <linearGradient id="sgComet" gradientUnits="userSpaceOnUse"
+                    x1="60" y1="8" x2="115" y2="60">
+                    <stop offset="0%"   style={{ stopColor: '#8FA9C1', stopOpacity: 0 }} />
+                    <stop offset="70%"  style={{ stopColor: '#8FA9C1', stopOpacity: 0.7 }} />
+                    <stop offset="100%" style={{ stopColor: '#8FA9C1', stopOpacity: 1 }} />
                   </linearGradient>
                 </defs>
-                {/* Anel externo — sentido horário */}
+                {/* Track fantasma */}
+                <circle cx="60" cy="60" r="52" fill="none"
+                  stroke="rgba(143,169,193,0.10)" strokeWidth="2.5" />
+                {/* Arco comet girando */}
                 <g className="route-ring-outer">
-                  <circle cx="60" cy="60" r="54" fill="none"
-                    stroke="url(#sgOuter)" strokeWidth="4.5" strokeLinecap="round"
-                    strokeDasharray="280" strokeDashoffset="70" />
-                </g>
-                {/* Anel interno — anti-horário */}
-                <g className="route-ring-inner">
-                  <circle cx="60" cy="60" r="38" fill="none"
-                    stroke="url(#sgInner)" strokeWidth="3" strokeLinecap="round"
-                    strokeDasharray="190" strokeDashoffset="52" />
+                  <circle cx="60" cy="60" r="52" fill="none"
+                    stroke="url(#sgComet)" strokeWidth="2.5" strokeLinecap="round"
+                    strokeDasharray="90 237" />
                 </g>
               </svg>
 
