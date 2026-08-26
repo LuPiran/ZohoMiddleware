@@ -175,45 +175,22 @@ function formatEndereco(lead) {
 }
 
 /* ─────────────────────────────────────────
-   Mapa estático — Google Maps Static API
+   Mapa estático — OpenStreetMap (grátis, sem billing)
+   Clica → abre Google Maps
 ───────────────────────────────────────── */
-// Chave client-side (protegida por HTTP referrer no Google Cloud)
-const GMAPS_KEY =
-  import.meta.env.VITE_GOOGLE_MAPS_KEY ||
-  "AIzaSyA3AAmx-mensVq1F5ZGRuShkj_JRRFHe2g";
-
 function LeadMapEmbed({ lead, address }) {
   const lat = lead?.geoLat ?? lead?.lat ?? lead?.latitude ?? null;
   const lng = lead?.geoLng ?? lead?.lng ?? lead?.longitude ?? null;
 
-  // Precisa de coords OU endereço
-  if (!lat && !address) return null;
+  if (!lat || !lng) return null;
 
-  // Imagem estática B&W — sem iframe, sem CSP issues
-  const style = [
-    "feature:all|element:geometry|color:0xe0e0e0",
-    "feature:road|element:geometry|color:0xffffff",
-    "feature:road.arterial|element:geometry|color:0xf0f0f0",
-    "feature:water|element:geometry|color:0xc9c9c9",
-    "feature:poi|visibility:off",
-    "feature:transit|visibility:off",
-    "feature:administrative|element:labels|visibility:off",
-  ].map(s => `&style=${encodeURIComponent(s)}`).join("");
-
-  const center = lat && lng ? `${lat},${lng}` : encodeURIComponent(address);
-  const marker = lat && lng
-    ? `&markers=color:0x1a2f5b%7Csize:mid%7C${lat},${lng}`
-    : `&markers=color:0x1a2f5b%7Csize:mid%7C${encodeURIComponent(address)}`;
-
+  // OSM Static Map — sem API key, sem billing
   const staticSrc =
-    `https://maps.googleapis.com/maps/api/staticmap` +
-    `?center=${center}&zoom=16&size=640x200&scale=2` +
-    `${marker}${style}` +
-    `&key=${GMAPS_KEY}`;
+    `https://staticmap.openstreetmap.de/staticmap.php` +
+    `?center=${lat},${lng}&zoom=16&size=640x200` +
+    `&markers=${lat},${lng},red-pushpin`;
 
-  const mapsUrl = lat && lng
-    ? `https://maps.google.com/?q=${lat},${lng}`
-    : `https://maps.google.com/?q=${encodeURIComponent(address)}`;
+  const mapsUrl = `https://maps.google.com/?q=${lat},${lng}`;
 
   return (
     <div className="mt-3 rounded-xl overflow-hidden border border-slate-200 shadow-sm">
@@ -222,7 +199,7 @@ function LeadMapEmbed({ lead, address }) {
           src={staticSrc}
           alt="Localização do cliente"
           className="w-full block"
-          style={{ height: 180, objectFit: "cover" }}
+          style={{ height: 180, objectFit: "cover", filter: "grayscale(1) contrast(1.05)" }}
           loading="lazy"
         />
       </a>
@@ -237,9 +214,7 @@ function LeadMapEmbed({ lead, address }) {
         <div className="flex items-center gap-1.5 min-w-0">
           <MdLocationOn className="shrink-0 text-[#8FA9C1]" style={{ fontSize: 13 }} />
           <span className="text-[11px] text-slate-300 truncate">
-            {lat && lng
-              ? `${parseFloat(lat).toFixed(5)}, ${parseFloat(lng).toFixed(5)}`
-              : address?.split(",").slice(0, 2).join(",")}
+            {parseFloat(lat).toFixed(5)}, {parseFloat(lng).toFixed(5)}
           </span>
         </div>
         <span className="shrink-0 text-[11px] font-semibold text-white whitespace-nowrap">
