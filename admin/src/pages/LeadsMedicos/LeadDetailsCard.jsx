@@ -197,77 +197,83 @@ function LeadMapEmbed({ lead, address }) {
         href={mapsUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className="group block rounded-xl overflow-hidden border border-slate-200 shadow-sm hover:shadow-md transition-shadow"
+        className="group block rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all"
+        style={{ border: "1.5px solid #c7d6e6" }}
         title="Abrir no Google Maps"
       >
-        {/* Fundo simulando mapa — grid de quadradinhos cinza */}
+        {/* Área do mapa ilustrativo */}
         <div
           className="relative w-full flex items-center justify-center"
           style={{
-            height: "120px",
-            background: `
-              linear-gradient(rgba(241,245,249,0.97) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(241,245,249,0.97) 1px, transparent 1px),
-              #f8fafc
+            height: "110px",
+            backgroundColor: "#dde8f0",
+            backgroundImage: `
+              linear-gradient(#b8cdd9 1px, transparent 1px),
+              linear-gradient(90deg, #b8cdd9 1px, transparent 1px),
+              linear-gradient(#c8dae5 1.5px, transparent 1.5px),
+              linear-gradient(90deg, #c8dae5 1.5px, transparent 1.5px)
             `,
-            backgroundSize: "28px 28px",
+            backgroundSize: "60px 60px, 60px 60px, 20px 20px, 20px 20px",
           }}
         >
-          {/* Anel pulsante */}
-          <div className="relative flex items-center justify-center">
-            <span
-              className="absolute rounded-full opacity-20 group-hover:opacity-30 transition-all"
-              style={{
-                width: 56, height: 56,
-                background: "radial-gradient(circle, #8FA9C1 0%, transparent 70%)",
-              }}
-            />
-            {/* Pin */}
-            <div
-              className="relative z-10 flex flex-col items-center"
-              style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.18))" }}
-            >
-              <div
-                className="w-9 h-9 rounded-full border-2 border-white flex items-center justify-center"
-                style={{ background: "linear-gradient(135deg, #8FA9C1, #1a2f5b)" }}
-              >
-                <MdLocationOn className="text-white text-xl" />
-              </div>
-              <div
-                className="w-2 h-2 rounded-full mt-0.5"
-                style={{ background: "#1a2f5b" }}
-              />
-            </div>
+          {/* Blocos estilo quarteirão */}
+          <div className="absolute inset-0 pointer-events-none overflow-hidden">
+            <div className="absolute rounded-sm" style={{ top: 10, left: 30, width: 70, height: 30, background: "#c2d5e0", opacity: 0.6 }} />
+            <div className="absolute rounded-sm" style={{ top: 55, left: 20, width: 45, height: 35, background: "#c2d5e0", opacity: 0.6 }} />
+            <div className="absolute rounded-sm" style={{ top: 18, right: 40, width: 80, height: 28, background: "#c2d5e0", opacity: 0.6 }} />
+            <div className="absolute rounded-sm" style={{ top: 60, right: 30, width: 55, height: 38, background: "#c2d5e0", opacity: 0.6 }} />
+            <div className="absolute rounded-sm" style={{ bottom: 8, left: 80, width: 90, height: 22, background: "#c2d5e0", opacity: 0.5 }} />
           </div>
 
-          {/* Linhas decorativas de rua */}
+          {/* Ruas horizontais e verticais */}
+          <div className="absolute inset-0 pointer-events-none">
+            <div className="absolute left-0 right-0" style={{ top: "47%", height: 8, background: "#e8f0f5", opacity: 0.9 }} />
+            <div className="absolute top-0 bottom-0" style={{ left: "44%", width: 8, background: "#e8f0f5", opacity: 0.9 }} />
+          </div>
+
+          {/* Sombra radial no centro */}
+          <div className="absolute inset-0 pointer-events-none" style={{
+            background: "radial-gradient(ellipse 60% 50% at 50% 50%, rgba(255,255,255,0.35) 0%, transparent 70%)"
+          }} />
+
+          {/* Pin */}
           <div
-            className="absolute inset-0 pointer-events-none"
-            style={{ opacity: 0.12 }}
+            className="relative z-10 flex flex-col items-center"
+            style={{ filter: "drop-shadow(0 3px 6px rgba(26,47,91,0.35))" }}
           >
-            <div className="absolute top-1/2 left-0 right-0 h-px bg-slate-400" />
-            <div className="absolute left-1/3 top-0 bottom-0 w-px bg-slate-400" />
-            <div className="absolute left-2/3 top-0 bottom-0 w-px bg-slate-400" />
+            <div
+              className="w-10 h-10 rounded-full border-[2.5px] border-white flex items-center justify-center"
+              style={{ background: "linear-gradient(145deg, #8FA9C1, #1a2f5b)" }}
+            >
+              <MdLocationOn className="text-white" style={{ fontSize: 22 }} />
+            </div>
+            <div className="w-2.5 h-2.5 rounded-full -mt-1 border border-white/60"
+              style={{ background: "#1a2f5b" }} />
           </div>
 
-          {/* Overlay hover */}
-          <div className="absolute inset-0 bg-tegra-blue-dark/0 group-hover:bg-tegra-blue-dark/5 transition-colors" />
+          {/* Hover overlay */}
+          <div className="absolute inset-0 bg-[#1a2f5b]/0 group-hover:bg-[#1a2f5b]/8 transition-colors duration-200" />
         </div>
 
-        {/* Rodapé do card */}
-        <div className="flex items-center justify-between px-3 py-2 bg-white border-t border-slate-100">
-          <p className="text-xs text-slate-500 truncate flex-1 mr-2">
-            {lat && lng
-              ? `${parseFloat(lat).toFixed(5)}, ${parseFloat(lng).toFixed(5)}`
-              : address?.split(",").slice(0, 2).join(",")}
-          </p>
-          <span className="shrink-0 text-[10px] font-semibold text-tegra-blue-dark bg-slate-100 group-hover:bg-tegra-blue group-hover:text-white transition-colors rounded-full px-2.5 py-1">
+        {/* Rodapé */}
+        <div
+          className="flex items-center justify-between gap-2 px-3 py-2.5"
+          style={{ background: "#1a2f5b" }}
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <MdLocationOn className="shrink-0 text-[#8FA9C1]" style={{ fontSize: 14 }} />
+            <p className="text-xs text-slate-300 truncate">
+              {lat && lng
+                ? `${parseFloat(lat).toFixed(5)}, ${parseFloat(lng).toFixed(5)}`
+                : address?.split(",").slice(0, 2).join(",")}
+            </p>
+          </div>
+          <span className="shrink-0 text-[11px] font-semibold text-white bg-white/15 group-hover:bg-white/25 transition-colors rounded-full px-3 py-1 whitespace-nowrap">
             Abrir mapa →
           </span>
         </div>
       </a>
 
-      {/* Link alternativo OSM se tiver coords */}
       {osmUrl && (
         <a
           href={osmUrl}
