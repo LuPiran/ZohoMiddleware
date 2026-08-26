@@ -1404,6 +1404,8 @@ export function toLeadDetail(lead) {
     eventos: Array.isArray(lead.eventos) ? lead.eventos : [],
     workdriveFolderId: lead.workdriveFolderId || null,
     protocolo: lead.protocolo || null,
+    lat: lead.lat ?? null,
+    lng: lead.lng ?? null,
     timeline: buildLeadTimeline(lead),
     attempt: {
       ...attempt,
