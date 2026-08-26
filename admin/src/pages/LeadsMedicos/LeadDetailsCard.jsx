@@ -175,39 +175,49 @@ function formatEndereco(lead) {
 }
 
 /* ─────────────────────────────────────────
-   Mapa embutido — OpenStreetMap, preto e branco
+   Mapa estático — Google Maps Static API
 ───────────────────────────────────────── */
+const GMAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_KEY;
+
 function LeadMapEmbed({ lead, address }) {
   const lat = lead?.geoLat ?? lead?.lat ?? lead?.latitude ?? null;
   const lng = lead?.geoLng ?? lead?.lng ?? lead?.longitude ?? null;
 
-  if (!address && !lat) return null;
+  if (!lat || !lng || !GMAPS_KEY) return null;
 
-  // Preferência: coords → OSM embed com marker exato
-  // Fallback: só endereço → não renderiza mapa (sem API key)
-  if (!lat || !lng) return null;
+  // Imagem estática B&W — sem iframe, sem CSP issues
+  const style = [
+    "feature:all|element:geometry|color:0xe0e0e0",
+    "feature:road|element:geometry|color:0xffffff",
+    "feature:road.arterial|element:geometry|color:0xf0f0f0",
+    "feature:water|element:geometry|color:0xc9c9c9",
+    "feature:poi|visibility:off",
+    "feature:transit|visibility:off",
+    "feature:administrative|element:labels|visibility:off",
+  ].map(s => `&style=${encodeURIComponent(s)}`).join("");
 
-  const zoom = 0.007;
-  const src = `https://www.openstreetmap.org/export/embed.html?bbox=${lng - zoom},${lat - zoom},${lng + zoom},${lat + zoom}&layer=mapnik&marker=${lat},${lng}`;
+  const staticSrc =
+    `https://maps.googleapis.com/maps/api/staticmap` +
+    `?center=${lat},${lng}&zoom=16&size=640x200&scale=2` +
+    `&markers=color:0x1a2f5b%7Csize:mid%7C${lat},${lng}` +
+    `${style}` +
+    `&key=${GMAPS_KEY}`;
+
   const mapsUrl = `https://maps.google.com/?q=${lat},${lng}`;
 
   return (
     <div className="mt-3 rounded-xl overflow-hidden border border-slate-200 shadow-sm">
-      {/* iframe OSM — frame-src liberado no nginx.conf */}
-      <div style={{ filter: "grayscale(1) contrast(1.05) brightness(1.03)", display: "block" }}>
-        <iframe
-          title="Localização do cliente"
-          src={src}
-          width="100%"
-          height="200"
-          style={{ border: 0, display: "block" }}
+      <a href={mapsUrl} target="_blank" rel="noopener noreferrer" title="Abrir no Google Maps">
+        <img
+          src={staticSrc}
+          alt="Localização do cliente"
+          className="w-full block"
+          style={{ height: 180, objectFit: "cover" }}
           loading="lazy"
-          referrerPolicy="no-referrer-when-downgrade"
-          allowFullScreen
         />
-      </div>
+      </a>
 
-      {/* Rodapé com link para Google Maps */}
+      {/* Rodapé */}
       <a
         href={mapsUrl}
         target="_blank"
