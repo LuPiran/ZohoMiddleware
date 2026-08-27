@@ -235,6 +235,22 @@ export async function findConsultoresByGerencia(gerencia) {
   );
 }
 
+/**
+ * E-mails do(s) gerente(s) responsáveis pela gerência informada — hoje o
+ * único nível de escalonamento em notificações (não existe perfil Gestão
+ * separado para esse fim). Depende de `gerencia` estar sincronizada no
+ * registro do próprio gerente (feito automaticamente no login via
+ * `syncConsultorZohoPerfil`, a partir do campo "Gerencia" do Zoho).
+ */
+export async function findGerenteEmailsByGerencia(gerencia) {
+  if (!gerencia) return [];
+  const membros = await findConsultoresByGerencia(gerencia);
+  return membros
+    .filter(isPerfilGerencia)
+    .map((c) => asString(c.email))
+    .filter(Boolean);
+}
+
 export function getConsultorCargaAceita(consultor) {
   const n = Number(consultor?.cargaAceita);
   return Number.isFinite(n) && n > 0 ? n : 0;

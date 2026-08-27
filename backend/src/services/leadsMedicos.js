@@ -2,7 +2,6 @@ import { randomUUID } from "crypto";
 import {
   notifyLeadAceito,
   notifyLeadConvertido,
-  notifyLeadRecusado,
   notifyLeadSemTratativa,
   notifyStatusChange,
   notifyTentativa,
@@ -2033,7 +2032,8 @@ export async function recusarLead(leadId, user) {
     throw err;
   }
 
-  void notifyLeadRecusado(updated, user);
+  // Notificação ao gerente já é disparada dentro de rejectLeadOffer (cobre
+  // tanto essa recusa explícita quanto o timeout de 48h do sweeper).
   return toLeadDetail(updated);
 }
 

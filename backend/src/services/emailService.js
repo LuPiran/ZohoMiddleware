@@ -3,7 +3,7 @@ import { fileURLToPath } from "url";
 import { dirname, resolve } from "path";
 import axios from "axios";
 import { ENV } from "../config/env.js";
-import { findConsultoresGestao } from "./consultores.js";
+import { findGerenteEmailsByGerencia } from "./consultores.js";
 
 /* ─── Logo em base64 ────────────────────────────────────────────────────── */
 
@@ -76,10 +76,13 @@ function formatRegiao(lead) {
   return null;
 }
 
-async function getGestaoEmails() {
+/**
+ * E-mail(s) do gerente responsável pela gerência do lead — não existe perfil
+ * Gestão para esse fim, só Gerente e Consultor.
+ */
+async function getGerenteEmails(lead) {
   try {
-    const gestao = await findConsultoresGestao();
-    return gestao.map((c) => c.email).filter(Boolean);
+    return await findGerenteEmailsByGerencia(lead?.gerencia);
   } catch {
     return [];
   }
@@ -312,14 +315,18 @@ function contentLeadAceitoGestao(lead, consultorNome) {
   };
 }
 
-// 3. Lead recusado → gestão
-function contentLeadRecusado(lead, consultorNome) {
+// 3. Lead recusado (explícito) ou sem resposta em 48h (timeout) → gerente
+function contentLeadRecusado(lead, consultorNome, { timeout = false } = {}) {
   return {
-    subject: `Lead recusado — ${lead.nome || "Lead"} retornou à fila`,
+    subject: timeout
+      ? `Lead sem resposta em 48h — ${lead.nome || "Lead"} encerrado`
+      : `Lead recusado — ${lead.nome || "Lead"} encerrado`,
     html: buildHtml({
       badgeStatus: "Lead Rejeitado",
-      title: "Lead recusado pelo consultor",
-      intro: `<strong>${consultorNome || "Um consultor"}</strong> recusou o lead abaixo. O lead foi encerrado no portal e devolvido ao Zoho CRM.`,
+      title: timeout ? "Lead encerrado — consultor não respondeu" : "Lead recusado pelo consultor",
+      intro: timeout
+        ? `<strong>${consultorNome || "O consultor"}</strong> não aceitou nem recusou o lead abaixo dentro do prazo de 48h. O lead foi encerrado no portal e devolvido ao Zoho CRM.`
+        : `<strong>${consultorNome || "Um consultor"}</strong> recusou o lead abaixo. O lead foi encerrado no portal e devolvido ao Zoho CRM.`,
       leadInfo: leadInfoFrom(lead),
       ctaUrl: leadPortalUrl(lead.id),
       ctaLabel: "Ver no Portal →",
@@ -485,7 +492,7 @@ export async function sendEmail({ to, subject, html, text }) {
 
 /**
  * Lead oferecido ao consultor (SLA timer).
- * Dispara também para a gestão como aviso informativo.
+ * Dispara apenas para o consultor — gestão só é notificada em eventos inesperados.
  */
 export async function notifyLeadOffer(lead, consultor) {
   const to = consultor?.email || lead?.emailConsultor;
@@ -505,17 +512,13 @@ export async function notifyLeadOffer(lead, consultor) {
     console.warn("[MAIL] Oferta sem e-mail de consultor");
   }
 
-  // Gestão (fire-and-forget)
-  const gestaoEmails = await getGestaoEmails();
-  if (gestaoEmails.length) {
-    const { subject, html } = contentLeadOfferGestao(lead, nome);
-    void sendEmailToMany(gestaoEmails, { subject, html }).catch(() => {});
-  }
-
   return { sent: Boolean(to) };
 }
 
-/** Consultor aceitou o lead. */
+/**
+ * Consultor aceitou o lead.
+ * Dispara apenas para o consultor — gestão só é notificada em eventos inesperados.
+ */
 export async function notifyLeadAceito(lead, user) {
   const consultorNome = lead?.consultor || user?.name || null;
   const emailConsultor = lead?.emailConsultor || user?.email || null;
@@ -527,22 +530,19 @@ export async function notifyLeadAceito(lead, user) {
       console.error("[MAIL] Aceite consultor:", err.message),
     );
   }
-
-  // Gestão — aviso
-  const gestaoEmails = await getGestaoEmails();
-  if (gestaoEmails.length) {
-    const { subject, html } = contentLeadAceitoGestao(lead, consultorNome);
-    sendEmailToMany(gestaoEmails, { subject, html }).catch(() => {});
-  }
 }
 
-/** Consultor recusou o lead → só gestão. */
-export async function notifyLeadRecusado(lead, user) {
-  const consultorNome = lead?.consultor || user?.name || user?.email || null;
-  const gestaoEmails = await getGestaoEmails();
-  if (!gestaoEmails.length) return;
-  const { subject, html } = contentLeadRecusado(lead, consultorNome);
-  sendEmailToMany(gestaoEmails, { subject, html }).catch(() => {});
+/**
+ * Consultor recusou o lead (explícito) OU não respondeu em 48h (timeout) →
+ * só o gerente da região/gerência do lead. É exatamente o "evento inesperado"
+ * que justifica avisar alguém além do próprio consultor.
+ */
+export async function notifyLeadRecusado(lead, { timeout = false } = {}) {
+  const consultorNome = lead?.consultor || null;
+  const gerenteEmails = await getGerenteEmails(lead);
+  if (!gerenteEmails.length) return;
+  const { subject, html } = contentLeadRecusado(lead, consultorNome, { timeout });
+  sendEmailToMany(gerenteEmails, { subject, html }).catch(() => {});
 }
 
 /** Tentativa de contato registrada (1ª, 2ª ou 3ª) → só consultor. */
@@ -567,7 +567,10 @@ export async function notifyStatusChange(lead, user, novoStatus) {
   );
 }
 
-/** Lead convertido → consultor + gestão. */
+/**
+ * Lead convertido → só consultor. Conversão é o resultado desejado, não um
+ * evento inesperado — gerente não entra em cópia aqui.
+ */
 export async function notifyLeadConvertido(lead) {
   const emailConsultor = lead?.emailConsultor || null;
   const consultorNome = lead?.consultor || null;
@@ -578,15 +581,12 @@ export async function notifyLeadConvertido(lead) {
       console.error("[MAIL] Convertido consultor:", err.message),
     );
   }
-
-  const gestaoEmails = await getGestaoEmails();
-  if (gestaoEmails.length) {
-    const { subject, html } = contentLeadConvertido(lead, consultorNome, true);
-    sendEmailToMany(gestaoEmails, { subject, html }).catch(() => {});
-  }
 }
 
-/** Lead sem tratativa (timeout terminal) → consultor + gestão. */
+/**
+ * Lead sem tratativa (3ª/4ª tentativa vencida sem ação) → consultor + gerente.
+ * Evento inesperado — o gerente da região/gerência do lead entra em cópia.
+ */
 export async function notifyLeadSemTratativa(lead) {
   const emailConsultor = lead?.emailConsultor || null;
   const consultorNome = lead?.consultor || null;
@@ -598,9 +598,9 @@ export async function notifyLeadSemTratativa(lead) {
     );
   }
 
-  const gestaoEmails = await getGestaoEmails();
-  if (gestaoEmails.length) {
+  const gerenteEmails = await getGerenteEmails(lead);
+  if (gerenteEmails.length) {
     const { subject, html } = contentLeadSemTratativa(lead, consultorNome, true);
-    sendEmailToMany(gestaoEmails, { subject, html }).catch(() => {});
+    sendEmailToMany(gerenteEmails, { subject, html }).catch(() => {});
   }
 }

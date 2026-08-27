@@ -36,9 +36,10 @@ const REGION = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || "us-e
 const client = new DynamoDBClient({ region: REGION });
 const dynamo = DynamoDBDocumentClient.from(client);
 
-const nomeBuscado = process.argv[2];
+// Aceita nome via argv OU variável de ambiente LEAD_NOME
+const nomeBuscado = process.argv[2] || process.env.LEAD_NOME;
 if (!nomeBuscado) {
-  console.error("❌ Informe o nome do lead: node scripts/set-quarta-tentativa.mjs \"Teste Distribuição 1\"");
+  console.error("❌ Informe o nome: LEAD_NOME=\"Teste Distribuição 1\" node set-quarta-tentativa.mjs");
   process.exit(1);
 }
 

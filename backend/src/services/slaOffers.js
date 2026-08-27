@@ -14,7 +14,7 @@ import {
   listActiveConsultores,
   updateConsultorUltimaAtribuicao,
 } from "./consultores.js";
-import { notifyLeadOffer } from "./emailService.js";
+import { notifyLeadOffer, notifyLeadRecusado } from "./emailService.js";
 import { ZOHO_LEAD_STATUS } from "../domain/leadStatus.js";
 import { syncZohoLeadRejected } from "./zohoLeadSync.js";
 import { buildDynamoUpdateParts } from "../utils/dynamoUpdate.js";
@@ -514,6 +514,10 @@ export async function rejectLeadOffer(lead, { reason, by } = {}) {
   const stillOffered = offeredStatusCondition();
   const closedEntry = previousOfferHistory(reason, by);
   const consultorAtual = lead.consultor || "O consultor responsável";
+  // Distingue recusa explícita (usuário clicou "Recusar") de timeout de 48h
+  // (sweeper, ou aceite tentado depois do prazo já vencido) pelo texto do
+  // motivo — os 2 call sites de timeout sempre mencionam "expirad[o/a]".
+  const timeout = /expirad/i.test(reason || "");
 
   const updated = await persistOfferSwitch(
     lead,
@@ -535,7 +539,11 @@ export async function rejectLeadOffer(lead, { reason, by } = {}) {
     stillOffered,
   );
 
-  if (updated) syncZohoLeadRejected(updated, { at: now });
+  if (updated) {
+    syncZohoLeadRejected(updated, { at: now });
+    // Evento inesperado — avisa o gerente da região/gerência do lead.
+    void notifyLeadRecusado(updated, { timeout });
+  }
   return updated;
 }
 
