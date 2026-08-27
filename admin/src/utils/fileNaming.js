@@ -6,8 +6,8 @@
  *   1_Receita_Medica-Nome_Sobrenome.ext
  *   2_RG_CPF_CIN_CRM-Certidao_de_Nascimento-Nome_Sobrenome.ext
  *   3_Comprovante_de_Endereco-Nome_Sobrenome.ext
- *   4_Comprovante_de_Pagamento_PIX_Itau-Nome_Sobrenome.ext
  *   012345.67891012_2026-Autorizacao_Importacao_Anvisa-Nome_Sobrenome.ext
+ *   5_Comprovante_de_Pagamento_PIX_Itau-Nome_Sobrenome.ext
  *
  * "Primeiro e último nome": pega a primeira palavra de `nome` e a última de `sobrenome`.
  */
@@ -71,7 +71,7 @@ export function gerarNomeArquivo({
 
     case "pagamento": {
       const detalheNorm = normalizarParaArquivo(detalhe || "Pagamento");
-      return `4_Comprovante_de_Pagamento_${detalheNorm}-${nomeP}.${ext}`;
+      return `5_Comprovante_de_Pagamento_${detalheNorm}-${nomeP}.${ext}`;
     }
 
     case "anvisa": {
@@ -95,6 +95,7 @@ export const TIPOS_DOCUMENTO = [
   { value: "receita",  label: "1 — Receita Médica" },
   { value: "rg_cpf",   label: "2 — RG / CPF / CIN / CRM + Certidão de Nascimento" },
   { value: "endereco", label: "3 — Comprovante de Endereço" },
-  { value: "pagamento",label: "4 — Comprovante de Pagamento" },
+  { value: "anvisa",   label: "4 — Autorização Importação (ANVISA)" },
+  { value: "pagamento",label: "5 — Comprovante de Pagamento" },
   { value: "outros",   label: "Outros Documentos" },
 ];

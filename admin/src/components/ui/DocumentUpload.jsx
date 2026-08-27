@@ -1,5 +1,5 @@
 /**
- * DocumentUpload — 5 slots fixos, um por tipo de documento.
+ * DocumentUpload — 6 slots fixos, um por tipo de documento.
  *
  * Clica no card do tipo → abre o seletor de arquivo → arquivo categorizado.
  * Nomes gerados automaticamente: 1_Receita_Medica-Neli_Barbosa.pdf, etc.
@@ -13,13 +13,14 @@ import {
   MdLocalPharmacy,
   MdBadge,
   MdHome,
+  MdAssignmentTurnedIn,
   MdCreditCard,
   MdFolderOpen,
   MdInsertDriveFile,
 } from "react-icons/md";
 import { gerarNomeArquivo } from "../../utils/fileNaming";
 
-/* ─── 5 tipos de documento ─────────────────────────────────────── */
+/* ─── 6 tipos de documento ─────────────────────────────────────── */
 const SLOTS = [
   {
     value: "receita",
@@ -58,8 +59,22 @@ const SLOTS = [
     needsDetalhe: false,
   },
   {
-    value: "pagamento",
+    value: "anvisa",
     num: "4",
+    label: "Autorização\nImportação",
+    Icon: MdAssignmentTurnedIn,
+    gradientFrom: "#c0392b",
+    gradientTo: "#922b21",
+    borderColor: "#c0392b",
+    bgLight: "#fdedec",
+    textColor: "#78281f",
+    needsDetalhe: true,
+    detalhePlaceholder: "ex: 012345.67891012_2026",
+    detalheLabel: "Número da autorização (ANVISA)",
+  },
+  {
+    value: "pagamento",
+    num: "5",
     label: "Comprovante\nde Pagamento",
     Icon: MdCreditCard,
     gradientFrom: "#8e44ad",
@@ -82,7 +97,7 @@ const SLOTS = [
     bgLight: "#f5f3ff",
     textColor: "#4c1d95",
     needsDetalhe: true,
-    detalhePlaceholder: "ex: Autorização ANVISA, Declaração, Laudo...",
+    detalhePlaceholder: "ex: Declaração, Laudo, Outro documento...",
     detalheLabel: "Tipo do documento",
   },
 ];
@@ -209,8 +224,8 @@ export default function DocumentUpload({
         })}
       </div>
 
-      {/* ══ DESKTOP: grade de 5 quadrados ═══════════════════════════ */}
-      <div className="hidden sm:grid grid-cols-5 gap-3">
+      {/* ══ DESKTOP: grade de 6 quadrados ═══════════════════════════ */}
+      <div className="hidden sm:grid grid-cols-6 gap-3">
         {SLOTS.map((slot, slotIndex) => {
           const count = value.filter((v) => v.tipoDocumento === slot.value).length;
           const hasFile = count > 0;
