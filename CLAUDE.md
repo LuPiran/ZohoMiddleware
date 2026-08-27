@@ -8,8 +8,8 @@
 
 ## Deploy
 ```bash
-# No VPS (SSH em 3.136.76.164):
-cd /root/ZohoMiddleware
+# No VPS (SSH em 3.136.76.164, usuário ubuntu — precisa de `sudo -i` pra virar root):
+cd /opt/zoho-middleware
 git pull origin Version4.0
 
 # Só frontend:
