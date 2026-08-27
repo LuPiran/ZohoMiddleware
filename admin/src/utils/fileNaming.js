@@ -2,12 +2,12 @@
  * Utilitário para geração automática de nomes de arquivo de documentação
  * nos formulários de Compra e Recompra.
  *
- * Padrão:
- *   1_Receita_Medica-Nome_Sobrenome.ext
- *   2_RG_CPF_CIN_CRM-Certidao_de_Nascimento-Nome_Sobrenome.ext
- *   3_Comprovante_de_Endereco-Nome_Sobrenome.ext
- *   012345.67891012_2026-Autorizacao_Importacao_Anvisa-Nome_Sobrenome.ext
- *   5_Comprovante_de_Pagamento_PIX_Itau-Nome_Sobrenome.ext
+ * Padrão (sem numeração de ordem na frente — só o nome do documento):
+ *   Receita_Medica-Nome_Sobrenome.ext
+ *   RG_CPF_CIN_CRM-Certidao_de_Nascimento-Nome_Sobrenome.ext
+ *   Comprovante_de_Endereco-Nome_Sobrenome.ext
+ *   Autorizacao_Importacao_Anvisa_012345.67891012_2026-Nome_Sobrenome.ext
+ *   Comprovante_de_Pagamento_PIX_Itau-Nome_Sobrenome.ext
  *
  * "Primeiro e último nome": pega a primeira palavra de `nome` e a última de `sobrenome`.
  */
@@ -61,22 +61,27 @@ export function gerarNomeArquivo({
 
   switch (tipoDocumento) {
     case "receita":
-      return `1_Receita_Medica-${nomeP}.${ext}`;
+      return `Receita_Medica-${nomeP}.${ext}`;
 
     case "rg_cpf":
-      return `2_RG_CPF_CIN_CRM-Certidao_de_Nascimento-${nomeP}.${ext}`;
+      return `RG_CPF_CIN_CRM-Certidao_de_Nascimento-${nomeP}.${ext}`;
 
     case "endereco":
-      return `3_Comprovante_de_Endereco-${nomeP}.${ext}`;
+      return `Comprovante_de_Endereco-${nomeP}.${ext}`;
 
     case "pagamento": {
       const detalheNorm = normalizarParaArquivo(detalhe || "Pagamento");
-      return `5_Comprovante_de_Pagamento_${detalheNorm}-${nomeP}.${ext}`;
+      return `Comprovante_de_Pagamento_${detalheNorm}-${nomeP}.${ext}`;
     }
 
     case "anvisa": {
-      const numNorm = normalizarParaArquivo(detalhe || "0");
-      return `${numNorm}-Autorizacao_Importacao_Anvisa-${nomeP}.${ext}`;
+      // Número real da autorização ANVISA — dado de verdade, não ordem de
+      // exibição. Vai como sufixo do nome-base (igual "pagamento"), nunca
+      // como prefixo solto (evita um "0-" feio quando o campo fica vazio).
+      const numNorm = normalizarParaArquivo(detalhe || "");
+      return numNorm
+        ? `Autorizacao_Importacao_Anvisa_${numNorm}-${nomeP}.${ext}`
+        : `Autorizacao_Importacao_Anvisa-${nomeP}.${ext}`;
     }
 
     case "outros": {
@@ -92,10 +97,10 @@ export function gerarNomeArquivo({
 /** Lista de tipos de documento para o Select. */
 export const TIPOS_DOCUMENTO = [
   { value: "",         label: "Selecione o tipo de documento" },
-  { value: "receita",  label: "1 — Receita Médica" },
-  { value: "rg_cpf",   label: "2 — RG / CPF / CIN / CRM + Certidão de Nascimento" },
-  { value: "endereco", label: "3 — Comprovante de Endereço" },
-  { value: "anvisa",   label: "4 — Autorização Importação (ANVISA)" },
-  { value: "pagamento",label: "5 — Comprovante de Pagamento" },
+  { value: "receita",  label: "Receita Médica" },
+  { value: "rg_cpf",   label: "RG / CPF / CIN / CRM + Certidão de Nascimento" },
+  { value: "endereco", label: "Comprovante de Endereço" },
+  { value: "anvisa",   label: "Autorização Importação (ANVISA)" },
+  { value: "pagamento",label: "Comprovante de Pagamento" },
   { value: "outros",   label: "Outros Documentos" },
 ];
