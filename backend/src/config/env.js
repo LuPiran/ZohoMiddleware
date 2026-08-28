@@ -147,6 +147,13 @@ export const ENV = {
   ZOHO_LEAD_DIST_ERRO_SYNC_FIELD:
     process.env.ZOHO_LEAD_DIST_ERRO_SYNC_FIELD || "Dist_Erro_Sync",
 
+  // Confirmação de que o lead passou pelo Portal + de qual evento ele veio
+  // (campos já existiam no Zoho, sem uso — só passaram a ser escritos agora)
+  ZOHO_LEAD_EVENTO_TRATADO_FIELD:
+    process.env.ZOHO_LEAD_EVENTO_TRATADO_FIELD || "Evento_tratado",
+  ZOHO_LEAD_NOME_EVENTO_FIELD:
+    process.env.ZOHO_LEAD_NOME_EVENTO_FIELD || "Nome_evento",
+
   DYNAMODB_LEADS_PROTOCOLO_INDEX:
     process.env.DYNAMODB_LEADS_PROTOCOLO_INDEX || "gsi_protocolo",
   DYNAMODB_LEADS_PROTOCOLO_ATTR:

@@ -76,9 +76,31 @@ const UF_REGIAO = {
   MT: "CENTRO-OESTE", MS: "CENTRO-OESTE", GO: "CENTRO-OESTE", DF: "CENTRO-OESTE",
 };
 
+// Nome completo do estado (sem acento, maiúsculo) → sigla. Necessário porque
+// alguns campos do Zoho (ex: "Estado") guardam o nome por extenso em vez da
+// sigla — sem isso, "São Paulo" nunca batia com o UF_REGIAO acima.
+const NOME_ESTADO_PARA_UF = {
+  "SAO PAULO": "SP", "RIO DE JANEIRO": "RJ", "MINAS GERAIS": "MG", "ESPIRITO SANTO": "ES",
+  "RIO GRANDE DO SUL": "RS", "SANTA CATARINA": "SC", "PARANA": "PR",
+  "BAHIA": "BA", "PERNAMBUCO": "PE", "CEARA": "CE", "MARANHAO": "MA",
+  "PARAIBA": "PB", "RIO GRANDE DO NORTE": "RN", "ALAGOAS": "AL", "SERGIPE": "SE", "PIAUI": "PI",
+  "AMAZONAS": "AM", "PARA": "PA", "ACRE": "AC", "RONDONIA": "RO", "RORAIMA": "RR",
+  "AMAPA": "AP", "TOCANTINS": "TO",
+  "MATO GROSSO": "MT", "MATO GROSSO DO SUL": "MS", "GOIAS": "GO", "DISTRITO FEDERAL": "DF",
+};
+
 function resolveRegiaoFromUF(uf) {
   if (!uf) return null;
-  return UF_REGIAO[String(uf).trim().toUpperCase()] || null;
+  const normalized = String(uf)
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .trim()
+    .toUpperCase();
+  // Já veio como sigla de 2 letras (ex: "SP")
+  if (UF_REGIAO[normalized]) return UF_REGIAO[normalized];
+  // Veio por extenso (ex: "SAO PAULO") — resolve a sigla primeiro
+  const sigla = NOME_ESTADO_PARA_UF[normalized];
+  return sigla ? UF_REGIAO[sigla] : null;
 }
 
 const TABLE = () => ENV.DYNAMODB_LEADS_TABLE;
@@ -245,7 +267,17 @@ export function mapZohoPayloadToLead(payload) {
     ]),
   );
   const ufCrm = asString(
-    pick(source, ["ufCrm", "ufDoCrm", "uf_crm", "UF_CRM", "UF", "uf"]),
+    pick(source, [
+      "ufCrm",
+      "ufDoCrm",
+      "uf_crm",
+      "UF_CRM",
+      "UF",
+      "uf",
+      "UF_do_Registro_Profissional",
+      "UF_Medico",
+      "UF_M_dico",
+    ]),
   );
   const evento = asString(pick(source, ["evento", "Evento", "event"]));
 

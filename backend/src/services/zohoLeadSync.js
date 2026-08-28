@@ -210,6 +210,10 @@ export function syncZohoLeadDistribuicao(lead) {
     ...field(ENV.ZOHO_LEAD_DIST_REGIAO_FIELD, distRegiaoLabel(lead.regiao)),
     ...field(ENV.ZOHO_LEAD_DIST_GEO_METODO_FIELD, distGeoMetodoLabel(lead.geoMetodo)),
     ...field(ENV.ZOHO_LEAD_DIST_ERRO_SYNC_FIELD, lead.erroSync),
+    // Confirma no próprio registro que o lead passou pelo Portal, e de qual
+    // evento ele veio (além das evidências indiretas dos campos Dist_*).
+    ...field(ENV.ZOHO_LEAD_EVENTO_TRATADO_FIELD, true),
+    ...field(ENV.ZOHO_LEAD_NOME_EVENTO_FIELD, lead.evento),
     ...field(ENV.ZOHO_LEAD_DIST_FILA_FIELD, fila),
     ...field(ENV.ZOHO_LEAD_DIST_STATUS_FIELD, "Oferecido"),
     ...(lead.slaOfertaRound != null
