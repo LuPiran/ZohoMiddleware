@@ -17,11 +17,11 @@ export const ROUTES = {
   MANUAL: "/manual",
   AGRADECIMENTO: "/agradecimento",
   SAVED_FORMS: "/formularios-salvos",
+  CENTRAL_COMERCIAL: "/central-comercial",
 };
 
 export const EXTERNAL_LINKS = {
   TRACKING_PEDIDO: "https://rastreamentodepedido.tegrapharma.com/login",
-  CENTRAL_CONSULTOR: "https://central.tegrapharma.com/",
 };
 
 export const API_ENDPOINTS = {

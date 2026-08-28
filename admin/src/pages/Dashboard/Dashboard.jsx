@@ -228,7 +228,7 @@ export default function Dashboard() {
             label="Form. pendentes"
             value={savedFormsCount}
             sub="aguardando envio"
-            iconBg={savedFormsCount > 0 ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-500"}
+            iconBg={savedFormsCount > 0 ? "bg-amber-100 text-amber-800" : "bg-tegra-blue-dark/8 text-tegra-blue-dark"}
           />
         </div>
 
@@ -273,14 +273,11 @@ export default function Dashboard() {
               />
             )}
 
-            {/* Externo */}
             <ActionCard
               icon={MdLanguage}
               label="Central Comercial"
-              description="Acesse o portal de vendas"
-              onClick={() => openExt(EXTERNAL_LINKS.CENTRAL_CONSULTOR)}
-              variant="amber"
-              external
+              description="Materiais, lâminas e recursos técnicos"
+              onClick={() => goTo(ROUTES.CENTRAL_COMERCIAL)}
             />
             {mostrarTrackingPedido && (
               <ActionCard

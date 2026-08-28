@@ -104,12 +104,10 @@ export default function Navbar() {
         { path: ROUTES.RECOMPRA,  label: "Recompra",  Icon: MdShoppingCart, show: mostrarRecompra },
         { path: ROUTES.PROPOSTA,  label: "Proposta",  Icon: MdDescription, show: mostrarProposta },
         {
-          path: EXTERNAL_LINKS.CENTRAL_CONSULTOR,
+          path: ROUTES.CENTRAL_COMERCIAL,
           label: "Central Comercial",
           Icon: MdLanguage,
           show: true,
-          external: true,
-          variant: "amber",
         },
         {
           path: EXTERNAL_LINKS.TRACKING_PEDIDO,

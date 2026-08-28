@@ -115,12 +115,10 @@ export default function Sidebar() {
           show: mostrarProposta,
         },
         {
-          path: EXTERNAL_LINKS.CENTRAL_CONSULTOR,
+          path: ROUTES.CENTRAL_COMERCIAL,
           label: "Central Comercial",
           Icon: MdLanguage,
           show: true,
-          external: true,
-          variant: "amber",
         },
         {
           path: EXTERNAL_LINKS.TRACKING_PEDIDO,

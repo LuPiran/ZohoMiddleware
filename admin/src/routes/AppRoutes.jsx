@@ -13,6 +13,7 @@ import Agradecimento from "../pages/Agradecimento/Agradecimento";
 import SavedForms from "../pages/SavedForms/SavedForms";
 import FAQ from "../pages/FAQ/FAQ";
 import Manual from "../pages/Manual/Manual";
+import CentralComercial from "../pages/CentralComercial/CentralComercial";
 import ProtectedRoute from "../components/auth/ProtectedRoute";
 import AdminRoute from "../components/auth/AdminRoute";
 import { authService } from "../services/auth";
@@ -171,6 +172,14 @@ export default function AppRoutes() {
             </ProtectedRoute>
           }
         />
+      <Route
+        path={ROUTES.CENTRAL_COMERCIAL}
+        element={
+          <ProtectedRoute>
+            <CentralComercial />
+          </ProtectedRoute>
+        }
+      />
       {/* Redireciona qualquer rota não encontrada para login */}
       <Route path="*" element={<Navigate to={ROUTES.LOGIN} replace />} />
     </Routes>

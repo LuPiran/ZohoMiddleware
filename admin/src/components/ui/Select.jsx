@@ -17,9 +17,11 @@ export default function Select({
   error = "",
   className = "",
   loading = false,
+  variant = "default",
   ...props
 }) {
   const isRequired = required && !podeIgnorarCamposObrigatorios(authService.getUser());
+  const isOnDark = variant === "onDark";
 
   // Mapeia as opções para o formato do react-select
   const mappedOptions = useMemo(() => {
@@ -77,41 +79,53 @@ export default function Select({
   const customStyles = {
     control: (base, state) => ({
       ...base,
-      border: "1px solid",
+      border: isOnDark ? "2px solid" : "1px solid",
       borderColor: error
-        ? "#f44336" // tegra-error
-        : "#e0e0e0", // tegra-gray-medium (mesma cor dos outros campos)
-      borderRadius: "0.5rem",
-      backgroundColor: "#ffffff", // fundo branco
+        ? "#f44336"
+        : isOnDark
+          ? "#25b3b8"
+          : "#e0e0e0",
+      borderRadius: isOnDark ? "10px" : "0.5rem",
+      backgroundColor: isOnDark ? "rgba(255, 255, 255, 0.12)" : "#ffffff",
       boxShadow: "none",
       minHeight: "42px",
       "&:hover": {
-        borderColor: error ? "#f44336" : "#e0e0e0", // mantém a mesma cor no hover
+        borderColor: error
+          ? "#f44336"
+          : isOnDark
+            ? "#25b3b8"
+            : "#e0e0e0",
       },
       ...(state.isFocused && {
-        borderColor: error ? "#f44336" : "#E5989B", // tegra-teal (mesma cor de foco dos outros campos)
-        boxShadow: "0 0 0 2px rgba(229, 152, 155, 0.2)", // ring effect como nos outros campos
+        borderColor: error
+          ? "#f44336"
+          : isOnDark
+            ? "#25b3b8"
+            : "#E5989B",
+        boxShadow: isOnDark
+          ? "0 0 0 2px rgba(37, 179, 184, 0.28)"
+          : "0 0 0 2px rgba(229, 152, 155, 0.2)",
       }),
       ...(disabled && {
-        backgroundColor: "#f5f5f5", // tegra-gray-light
+        backgroundColor: isOnDark ? "rgba(255, 255, 255, 0.06)" : "#f5f5f5",
         cursor: "not-allowed",
         opacity: 0.5,
       }),
     }),
     placeholder: (base) => ({
       ...base,
-      color: "#666666", // tegra-text-secondary
+      color: isOnDark ? "rgba(255, 255, 255, 0.72)" : "#666666",
       fontSize: "0.875rem",
     }),
     singleValue: (base) => ({
       ...base,
-      color: "#1a2f5b", // tegra-blue-dark
+      color: isOnDark ? "#ffffff" : "#1a2f5b",
       fontWeight: "700",
       fontSize: "0.875rem",
     }),
     input: (base) => ({
       ...base,
-      color: "#1a2f5b", // tegra-blue-dark
+      color: isOnDark ? "#ffffff" : "#1a2f5b",
       fontWeight: "700",
     }),
     menu: (base) => ({
@@ -122,6 +136,10 @@ export default function Select({
       boxShadow:
         "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
       marginTop: "4px",
+      zIndex: 9999,
+    }),
+    menuPortal: (base) => ({
+      ...base,
       zIndex: 9999,
     }),
     menuList: (base) => ({
@@ -150,10 +168,10 @@ export default function Select({
     }),
     dropdownIndicator: (base) => ({
       ...base,
-      color: "#000000",
+      color: isOnDark ? "#ffffff" : "#000000",
       padding: "8px",
       "&:hover": {
-        color: "#000000",
+        color: isOnDark ? "#ffffff" : "#000000",
       },
     }),
     loadingIndicator: (base) => ({
@@ -219,6 +237,7 @@ export default function Select({
         className={className}
         classNamePrefix="tegra-select"
         menuPortalTarget={document.body}
+        menuPosition="fixed"
         menuPlacement="auto"
         aria-required={isRequired}
         {...props}

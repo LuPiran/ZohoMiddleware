@@ -20,7 +20,7 @@ const UPDATE_CONTENT = {
 const DEFAULT_HIGHLIGHTS = [
   {
     label: "Central Comercial no menu:",
-    text: "Um novo ambiente para você adquirir conhecimento, acessar materiais, treinamentos e recursos técnicos da TegraPharma. Disponível no menu com um clique, abre em nova aba sem sair do portal.",
+    text: "Um novo ambiente para você adquirir conhecimento, acessar materiais, treinamentos e recursos técnicos da TegraPharma. Disponível no menu com um clique, agora dentro do próprio portal.",
     icon: MdLanguage,
     iconClass: "bg-amber-100 text-amber-700",
   },
