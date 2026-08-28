@@ -10,10 +10,12 @@ import { findGerenteEmailsByGerencia } from "./consultores.js";
 function loadLogoBase64() {
   try {
     const __dir = dirname(fileURLToPath(import.meta.url));
-    // Tenta carregar do volume montado (Docker) ou fallback local
+    // LogoTegra.png é a versão branca (logoCorp.png tem "Corp." em cinza
+    // escuro, que some no cabeçalho navy do e-mail) — tenta o volume
+    // montado (Docker) e o fallback local.
     const paths = [
-      resolve(__dir, "../../../admin/public/logoCorp.png"),
-      resolve(__dir, "../../admin/public/logoCorp.png"),
+      resolve(__dir, "../../../admin/public/LogoTegra.png"),
+      resolve(__dir, "../../admin/public/LogoTegra.png"),
     ];
     for (const p of paths) {
       try {
@@ -40,7 +42,9 @@ function leadPortalUrl(leadId) {
 /** Formata minutos em texto legível: 10 → "10 minutos", 120 → "2 horas", 2880 → "48 horas" */
 function formatMinutes(min) {
   if (!min) return "—";
-  if (min >= 1440) {
+  // > 2880 (48h) vira dias — o prazo padrão de 48h exatas continua em "horas"
+  // (48 horas), não "2 dias", que é como o time trata o prazo internamente.
+  if (min > 2880) {
     const d = Math.round(min / 1440);
     return `${d} dia${d > 1 ? "s" : ""}`;
   }
@@ -121,8 +125,10 @@ function buildHtml({ badgeStatus, title, intro, leadInfo, bodyExtra = "", ctaUrl
   const { nome, regiao, especialidade, consultor } = leadInfo || {};
 
   const headerLogo = LOGO_DATA_URI
-    ? `<img src="${LOGO_DATA_URI}" alt="TegraPharma Corp" height="46"
-         style="display:block;max-height:46px;border:0;">`
+    // LogoTegra.png (branca) é bem mais "quadrada" que a antiga logoCorp.png
+    // (1214x704 vs 400x48) — precisa de mais altura pra não ficar minúscula.
+    ? `<img src="${LOGO_DATA_URI}" alt="TegraPharma Corp" height="64"
+         style="display:block;max-height:64px;border:0;">`
     : `<p style="margin:0;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:-0.3px;">
          TegraPharma<span style="color:#E5989B;">Corp</span>
        </p>`;
@@ -603,4 +609,41 @@ export async function notifyLeadSemTratativa(lead) {
     const { subject, html } = contentLeadSemTratativa(lead, consultorNome, true);
     sendEmailToMany(gerenteEmails, { subject, html }).catch(() => {});
   }
+}
+
+/* ─── Preview (não envia nada — só monta o HTML com dado de exemplo) ────── */
+
+/**
+ * Gera {subject, html} de todos os modelos de e-mail com um lead de
+ * exemplo, sem chamar sendEmail em nenhum momento. Serve só pra visualizar/
+ * ajustar template sem precisar criar lead de teste na base.
+ */
+export function previewEmailTemplates() {
+  const sampleLead = {
+    id: "preview-lead-id",
+    nome: "Maria Aparecida Souza",
+    regiao: "SUDESTE",
+    cidade: "São Paulo",
+    estado: "SP",
+    especialidade: "Neurologia",
+    consultor: "Lucas Piran",
+    emailConsultor: "lucas.piran@tegrapharma.com",
+    status: "Lead Em Qualificação",
+    dataConversao: new Date().toISOString(),
+  };
+  const consultorNome = sampleLead.consultor;
+
+  return [
+    { key: "oferta_consultor", label: "1. Oferta SLA → consultor", ...contentLeadOffer(sampleLead, consultorNome) },
+    { key: "oferta_gestao", label: "1b. Oferta SLA → aviso gestão (função existe, não é chamada hoje)", ...contentLeadOfferGestao(sampleLead, consultorNome) },
+    { key: "aceito_consultor", label: "2. Lead aceito → consultor", ...contentLeadAceitoConsultor(sampleLead, consultorNome) },
+    { key: "aceito_gestao", label: "2b. Lead aceito → aviso gestão (função existe, não é chamada hoje)", ...contentLeadAceitoGestao(sampleLead, consultorNome) },
+    { key: "recusado_explicito", label: "3. Recusado — recusa explícita → gerente", ...contentLeadRecusado(sampleLead, consultorNome, { timeout: false }) },
+    { key: "recusado_timeout", label: "3b. Recusado — timeout de 48h → gerente", ...contentLeadRecusado(sampleLead, consultorNome, { timeout: true }) },
+    { key: "tentativa", label: "4. Tentativa de contato registrada → consultor", ...contentTentativa(sampleLead, consultorNome, 1) },
+    { key: "status_change", label: "5. Mudança de status (Sem Interesse) → consultor", ...contentStatusChange(sampleLead, consultorNome, "Lead Sem Interesse") },
+    { key: "convertido_consultor", label: "6. Lead convertido → consultor", ...contentLeadConvertido(sampleLead, consultorNome, false) },
+    { key: "sem_tratativa_consultor", label: "7. Lead sem tratativa → consultor", ...contentLeadSemTratativa(sampleLead, consultorNome, false) },
+    { key: "sem_tratativa_gerente", label: "7b. Lead sem tratativa → gerente", ...contentLeadSemTratativa(sampleLead, consultorNome, true) },
+  ];
 }
