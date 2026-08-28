@@ -413,6 +413,11 @@ export async function offerLeadOnCreate(lead) {
     delete lead.slaDeadline;
     const semRegiao = !lead.regiao;
     const temGeo = Boolean(leadCoords(lead));
+    const detail = semRegiao && !temGeo
+      ? "Lead sem região e sem geolocalização — não há consultor com perfil Gestão ativo."
+      : semRegiao
+        ? "Lead sem região: nenhum consultor encontrado por geolocalização e não há consultor Gestão ativo."
+        : `${SLA_REGIONAL_CYCLES} ciclos regionais em ${lead.regiao} e a Gestão esgotada — sem destinatário.`;
     appendCreateHistory(lead, {
       action: "sla_ciclo_encerrado",
       label: semRegiao && !temGeo
@@ -420,13 +425,12 @@ export async function offerLeadOnCreate(lead) {
         : semRegiao
           ? "Nenhum consultor disponível (geo + Gestão)"
           : "Ninguém disponível para aceitar o lead",
-      detail: semRegiao && !temGeo
-        ? "Lead sem região e sem geolocalização — não há consultor com perfil Gestão ativo."
-        : semRegiao
-          ? "Lead sem região: nenhum consultor encontrado por geolocalização e não há consultor Gestão ativo."
-          : `${SLA_REGIONAL_CYCLES} ciclos regionais em ${lead.regiao} e a Gestão esgotada — sem destinatário.`,
+      detail,
       by: "sistema",
     });
+    // Acumula no mesmo log que a geocodificação já pode ter preenchido
+    // (ver leadsMedicos.js) — sincronizado pro Zoho em Dist_Erro_Sync.
+    lead.erroSync = [lead.erroSync, detail].filter(Boolean).join(" | ");
     console.warn(
       `[SLA] Sem destinatário para oferta (${lead.regiao || "sem região"})`,
     );

@@ -162,6 +162,39 @@ export function syncZohoLeadProtocolo(lead) {
 }
 
 /**
+ * Converte a região interna do Portal (SUDESTE, SUL, NORDESTE, NORTE,
+ * CENTRO-OESTE — em caixa alta, usada pra decidir a fila de consultores)
+ * para o rótulo exato do picklist Dist_Regiao no Zoho (Title Case).
+ */
+const DIST_REGIAO_LABELS = {
+  SUDESTE: "Sudeste",
+  SUL: "Sul",
+  NORDESTE: "Nordeste",
+  NORTE: "Norte",
+  "CENTRO-OESTE": "Centro-Oeste",
+};
+
+function distRegiaoLabel(regiao) {
+  const key = String(regiao || "").trim().toUpperCase();
+  return DIST_REGIAO_LABELS[key] || "Não Identificada";
+}
+
+/**
+ * Converte o método interno de localização (geoMetodo) para o rótulo do
+ * picklist Dist_Geo_Metodo no Zoho. "DDD" nunca é produzido pelo código
+ * hoje — a inferência de região por DDD do desenho antigo não existe mais.
+ */
+const DIST_GEO_METODO_LABELS = {
+  cep: "CEP",
+  google: "Geolocalização Google",
+  uf: "UF informada",
+};
+
+function distGeoMetodoLabel(geoMetodo) {
+  return DIST_GEO_METODO_LABELS[geoMetodo] || "Nao identificada";
+}
+
+/**
  * Sincroniza campos Dist_* imediatamente após a distribuição do lead no portal.
  * Chamado em createLeadFromZoho logo após gravar no DynamoDB.
  * Fire-and-forget — não bloqueia o fluxo de criação.
@@ -174,9 +207,9 @@ export function syncZohoLeadDistribuicao(lead) {
     ...field(ENV.ZOHO_LEAD_DIST_CONSULTOR_EMAIL_FIELD, lead.emailConsultor),
     ...field(ENV.ZOHO_LEAD_DIST_CONSULTOR_ID_FIELD, lead.consultorId ? String(lead.consultorId) : undefined),
     ...field(ENV.ZOHO_LEAD_DIST_DATA_ATRIBUICAO_FIELD, toZohoDateTime(lead.entradaEm)),
-    // Dist_Regiao omitida aqui — lead.regiao usa nomenclatura do webhook
-    // e pode não bater com o picklist (SP/SUL, CONNE, RIO+). Sincronizado
-    // separadamente quando o valor for confiável.
+    ...field(ENV.ZOHO_LEAD_DIST_REGIAO_FIELD, distRegiaoLabel(lead.regiao)),
+    ...field(ENV.ZOHO_LEAD_DIST_GEO_METODO_FIELD, distGeoMetodoLabel(lead.geoMetodo)),
+    ...field(ENV.ZOHO_LEAD_DIST_ERRO_SYNC_FIELD, lead.erroSync),
     ...field(ENV.ZOHO_LEAD_DIST_FILA_FIELD, fila),
     ...field(ENV.ZOHO_LEAD_DIST_STATUS_FIELD, "Oferecido"),
     ...(lead.slaOfertaRound != null

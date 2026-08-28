@@ -142,6 +142,10 @@ export const ENV = {
     process.env.ZOHO_LEAD_DIST_STATUS_FIELD || "Dist_Status",
   ZOHO_LEAD_DIST_RODADAS_FIELD:
     process.env.ZOHO_LEAD_DIST_RODADAS_FIELD || "Dist_Rodadas",
+  ZOHO_LEAD_DIST_GEO_METODO_FIELD:
+    process.env.ZOHO_LEAD_DIST_GEO_METODO_FIELD || "Dist_Geo_Metodo",
+  ZOHO_LEAD_DIST_ERRO_SYNC_FIELD:
+    process.env.ZOHO_LEAD_DIST_ERRO_SYNC_FIELD || "Dist_Erro_Sync",
 
   DYNAMODB_LEADS_PROTOCOLO_INDEX:
     process.env.DYNAMODB_LEADS_PROTOCOLO_INDEX || "gsi_protocolo",
