@@ -1759,6 +1759,7 @@ export async function markLeadSemInteresse(leadId, user, { observacao, files } =
     acao: "sem_interesse",
     round,
     user,
+    requireEvidence: false,
   });
   const meta = round ? ATTEMPT_ROUNDS[round] : null;
   const historico = appendHistorico(raw, {

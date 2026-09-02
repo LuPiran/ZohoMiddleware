@@ -11,8 +11,12 @@ import {
 } from "./workdrive.js";
 import { uploadLeadAttachmentToZoho } from "./zohoLeadAttachments.js";
 
-export async function persistLeadEvidencias(lead, files, { acao, round, user } = {}) {
-  const validated = assertEvidenceFiles(files);
+export async function persistLeadEvidencias(
+  lead,
+  files,
+  { acao, round, user, requireEvidence = true } = {},
+) {
+  const validated = assertEvidenceFiles(files, { required: requireEvidence });
   const protocolo = lead.protocolo || generateProtocolo();
   const folderLead = { ...lead, protocolo };
   const { folderId, folderName } = await ensureLeadWorkDriveFolder(folderLead);

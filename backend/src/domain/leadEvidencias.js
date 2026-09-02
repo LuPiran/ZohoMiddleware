@@ -42,9 +42,9 @@ export function extensionForMime(mime) {
   return ALLOWED_EVIDENCE_MIME[mime] || "jpg";
 }
 
-export function assertEvidenceFiles(files) {
+export function assertEvidenceFiles(files, { required = true } = {}) {
   const list = Array.isArray(files) ? files.filter(Boolean) : [];
-  if (list.length < MIN_EVIDENCIAS) {
+  if (required && list.length < MIN_EVIDENCIAS) {
     throw validationError(
       "Envie pelo menos 1 imagem de evidência (máximo 5).",
     );

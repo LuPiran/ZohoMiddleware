@@ -282,7 +282,17 @@ export function treatedAttemptUpdates(lead, round, { observacao, at }) {
 
 export function semInteresseUpdates(lead, { observacao, at }) {
   assertCanMarkSemInteresse(lead);
-  const note = requireObservacao(observacao);
+  // Observação é opcional aqui (diferente de treatedAttemptUpdates): marcar
+  // "sem interesse" não exige explicar o motivo, só confirmar a decisão.
+  const note =
+    observacao === undefined || observacao === null
+      ? ""
+      : String(observacao).trim();
+  if (note && note.length < MIN_OBSERVACAO) {
+    throw validationError(
+      "Observação da tentativa deve ter pelo menos 10 caracteres",
+    );
+  }
   const round = currentOpenAttemptRound(lead);
   const meta = round ? ATTEMPT_ROUNDS[round] : null;
   const updates = {
@@ -291,7 +301,7 @@ export function semInteresseUpdates(lead, { observacao, at }) {
     updatedAt: at,
   };
   if (meta) {
-    updates[meta.desc] = note;
+    if (note) updates[meta.desc] = note;
     updates[meta.date] = at;
     updates[meta.status] = ZOHO_ATTEMPT_STATUS.TRATADO;
   }

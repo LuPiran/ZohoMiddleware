@@ -258,8 +258,18 @@ export default function LeadFirstAttemptCard({
   };
 
   const handleSemInteresse = async () => {
-    const note = validateObservacao();
-    if (!note || !validateEvidencias()) return;
+    // Observação e evidências são opcionais para "sem interesse" — só o
+    // tamanho mínimo é validado quando o consultor de fato escreve algo.
+    const note = observacao.trim();
+    if (note && note.length < MIN_OBSERVACAO) {
+      const message =
+        "Observação da tentativa deve ter pelo menos 10 caracteres";
+      setError(message);
+      showToast(message, "warning", 3500);
+      return;
+    }
+    setError("");
+    setFileError("");
     await onSemInteresse(note, files);
     resetForm();
   };
