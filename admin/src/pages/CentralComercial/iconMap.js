@@ -13,6 +13,12 @@ import {
   MdSchool,
   MdChevronRight,
   MdOpenInNew,
+  MdPictureAsPdf,
+  MdImage,
+  MdVideocam,
+  MdSlideshow,
+  MdDownload,
+  MdVisibility,
 } from "react-icons/md";
 
 export const CATALOG_ICONS = {
@@ -29,6 +35,10 @@ export const CATALOG_ICONS = {
   file: MdInsertDriveFile,
   folder: MdFolder,
   isolate: MdScience,
+  pdf: MdPictureAsPdf,
+  image: MdImage,
+  video: MdVideocam,
+  slides: MdSlideshow,
 };
 
 export const ICON_TONES = {
@@ -97,6 +107,26 @@ export const ICON_TONES = {
     hover: "hover:bg-violet-50",
     border: "border-[1.5px] border-violet-700",
   },
+  pdf: {
+    wrap: "bg-[#3da2b8]/12 text-[#2d7a8a]",
+    hover: "hover:bg-[#3da2b8]/8",
+    border: "border-[1.5px] border-[#2d7a8a]",
+  },
+  image: {
+    wrap: "bg-tegra-blue-light/15 text-tegra-blue-light",
+    hover: "hover:bg-tegra-blue-light/8",
+    border: "border-[1.5px] border-tegra-blue-light",
+  },
+  video: {
+    wrap: "bg-tegra-teal/18 text-[#9d4d55]",
+    hover: "hover:bg-tegra-teal/10",
+    border: "border-[1.5px] border-[#9d4d55]",
+  },
+  slides: {
+    wrap: "bg-amber-100 text-amber-800",
+    hover: "hover:bg-amber-50",
+    border: "border-[1.5px] border-amber-700",
+  },
 };
 
 export const TAG_STYLES = {
@@ -113,4 +143,4 @@ export function getIconTone(name) {
   return ICON_TONES[name] || ICON_TONES.folder;
 }
 
-export { MdChevronRight, MdOpenInNew };
+export { MdChevronRight, MdOpenInNew, MdDownload, MdVisibility };

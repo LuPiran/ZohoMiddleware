@@ -14,6 +14,7 @@ import propostaRoutes from "./routes/proposta.route.js";
 import savedFormsRoutes from "./routes/savedForms.route.js";
 import zohoRoutes from "./routes/zoho.route.js";
 import leadsMedicosRoutes from "./routes/leadsMedicos.route.js";
+import centralComercialRoutes from "./routes/centralComercial.route.js";
 import { startSlaSweeper } from "./services/slaSweeper.js";
 import { authenticateToken } from "./services/jwtService.js";
 import { requireAdmin } from "./middleware/authz.js";
@@ -105,6 +106,7 @@ app.use("/v1/products", authenticateToken, productsRoutes);
 app.use("/v1/cep", authenticateToken, cepRoutes);
 app.use("/v1/zoho", authenticateToken, requireAdmin, zohoRoutes);
 app.use("/v1/leads-medicos", leadsMedicosRoutes);
+app.use("/v1/central-comercial", authenticateToken, centralComercialRoutes);
 app.use("/v1/saved-forms", savedFormsRoutes);
 app.use("/v1/upload", authenticateToken, writeRateLimiter, uploadRoutes);
 
@@ -243,6 +245,19 @@ app.listen(ENV.PORT, () => {
   console.log(
     "[CONFIG] ZOHO_LEADS_WEBHOOK_SECRET:",
     ENV.ZOHO_LEADS_WEBHOOK_SECRET ? "✓ Configurado" : "✗ Não configurado",
+  );
+  console.log("[CONFIG] Graph / Central Comercial:");
+  console.log(
+    "[CONFIG] GRAPH_FILES_CLIENT_ID:",
+    ENV.GRAPH_FILES_CLIENT_ID ? "✓ Configurado" : "✗ Não configurado",
+  );
+  console.log(
+    "[CONFIG] GRAPH_FILES_CLIENT_SECRET:",
+    ENV.GRAPH_FILES_CLIENT_SECRET ? "✓ Configurado" : "✗ Não configurado",
+  );
+  console.log(
+    "[CONFIG] GRAPH_SHAREPOINT_SITE_ID:",
+    ENV.GRAPH_SHAREPOINT_SITE_ID ? "✓ Configurado" : "○ resolve pelo hostname",
   );
   console.log("========================================");
 });

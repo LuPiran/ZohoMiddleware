@@ -199,4 +199,30 @@ export const ENV = {
   GRAPH_MAIL_CLIENT_ID: process.env.GRAPH_MAIL_CLIENT_ID,
   GRAPH_MAIL_CLIENT_SECRET: process.env.GRAPH_MAIL_CLIENT_SECRET,
   RESEND_API_KEY: process.env.RESEND_API_KEY,
+
+  // SharePoint / Central Comercial (app confidencial — NÃO usar o SPA PKCE)
+  GRAPH_FILES_TENANT_ID:
+    process.env.GRAPH_FILES_TENANT_ID ||
+    process.env.GRAPH_MAIL_TENANT_ID ||
+    process.env.ENTRA_TENANT_ID,
+  GRAPH_FILES_CLIENT_ID:
+    process.env.GRAPH_FILES_CLIENT_ID || process.env.GRAPH_MAIL_CLIENT_ID,
+  GRAPH_FILES_CLIENT_SECRET:
+    process.env.GRAPH_FILES_CLIENT_SECRET ||
+    process.env.GRAPH_MAIL_CLIENT_SECRET,
+  GRAPH_SHAREPOINT_HOSTNAME:
+    process.env.GRAPH_SHAREPOINT_HOSTNAME || "onixcann.sharepoint.com",
+  GRAPH_SHAREPOINT_SITE_PATH:
+    process.env.GRAPH_SHAREPOINT_SITE_PATH ||
+    "sites/EstruturadePastas-TegraPharma",
+  GRAPH_SHAREPOINT_DRIVE_NAME:
+    process.env.GRAPH_SHAREPOINT_DRIVE_NAME || "Documentos Compartilhados",
+  GRAPH_SHAREPOINT_ROOT_PATH:
+    process.env.GRAPH_SHAREPOINT_ROOT_PATH ||
+    "Projeto Eld/Central comercial TegraPharma",
+  GRAPH_SHAREPOINT_SITE_ID: process.env.GRAPH_SHAREPOINT_SITE_ID || "",
+  GRAPH_SHAREPOINT_DRIVE_ID: process.env.GRAPH_SHAREPOINT_DRIVE_ID || "",
+  GRAPH_SHAREPOINT_ROOT_ITEM_ID:
+    process.env.GRAPH_SHAREPOINT_ROOT_ITEM_ID || "",
+  GRAPH_PREVIEW_MAX_BYTES: process.env.GRAPH_PREVIEW_MAX_BYTES,
 };

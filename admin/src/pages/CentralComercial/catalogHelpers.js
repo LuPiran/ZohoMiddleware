@@ -1,26 +1,4 @@
-import {
-  CATALOG_META,
-  CATALOG_PAGES,
-  HOME_SECTIONS,
-  TOP_CATEGORY_IDS,
-} from "./catalog";
-
-export const CATEGORY_OPTIONS = [
-  { value: "all", label: "Tudo" },
-  ...TOP_CATEGORY_IDS.map((id) => ({
-    value: id,
-    label: CATALOG_META[id].label,
-  })),
-];
-
-const PARENT_MAP = {};
-Object.entries(CATALOG_PAGES).forEach(([pageId, page]) => {
-  page.groups.forEach((group) => {
-    group.items.forEach((item) => {
-      if (item.nav) PARENT_MAP[item.nav] = pageId;
-    });
-  });
-});
+import { CATALOG_META, HOME_SECTIONS, TOP_CATEGORY_IDS } from "./catalog";
 
 export function normalizeSearch(value) {
   return String(value || "")
@@ -32,105 +10,142 @@ export function normalizeSearch(value) {
     .trim();
 }
 
-export function getPathTo(pageId) {
-  const path = [];
-  let current = pageId;
-  while (current) {
-    path.unshift(current);
-    current = PARENT_MAP[current];
+export function formatBytes(bytes) {
+  const size = Number(bytes || 0);
+  if (!size) return "";
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${Math.round(size / 1024)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1).replace(".", ",")} MB`;
+}
+
+export function formatModified(iso) {
+  if (!iso) return "";
+  try {
+    return new Intl.DateTimeFormat("pt-BR", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }).format(new Date(iso));
+  } catch {
+    return "";
   }
-  return path;
 }
 
-export function searchCatalog(query, categoryId) {
-  const q = normalizeSearch(query);
-  if (q.length < 2) return [];
+export function iconForPreview(preview, isFolder) {
+  if (isFolder) return "folder";
+  if (preview === "pdf") return "pdf";
+  if (preview === "image") return "image";
+  if (preview === "video") return "video";
+  if (preview === "office") return "slides";
+  if (preview === "text") return "file";
+  return "file";
+}
 
-  const results = [];
-  Object.entries(CATALOG_PAGES).forEach(([pageId, page]) => {
-    page.groups.forEach((group) => {
-      group.items.forEach((item) => {
-        if (!item.leaf) return;
-        const haystack = normalizeSearch(
-          `${item.label} ${item.desc || ""} ${item.tag || ""}`,
-        );
-        if (!haystack.includes(q)) return;
+export function metaForName(name) {
+  const n = normalizeSearch(name);
+  if (!n) return { label: name, desc: "", icon: "folder" };
 
-        const path = getPathTo(pageId);
-        if (categoryId && categoryId !== "all" && path[0] !== categoryId) {
-          return;
-        }
+  const entries = Object.values(CATALOG_META);
+  const exact = entries.find((meta) => normalizeSearch(meta.label) === n);
+  if (exact) return exact;
 
-        const topId = path[0];
-        results.push({
-          label: item.label,
-          typeLabel: CATALOG_META[topId]?.label || "",
-          icon: CATALOG_META[topId]?.icon || "file",
-          where: ["Início", ...path.map((id) => CATALOG_META[id].label)].join(
-            " › ",
-          ),
-          path,
-        });
-      });
-    });
+  const loose = entries.find((meta) => {
+    const label = normalizeSearch(meta.label);
+    if (label.length < 4 || n.length < 4) return false;
+    return label.startsWith(n) || n.startsWith(label) || label.includes(n);
   });
-
-  return results.slice(0, 30);
+  return loose || { label: name, desc: "", icon: "folder" };
 }
 
-export function resolveHomeSections() {
-  return HOME_SECTIONS.map((section, index) => ({
-    label: section.label,
-    asGrid: index === 0,
-    items: section.items.map((entry) => {
-      if (typeof entry === "object") {
-        return {
-          kind: "link",
-          label: entry.label,
-          desc: entry.desc || "",
-          icon: entry.icon || "file",
-          href: entry.url,
-        };
-      }
-      const meta = CATALOG_META[entry];
-      return {
-        kind: "nav",
-        nav: entry,
-        label: meta.label,
-        desc: meta.desc || "",
-        icon: meta.icon,
-      };
-    }),
-  }));
+export function decorateItem(item) {
+  const meta = metaForName(item.name);
+  const icon = item.isFolder
+    ? meta.icon || "folder"
+    : iconForPreview(item.preview, false);
+  const desc = item.isFolder
+    ? meta.desc ||
+      (item.childCount != null
+        ? `${item.childCount} ${item.childCount === 1 ? "item" : "itens"}`
+        : "Pasta")
+    : [formatBytes(item.size), formatModified(item.modifiedAt)]
+        .filter(Boolean)
+        .join(" · ");
+
+  return { ...item, icon, desc };
 }
 
-export function resolvePageGroups(pageId) {
-  const page = CATALOG_PAGES[pageId];
-  if (!page) return [];
+function findItemForEntry(items, entry) {
+  if (typeof entry === "object") {
+    const target = normalizeSearch(entry.label);
+    return (
+      items.find((item) => normalizeSearch(item.name) === target) ||
+      items.find((item) => {
+        const n = normalizeSearch(item.name);
+        return target && n && (n.includes(target) || target.includes(n));
+      })
+    );
+  }
 
-  return page.groups.map((group) => ({
-    label: group.label || "",
-    items: group.items.map((item) => {
-      if (item.nav) {
-        const meta = CATALOG_META[item.nav];
-        return {
-          kind: "nav",
-          nav: item.nav,
-          label: meta.label,
-          desc: meta.desc || "",
-          icon: "folder",
-          toneIcon: meta.icon,
-        };
-      }
-      return {
-        kind: "link",
-        label: item.label,
-        desc: item.desc || "",
-        tag: item.tag || "",
-        href: item.url,
-        icon: "file",
-        toneIcon: item.tag === "Isolate" ? "isolate" : "file",
-      };
-    }),
-  }));
+  const meta = CATALOG_META[entry];
+  if (!meta) return null;
+  const target = normalizeSearch(meta.label);
+  return (
+    items.find((item) => normalizeSearch(item.name) === target) ||
+    items.find((item) => {
+      const n = normalizeSearch(item.name);
+      if (!n || n.length < 4) return false;
+      return n.includes(target) || target.includes(n);
+    })
+  );
 }
+
+export function buildHomeSections(items) {
+  const decorated = items.map(decorateItem);
+  const used = new Set();
+
+  const sections = HOME_SECTIONS.map((section, index) => {
+    const sectionItems = [];
+    for (const entry of section.items) {
+      const found = findItemForEntry(decorated, entry);
+      if (!found || used.has(found.id)) continue;
+      used.add(found.id);
+      const extra =
+        typeof entry === "object"
+          ? { icon: entry.icon || found.icon, desc: entry.desc || found.desc }
+          : {};
+      sectionItems.push({ ...found, ...extra });
+    }
+    return {
+      label: section.label,
+      asGrid: index === 0,
+      items: sectionItems,
+    };
+  }).filter((section) => section.items.length > 0);
+
+  const leftovers = decorated.filter((item) => !used.has(item.id));
+  if (leftovers.length) {
+    sections.push({
+      label: "Outros materiais",
+      asGrid: false,
+      items: leftovers,
+    });
+  }
+
+  return sections;
+}
+
+export function categoryOptionsFromRoot(items) {
+  const folders = items.filter((item) => item.isFolder);
+  return [
+    { value: "all", label: "Tudo" },
+    ...folders.map((item) => ({ value: item.id, label: item.name })),
+  ];
+}
+
+export const FALLBACK_CATEGORY_OPTIONS = [
+  { value: "all", label: "Tudo" },
+  ...TOP_CATEGORY_IDS.map((id) => ({
+    value: id,
+    label: CATALOG_META[id].label,
+  })),
+];

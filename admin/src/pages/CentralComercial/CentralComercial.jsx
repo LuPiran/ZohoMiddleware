@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
@@ -13,25 +13,36 @@ import MainLayout from "../../components/layout/MainLayout";
 import Select from "../../components/ui/Select";
 import Input from "../../components/ui/Input";
 import Button from "../../components/ui/Button";
-import { CATALOG_META } from "./catalog";
 import {
-  CATEGORY_OPTIONS,
-  resolveHomeSections,
-  resolvePageGroups,
-  searchCatalog,
+  browseCentral,
+  downloadCentralItem,
+  searchCentral,
+} from "../../services/centralComercial";
+import {
+  buildHomeSections,
+  categoryOptionsFromRoot,
+  decorateItem,
+  FALLBACK_CATEGORY_OPTIONS,
 } from "./catalogHelpers";
 import { getCatalogIcon, getIconTone } from "./iconMap";
 import ResourceItem from "./ResourceItem";
+import FileViewer from "./FileViewer";
 import "./CentralComercial.css";
 
 gsap.registerPlugin(useGSAP);
-
-const HOME_SECTIONS = resolveHomeSections();
 
 const HEX_PATTERN = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='74' viewBox='0 0 64 74'%3E%3Cpath d='M32 0 L64 18.5 L64 55.5 L32 74 L0 55.5 L0 18.5 Z' fill='none' stroke='%2325b3b8' stroke-opacity='0.22' stroke-width='1.5'/%3E%3C/svg%3E")`;
 const HEADER_NAVY = "#244586";
 const HEADER_NAVY_DEEP = "#1b3668";
 const HEADER_TEAL = "#25b3b8";
+
+function apiErrorMessage(error, fallback) {
+  return (
+    error.response?.data?.error ||
+    error.message ||
+    fallback
+  );
+}
 
 export default function CentralComercial() {
   const reduceMotion = useReducedMotion();
@@ -42,34 +53,124 @@ export default function CentralComercial() {
   const [stack, setStack] = useState([]);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("all");
+  const [rootItems, setRootItems] = useState([]);
+  const [folderItems, setFolderItems] = useState([]);
+  const [folderMeta, setFolderMeta] = useState(null);
+  const [searchResults, setSearchResults] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searching, setSearchingLive] = useState(false);
+  const [error, setError] = useState("");
+  const [viewer, setViewer] = useState(null);
 
-  const currentId = stack[stack.length - 1] || null;
-  const searching = query.trim().length >= 2;
-  const results = useMemo(
-    () => (searching ? searchCatalog(query, category) : []),
-    [searching, query, category],
+  const current = stack[stack.length - 1] || null;
+  const isSearch = query.trim().length >= 2;
+  const homeSections = useMemo(
+    () => buildHomeSections(rootItems),
+    [rootItems],
   );
-  const pageGroups = useMemo(
-    () => (currentId && !searching ? resolvePageGroups(currentId) : []),
-    [currentId, searching],
-  );
+  const categoryOptions = useMemo(() => {
+    const live = categoryOptionsFromRoot(rootItems);
+    return live.length > 1 ? live : FALLBACK_CATEGORY_OPTIONS;
+  }, [rootItems]);
 
-  const viewKey = searching
-    ? `search:${category}:${query}`
-    : currentId
-      ? `page:${stack.join("/")}`
+  const viewKey = isSearch
+    ? `search:${query}`
+    : current
+      ? `page:${current.id}`
       : "home";
 
+  const loadRoot = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const payload = await browseCentral();
+      setRootItems((payload.items || []).map(decorateItem));
+      setFolderMeta(payload.folder || null);
+    } catch (err) {
+      setError(
+        apiErrorMessage(
+          err,
+          "Não foi possível abrir a Central Comercial agora.",
+        ),
+      );
+      setRootItems([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
-    if (query.trim().length >= 2) return;
-    setCategory(stack[0] || "all");
-  }, [stack, query]);
+    loadRoot();
+  }, [loadRoot]);
+
+  useEffect(() => {
+    if (!current) {
+      setFolderItems([]);
+      return undefined;
+    }
+    let cancelled = false;
+    setLoading(true);
+    setError("");
+    browseCentral(current.id)
+      .then((payload) => {
+        if (cancelled) return;
+        setFolderMeta(payload.folder || current);
+        setFolderItems((payload.items || []).map(decorateItem));
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setError(
+          apiErrorMessage(err, "Não foi possível abrir esta pasta."),
+        );
+        setFolderItems([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [current]);
+
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 2) {
+      setSearchResults([]);
+      setSearchingLive(false);
+      return undefined;
+    }
+    const handle = window.setTimeout(async () => {
+      setSearchingLive(true);
+      try {
+        const payload = await searchCentral(q);
+        let items = (payload.items || []).map(decorateItem);
+        if (category !== "all") {
+          const selected = rootItems.find((item) => item.id === category);
+          if (selected) {
+            const needle = selected.name.toLowerCase();
+            items = items.filter((item) =>
+              String(item.name || "")
+                .toLowerCase()
+                .includes(needle.slice(0, 12)),
+            );
+          }
+        }
+        setSearchResults(items);
+        setError("");
+      } catch (err) {
+        setError(apiErrorMessage(err, "A busca não pôde ser concluída."));
+        setSearchResults([]);
+      } finally {
+        setSearchingLive(false);
+      }
+    }, 280);
+    return () => window.clearTimeout(handle);
+  }, [query, category, rootItems]);
 
   useGSAP(
     () => {
       const hex = hexRef.current;
       if (!hex || reduceMotion) return;
-
       gsap.to(hex, {
         backgroundPosition: "64px 74px",
         duration: 22,
@@ -84,7 +185,6 @@ export default function CentralComercial() {
     () => {
       const folder = folderRef.current;
       if (!folder || reduceMotion) return;
-
       gsap.fromTo(
         folder,
         { clipPath: "inset(0% 0% 12% 0%)", filter: "blur(5px)" },
@@ -104,10 +204,23 @@ export default function CentralComercial() {
     window.scrollTo({ top: 0, behavior: reduceMotion ? "auto" : "smooth" });
   }
 
-  function goTo(id) {
-    setStack((prev) => [...prev, id]);
+  function openFolder(item) {
+    setStack((prev) => [...prev, { id: item.id, name: item.name }]);
     setQuery("");
     scrollTop();
+  }
+
+  function openItem(item) {
+    if (item.isFolder) openFolder(item);
+    else setViewer(item);
+  }
+
+  async function handleDownload(item) {
+    try {
+      await downloadCentralItem(item);
+    } catch (err) {
+      setError(apiErrorMessage(err, "Não foi possível baixar o arquivo."));
+    }
   }
 
   function goBack() {
@@ -122,36 +235,34 @@ export default function CentralComercial() {
     scrollTop();
   }
 
-  function goToPath(path) {
-    setStack(path);
-    setQuery("");
-    setCategory(path[0] || "all");
-    scrollTop();
-  }
-
   function handleCategoryChange(event) {
     const next = event.target.value || "all";
     setCategory(next);
-
-    if (query.trim().length >= 2) {
-      return;
-    }
-
+    if (query.trim().length >= 2) return;
     if (next === "all") {
       setStack([]);
     } else {
-      setStack([next]);
+      const folder = rootItems.find((item) => item.id === next);
+      if (folder) setStack([{ id: folder.id, name: folder.name }]);
     }
     scrollTop();
   }
 
-  const subtitle = currentId
-    ? CATALOG_META[currentId].label
+  useEffect(() => {
+    if (query.trim().length >= 2) return;
+    setCategory(stack[0]?.id || "all");
+  }, [stack, query]);
+
+  const subtitle = current
+    ? current.name
     : "Materiais e recursos técnicos";
 
   return (
     <MainLayout>
-      <div ref={pageRef} className="central-comercial-page max-w-5xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-6 sm:py-10">
+      <div
+        ref={pageRef}
+        className="central-comercial-page max-w-5xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-6 sm:py-10"
+      >
         <section className="relative overflow-hidden rounded-2xl shadow-md mb-5">
           <div
             className="relative px-5 py-6 sm:px-6"
@@ -192,7 +303,7 @@ export default function CentralComercial() {
               <Select
                 value={category}
                 onChange={handleCategoryChange}
-                options={CATEGORY_OPTIONS}
+                options={categoryOptions}
                 placeholder="Filtrar categoria"
                 isSearchable
                 variant="onDark"
@@ -214,7 +325,7 @@ export default function CentralComercial() {
           </div>
         </section>
 
-        {currentId && !searching ? (
+        {current && !isSearch ? (
           <div className="mb-5 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
             <div className="flex flex-col sm:flex-row gap-2.5">
               <Button
@@ -246,14 +357,14 @@ export default function CentralComercial() {
               >
                 Início
               </button>
-              {stack.map((id, index) => (
-                <span key={id} className="inline-flex items-center gap-1.5">
+              {stack.map((crumb, index) => (
+                <span key={crumb.id} className="inline-flex items-center gap-1.5">
                   <span className="text-slate-300" aria-hidden>
                     ›
                   </span>
                   {index === stack.length - 1 ? (
                     <span className="font-semibold text-tegra-blue-dark">
-                      {CATALOG_META[id].label}
+                      {crumb.name}
                     </span>
                   ) : (
                     <button
@@ -261,7 +372,7 @@ export default function CentralComercial() {
                       onClick={() => setStack(stack.slice(0, index + 1))}
                       className="text-[#3da2b8] underline-offset-2 hover:underline"
                     >
-                      {CATALOG_META[id].label}
+                      {crumb.name}
                     </button>
                   )}
                 </span>
@@ -279,26 +390,60 @@ export default function CentralComercial() {
               exit={reduceMotion ? undefined : { opacity: 0, y: -8 }}
               transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
             >
-              {searching ? (
-                <SearchView results={results} onGoToPath={goToPath} />
-              ) : currentId ? (
+              {error && !loading ? (
+                <ErrorCard message={error} onRetry={current ? undefined : loadRoot} />
+              ) : null}
+
+              {isSearch ? (
+                <SearchView
+                  results={searchResults}
+                  loading={searching}
+                  onOpen={openItem}
+                />
+              ) : current ? (
                 <FolderView
-                  title={CATALOG_META[currentId].label}
-                  groups={pageGroups}
-                  onOpenFolder={goTo}
+                  title={folderMeta?.name || current.name}
+                  items={folderItems}
+                  loading={loading}
+                  onOpen={openItem}
+                  onDownload={handleDownload}
                 />
               ) : (
-                <HomeView onOpenFolder={goTo} />
+                <HomeView
+                  sections={homeSections}
+                  loading={loading}
+                  onOpen={openItem}
+                  onDownload={handleDownload}
+                />
               )}
             </motion.div>
           </AnimatePresence>
         </div>
       </div>
+
+      <AnimatePresence>
+        {viewer ? (
+          <FileViewer item={viewer} onClose={() => setViewer(null)} />
+        ) : null}
+      </AnimatePresence>
     </MainLayout>
   );
 }
 
-function HomeView({ onOpenFolder }) {
+function ErrorCard({ message, onRetry }) {
+  return (
+    <div className="mb-5 rounded-2xl border border-[#E5989B]/40 bg-white p-4 sm:p-5 shadow-sm">
+      <p className="text-sm sm:text-base text-tegra-blue-dark">{message}</p>
+      {onRetry ? (
+        <Button type="button" className="mt-3" onClick={onRetry}>
+          Tentar de novo
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
+function HomeView({ sections, loading, onOpen, onDownload }) {
   return (
     <div className="space-y-7">
       <div className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5">
@@ -306,16 +451,35 @@ function HomeView({ onOpenFolder }) {
           Como usar
         </h2>
         <p className="flex gap-3 text-sm sm:text-base text-tegra-text-secondary leading-relaxed">
-          <MdInfoOutline className="mt-0.5 shrink-0 text-lg text-tegra-blue-dark" aria-hidden />
+          <MdInfoOutline
+            className="mt-0.5 shrink-0 text-lg text-tegra-blue-dark"
+            aria-hidden
+          />
           <span>
-            Navegue pelas pastas. Os arquivos ficam no SharePoint — é preciso
-            estar logado na conta TegraPharma para abrir os materiais.
+            Navegue pelas pastas da Central. Arquivos abrem e baixam aqui no
+            portal — sem sair para o SharePoint.
           </span>
         </p>
       </div>
 
-      {HOME_SECTIONS.map((section) => (
-        <section key={section.label} className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6">
+      {loading && sections.length === 0 ? <LoadingGrid /> : null}
+
+      {!loading && sections.length === 0 ? (
+        <div className="rounded-2xl border border-slate-200 bg-white px-6 py-16 text-center shadow-sm">
+          <p className="text-base font-semibold text-tegra-blue-dark">
+            Nenhum material disponível
+          </p>
+          <p className="mt-2 text-sm text-tegra-text-secondary">
+            A pasta da Central está vazia ou ainda não foi conectada.
+          </p>
+        </div>
+      ) : null}
+
+      {sections.map((section) => (
+        <section
+          key={section.label}
+          className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6"
+        >
           <h2 className="text-base sm:text-lg font-semibold text-tegra-text-primary mb-3 sm:mb-4">
             {section.label}
           </h2>
@@ -328,13 +492,15 @@ function HomeView({ onOpenFolder }) {
           >
             {section.items.map((item, index) => (
               <ResourceItem
-                key={item.label}
+                key={item.id}
                 layout={section.asGrid ? "grid" : "row"}
                 icon={item.icon}
-                title={item.label}
+                toneKey={item.icon}
+                title={item.name}
                 description={item.desc}
-                href={item.kind === "link" ? item.href : undefined}
-                onOpen={item.kind === "nav" ? () => onOpenFolder(item.nav) : undefined}
+                isFolder={item.isFolder}
+                onOpen={() => onOpen(item)}
+                onDownload={() => onDownload(item)}
                 delay={Math.min(index * 0.04, 0.2)}
               />
             ))}
@@ -349,7 +515,7 @@ function HomeView({ onOpenFolder }) {
   );
 }
 
-function FolderView({ title, groups, onOpenFolder }) {
+function FolderView({ title, items, loading, onOpen, onDownload }) {
   return (
     <div className="space-y-5">
       <div>
@@ -357,42 +523,48 @@ function FolderView({ title, groups, onOpenFolder }) {
           {title}
         </h2>
         <p className="mt-1 text-sm sm:text-base text-tegra-text-secondary">
-          Toque em um item para abrir a pasta no SharePoint.
+          Abra uma pasta ou visualize o arquivo no portal.
         </p>
       </div>
 
-      {groups.map((group, groupIndex) => (
-        <section
-          key={group.label || `grupo-${groupIndex}`}
-          className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6"
-        >
-          {group.label ? (
-            <h2 className="text-base sm:text-lg font-semibold text-tegra-text-primary mb-3 sm:mb-4">
-              {group.label}
-            </h2>
-          ) : null}
+      <section className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6">
+        {loading ? (
+          <LoadingList />
+        ) : items.length === 0 ? (
+          <p className="py-8 text-center text-sm text-tegra-text-secondary">
+            Esta pasta está vazia.
+          </p>
+        ) : (
           <div className="flex flex-col gap-3">
-            {group.items.map((item, index) => (
+            {items.map((item, index) => (
               <ResourceItem
-                key={`${item.label}-${index}`}
-                icon={item.kind === "nav" ? "folder" : item.toneIcon || "file"}
-                toneKey={item.toneIcon || item.icon}
-                title={item.label}
+                key={item.id}
+                icon={item.isFolder ? "folder" : item.icon}
+                toneKey={item.icon}
+                title={item.name}
                 description={item.desc}
-                tag={item.tag}
-                href={item.kind === "link" ? item.href : undefined}
-                onOpen={item.kind === "nav" ? () => onOpenFolder(item.nav) : undefined}
+                isFolder={item.isFolder}
+                onOpen={() => onOpen(item)}
+                onDownload={() => onDownload(item)}
                 delay={Math.min(index * 0.035, 0.18)}
               />
             ))}
           </div>
-        </section>
-      ))}
+        )}
+      </section>
     </div>
   );
 }
 
-function SearchView({ results, onGoToPath }) {
+function SearchView({ results, loading, onOpen }) {
+  if (loading) {
+    return (
+      <div className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6">
+        <LoadingList />
+      </div>
+    );
+  }
+
   if (results.length === 0) {
     return (
       <div className="rounded-2xl border border-slate-200 bg-white px-6 py-16 text-center shadow-sm">
@@ -412,14 +584,14 @@ function SearchView({ results, onGoToPath }) {
         {results.length} {results.length === 1 ? "resultado" : "resultados"}
       </h2>
       <div className="flex flex-col gap-3">
-        {results.map((result, index) => {
-          const Icon = getCatalogIcon(result.icon);
-          const tone = getIconTone(result.icon);
+        {results.map((item, index) => {
+          const Icon = getCatalogIcon(item.icon);
+          const tone = getIconTone(item.icon);
           return (
             <motion.button
-              key={`${result.label}-${result.where}`}
+              key={item.id}
               type="button"
-              onClick={() => onGoToPath(result.path)}
+              onClick={() => onOpen(item)}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: Math.min(index * 0.03, 0.2), duration: 0.25 }}
@@ -431,24 +603,43 @@ function SearchView({ results, onGoToPath }) {
                 <Icon className="text-lg" aria-hidden />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="flex flex-wrap items-center gap-2">
-                  <span className="font-semibold text-tegra-blue-dark">
-                    {result.label}
-                  </span>
-                  <span
-                    className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${tone.wrap}`}
-                  >
-                    {result.typeLabel}
-                  </span>
+                <span className="font-semibold text-tegra-blue-dark">
+                  {item.name}
                 </span>
                 <span className="mt-1 block text-xs sm:text-sm text-tegra-text-secondary">
-                  Onde fica: {result.where}
+                  {item.desc || (item.isFolder ? "Pasta" : "Arquivo")}
                 </span>
               </span>
             </motion.button>
           );
         })}
       </div>
+    </div>
+  );
+}
+
+function LoadingGrid() {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      {Array.from({ length: 4 }).map((_, index) => (
+        <div
+          key={index}
+          className="h-[5.5rem] rounded-xl bg-white shadow-sm central-file-pulse"
+        />
+      ))}
+    </div>
+  );
+}
+
+function LoadingList() {
+  return (
+    <div className="flex flex-col gap-3">
+      {Array.from({ length: 4 }).map((_, index) => (
+        <div
+          key={index}
+          className="h-[4.25rem] rounded-xl bg-white shadow-sm central-file-pulse"
+        />
+      ))}
     </div>
   );
 }

@@ -82,6 +82,28 @@ export const writeRateLimiter = rateLimit({
 });
 
 /**
+ * Download / preview da Central Comercial (arquivos pesados).
+ */
+export const centralContentRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    const userPart = req.user?.id || "anon";
+    return `${ipKeyGenerator(req.ip)}:${userPart}`;
+  },
+  handler: (req, res) => {
+    res.status(429).json({
+      success: false,
+      error:
+        "Muitos downloads. Aguarde alguns minutos antes de tentar novamente.",
+      retryAfter: "15 minutos",
+    });
+  },
+});
+
+/**
  * Rate Limiter geral para todas as rotas da API
  */
 export const apiRateLimiter = rateLimit({

@@ -71,6 +71,14 @@ export const API_ENDPOINTS = {
     LIST: "/v1/products",
     LIST_ALL: "/v1/products/all",
   },
+  CENTRAL: {
+    STATUS: "/v1/central-comercial/status",
+    BROWSE: "/v1/central-comercial/browse",
+    SEARCH: "/v1/central-comercial/search",
+    ITEM: (id) => `/v1/central-comercial/items/${encodeURIComponent(id)}`,
+    CONTENT: (id, mode = "preview") =>
+      `/v1/central-comercial/items/${encodeURIComponent(id)}/content?mode=${mode}`,
+  },
 };
 
 export const STORAGE_KEYS = {

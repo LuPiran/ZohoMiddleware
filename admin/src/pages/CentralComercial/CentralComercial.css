@@ -2,3 +2,30 @@
 .central-comercial-page div.bg-tegra-bg-primary > h2 {
   color: #0f799a !important;
 }
+
+.central-file-pulse {
+  background-image: linear-gradient(
+    110deg,
+    rgba(36, 69, 134, 0.06) 0%,
+    rgba(37, 179, 184, 0.16) 45%,
+    rgba(36, 69, 134, 0.06) 90%
+  );
+  background-size: 220% 100%;
+  animation: central-file-shimmer 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .central-file-pulse {
+    animation: none;
+    background: rgba(36, 69, 134, 0.08);
+  }
+}
+
+@keyframes central-file-shimmer {
+  from {
+    background-position: 120% 0;
+  }
+  to {
+    background-position: -20% 0;
+  }
+}

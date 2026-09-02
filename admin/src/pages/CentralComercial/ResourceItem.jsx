@@ -2,9 +2,9 @@ import { motion, useReducedMotion } from "framer-motion";
 import {
   getCatalogIcon,
   getIconTone,
-  TAG_STYLES,
   MdChevronRight,
-  MdOpenInNew,
+  MdDownload,
+  MdVisibility,
 } from "./iconMap";
 
 const itemTransition = { duration: 0.28, ease: [0.16, 1, 0.3, 1] };
@@ -15,26 +15,20 @@ export default function ResourceItem({
   toneKey,
   title,
   description,
-  tag,
-  href,
+  isFolder = true,
   onOpen,
+  onDownload,
   delay = 0,
 }) {
   const reduceMotion = useReducedMotion();
   const Icon = getCatalogIcon(icon);
   const tone = getIconTone(toneKey || icon);
-  const isLink = Boolean(href) && !onOpen;
-  const Tag = isLink ? motion.a : motion.button;
-  const extraProps = isLink
-    ? { href, target: "_blank", rel: "noopener noreferrer" }
-    : { type: "button", onClick: onOpen };
-
-  const tagClass = tag ? TAG_STYLES[tag] || TAG_STYLES["Broad Spectrum"] : "";
   const isGrid = layout === "grid";
 
   return (
-    <Tag
-      {...extraProps}
+    <motion.button
+      type="button"
+      onClick={onOpen}
       initial={reduceMotion ? false : { opacity: 0, y: 10, filter: "blur(4px)" }}
       animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
       exit={reduceMotion ? undefined : { opacity: 0, y: -6 }}
@@ -56,17 +50,8 @@ export default function ResourceItem({
       </span>
 
       <span className={`min-w-0 ${isGrid ? "" : "flex-1"}`}>
-        <span className="flex flex-wrap items-center gap-2">
-          <span className="font-semibold text-tegra-blue-dark leading-snug text-[15px] sm:text-base">
-            {title}
-          </span>
-          {tag ? (
-            <span
-              className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${tagClass}`}
-            >
-              {tag}
-            </span>
-          ) : null}
+        <span className="font-semibold text-tegra-blue-dark leading-snug text-[15px] sm:text-base">
+          {title}
         </span>
         {description ? (
           <span className="mt-1 block text-sm text-tegra-text-secondary leading-snug">
@@ -76,18 +61,42 @@ export default function ResourceItem({
       </span>
 
       {!isGrid ? (
-        isLink ? (
-          <MdOpenInNew
-            className="ml-auto shrink-0 text-base text-tegra-blue group-hover:text-tegra-blue-dark"
-            aria-hidden
-          />
-        ) : (
-          <MdChevronRight
-            className="ml-auto shrink-0 text-xl text-slate-300 group-hover:text-tegra-blue-dark"
-            aria-hidden
-          />
-        )
+        <span className="ml-auto flex shrink-0 items-center gap-1">
+          {!isFolder && onDownload ? (
+            <span
+              role="button"
+              tabIndex={0}
+              title="Baixar arquivo"
+              aria-label={`Baixar ${title}`}
+              onClick={(event) => {
+                event.stopPropagation();
+                onDownload();
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onDownload();
+                }
+              }}
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-tegra-blue-dark hover:bg-[#3da2b8]/12"
+            >
+              <MdDownload className="text-lg" aria-hidden />
+            </span>
+          ) : null}
+          {!isFolder ? (
+            <MdVisibility
+              className="text-base text-tegra-blue group-hover:text-tegra-blue-dark"
+              aria-hidden
+            />
+          ) : (
+            <MdChevronRight
+              className="text-xl text-slate-300 group-hover:text-tegra-blue-dark"
+              aria-hidden
+            />
+          )}
+        </span>
       ) : null}
-    </Tag>
+    </motion.button>
   );
 }
