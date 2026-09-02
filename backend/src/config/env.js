@@ -224,9 +224,7 @@ export const ENV = {
     "sites/EstruturadePastas-TegraPharma",
   GRAPH_SHAREPOINT_DRIVE_NAME:
     process.env.GRAPH_SHAREPOINT_DRIVE_NAME || "Documentos Compartilhados",
-  GRAPH_SHAREPOINT_ROOT_PATH:
-    process.env.GRAPH_SHAREPOINT_ROOT_PATH ||
-    "Projeto Eld/Central comercial TegraPharma",
+  GRAPH_SHAREPOINT_ROOT_PATH: process.env.GRAPH_SHAREPOINT_ROOT_PATH || "",
   GRAPH_SHAREPOINT_SITE_ID:
     process.env.GRAPH_SHAREPOINT_SITE_ID || process.env.SHAREPOINT_SITE_ID || "",
   GRAPH_SHAREPOINT_DRIVE_ID:

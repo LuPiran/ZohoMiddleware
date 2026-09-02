@@ -38,7 +38,15 @@ export function isItemUnderRoot(item, root, configuredRootPath = "") {
   if (item.id === root.id) return true;
   if (item.parentReference?.id === root.id) return true;
 
+  const configured = normalizeFolderPath(configuredRootPath);
   const itemPath = String(item.parentReference?.path || "");
+
+  if (!configured) {
+    if (rootDriveId && itemDriveId && rootDriveId === itemDriveId) return true;
+    if (itemPath.includes("/root:") || /\/root$/.test(itemPath)) return true;
+    return false;
+  }
+
   if (!itemPath) return false;
 
   const prefix = buildRootPathPrefix(root, configuredRootPath);
@@ -46,8 +54,7 @@ export function isItemUnderRoot(item, root, configuredRootPath = "") {
     return true;
   }
 
-  const configured = normalizeFolderPath(configuredRootPath);
-  if (configured && itemPath.includes(`/${configured}`)) {
+  if (itemPath.includes(`/${configured}`)) {
     return true;
   }
 

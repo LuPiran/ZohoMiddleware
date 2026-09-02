@@ -135,10 +135,7 @@ function sharePointDefaults() {
       "sites/EstruturadePastas-TegraPharma",
     driveName:
       ENV.GRAPH_SHAREPOINT_DRIVE_NAME || "Documentos Compartilhados",
-    rootPath: normalizeFolderPath(
-      ENV.GRAPH_SHAREPOINT_ROOT_PATH ||
-        "Projeto Eld/Central comercial TegraPharma",
-    ),
+    rootPath: normalizeFolderPath(ENV.GRAPH_SHAREPOINT_ROOT_PATH || ""),
     siteId:
       ENV.GRAPH_SHAREPOINT_SITE_ID || ENV.SHAREPOINT_SITE_ID || "",
     driveId:
@@ -222,7 +219,10 @@ export async function getSharePointRoot({ force = false } = {}) {
   const stored = force ? null : await getStoredLocation();
   const siteIdHint = stored?.siteId || defaults.siteId;
   const driveIdHint = stored?.driveId || defaults.driveId;
-  const rootItemHint = stored?.rootFolderId || defaults.rootItemId;
+  const libraryRoot = !defaults.rootPath;
+  const rootItemHint = libraryRoot
+    ? defaults.rootItemId
+    : stored?.rootFolderId || defaults.rootItemId;
 
   let siteId = siteIdHint;
   let driveId = driveIdHint;

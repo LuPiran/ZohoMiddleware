@@ -78,4 +78,25 @@ describe("isItemUnderRoot", () => {
       ),
     ).toBe(false);
   });
+
+  it("na raiz da biblioteca aceita qualquer item do mesmo drive", () => {
+    const libraryRoot = {
+      id: "LIBROOT",
+      name: "root",
+      parentReference: { driveId: "DRIVE", path: "/drives/DRIVE/root:" },
+    };
+    expect(
+      isItemUnderRoot(
+        {
+          id: "ANY",
+          parentReference: {
+            driveId: "DRIVE",
+            path: "/drives/DRIVE/root:/Projeto Eld/Qualquer pasta",
+          },
+        },
+        libraryRoot,
+        "",
+      ),
+    ).toBe(true);
+  });
 });
