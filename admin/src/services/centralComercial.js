@@ -6,16 +6,24 @@ export async function getCentralStatus() {
   return response.data;
 }
 
+export async function getCentralCatalog() {
+  const response = await api.get(API_ENDPOINTS.CENTRAL.CATALOG);
+  return response.data;
+}
+
 export async function browseCentral(parentId) {
   const response = await api.get(API_ENDPOINTS.CENTRAL.BROWSE, {
-    params: parentId ? { parentId } : {},
+    params: { parentId },
   });
   return response.data;
 }
 
-export async function searchCentral(query) {
+export async function searchCentral(query, categoryId) {
   const response = await api.get(API_ENDPOINTS.CENTRAL.SEARCH, {
-    params: { q: query },
+    params: {
+      q: query,
+      ...(categoryId && categoryId !== "all" ? { category: categoryId } : {}),
+    },
   });
   return response.data;
 }

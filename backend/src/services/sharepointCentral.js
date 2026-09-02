@@ -2,6 +2,7 @@ import axios from "axios";
 import { ENV } from "../config/env.js";
 import { getGraphAccessToken, isGraphFilesConfigured } from "./graphAuth.js";
 import { isItemUnderRoot, normalizeFolderPath } from "./sharepointPath.js";
+import { getStoredLocation, saveLocation } from "./centralCatalogStore.js";
 
 const GRAPH = "https://graph.microsoft.com/v1.0";
 const SELECT =
@@ -32,6 +33,9 @@ let rootCache = {
   root: null,
   expiresAt: 0,
 };
+
+const listCache = new Map();
+const LIST_TTL_MS = 45_000;
 
 function previewMaxBytes() {
   const raw = Number(ENV.GRAPH_PREVIEW_MAX_BYTES || 80 * 1024 * 1024);
@@ -100,9 +104,14 @@ function sharePointDefaults() {
       ENV.GRAPH_SHAREPOINT_ROOT_PATH ||
         "Projeto Eld/Central comercial TegraPharma",
     ),
-    siteId: ENV.GRAPH_SHAREPOINT_SITE_ID || "",
-    driveId: ENV.GRAPH_SHAREPOINT_DRIVE_ID || "",
-    rootItemId: ENV.GRAPH_SHAREPOINT_ROOT_ITEM_ID || "",
+    siteId:
+      ENV.GRAPH_SHAREPOINT_SITE_ID || ENV.SHAREPOINT_SITE_ID || "",
+    driveId:
+      ENV.GRAPH_SHAREPOINT_DRIVE_ID || ENV.SHAREPOINT_DRIVE_ID || "",
+    rootItemId:
+      ENV.GRAPH_SHAREPOINT_ROOT_ITEM_ID ||
+      ENV.SHAREPOINT_ROOT_ITEM_ID ||
+      "",
   };
 }
 
@@ -175,23 +184,40 @@ export async function getSharePointRoot({ force = false } = {}) {
   }
 
   const defaults = sharePointDefaults();
-  const siteId = await resolveSiteId(defaults);
-  if (!siteId) {
-    const err = new Error("Site do SharePoint não encontrado.");
-    err.status = 503;
-    err.code = "SHAREPOINT_SITE_MISSING";
-    throw err;
+  const stored = force ? null : await getStoredLocation();
+  const siteIdHint = stored?.siteId || defaults.siteId;
+  const driveIdHint = stored?.driveId || defaults.driveId;
+  const rootItemHint = stored?.rootFolderId || defaults.rootItemId;
+
+  let siteId = siteIdHint;
+  let driveId = driveIdHint;
+  let root;
+
+  if (driveIdHint && rootItemHint) {
+    root = await resolveRootItem(driveIdHint, {
+      ...defaults,
+      rootItemId: rootItemHint,
+    });
+    siteId = siteIdHint || stored?.siteId || "";
+    driveId = driveIdHint;
+  } else {
+    siteId = await resolveSiteId({ ...defaults, siteId: siteIdHint });
+    if (!siteId) {
+      const err = new Error("Site do SharePoint não encontrado.");
+      err.status = 503;
+      err.code = "SHAREPOINT_SITE_MISSING";
+      throw err;
+    }
+    driveId = await resolveDriveId(siteId, { ...defaults, driveId: driveIdHint });
+    if (!driveId) {
+      const err = new Error("Biblioteca de documentos do SharePoint não encontrada.");
+      err.status = 503;
+      err.code = "SHAREPOINT_DRIVE_MISSING";
+      throw err;
+    }
+    root = await resolveRootItem(driveId, defaults);
   }
 
-  const driveId = await resolveDriveId(siteId, defaults);
-  if (!driveId) {
-    const err = new Error("Biblioteca de documentos do SharePoint não encontrada.");
-    err.status = 503;
-    err.code = "SHAREPOINT_DRIVE_MISSING";
-    throw err;
-  }
-
-  const root = await resolveRootItem(driveId, defaults);
   if (!root?.id) {
     const err = new Error("Pasta raiz da Central Comercial não encontrada.");
     err.status = 503;
@@ -199,8 +225,16 @@ export async function getSharePointRoot({ force = false } = {}) {
     throw err;
   }
 
+  if (!stored || stored.rootFolderId !== root.id) {
+    await saveLocation({
+      siteId: siteId || stored?.siteId || "",
+      driveId,
+      rootFolderId: root.id,
+    });
+  }
+
   rootCache = {
-    siteId,
+    siteId: siteId || stored?.siteId || "",
     driveId,
     root,
     configuredRootPath: defaults.rootPath,
@@ -300,6 +334,12 @@ async function collectPages(firstUrl, params) {
 }
 
 export async function listFolder(itemId) {
+  const cacheKey = itemId || "ROOT";
+  const cached = listCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.payload;
+  }
+
   const { item, driveId, root, configuredRootPath } = itemId
     ? await loadAllowedItem(itemId)
     : await getSharePointRoot().then((ctx) => ({
@@ -329,16 +369,18 @@ export async function listFolder(itemId) {
       return a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" });
     });
 
-  return {
+  const payload = {
     folder: publicItem({
       ...item,
       folder: item.folder || { childCount: children.length },
     }),
     items: children,
   };
+  listCache.set(cacheKey, { payload, expiresAt: Date.now() + LIST_TTL_MS });
+  return payload;
 }
 
-export async function searchCentral(query) {
+export async function searchCentral(query, { folderId } = {}) {
   const q = String(query || "")
     .replace(/['"\\]/g, " ")
     .replace(/\s+/g, " ")
@@ -350,7 +392,13 @@ export async function searchCentral(query) {
   }
 
   const { driveId, root, configuredRootPath } = await getSharePointRoot();
-  const path = `/drives/${driveId}/items/${root.id}/search(q='${q.replace(/'/g, "")}')`;
+  let scope = root;
+  if (folderId) {
+    const loaded = await loadAllowedItem(folderId);
+    scope = loaded.item;
+  }
+
+  const path = `/drives/${driveId}/items/${scope.id}/search(q='${q.replace(/'/g, "")}')`;
   let raw = [];
   try {
     raw = await collectPages(path, { $select: SELECT, $top: 50 });
@@ -362,7 +410,7 @@ export async function searchCentral(query) {
   }
 
   const items = raw
-    .filter((item) => isItemUnderRoot(item, root, configuredRootPath))
+    .filter((item) => isItemUnderRoot(item, scope, configuredRootPath))
     .map(publicItem)
     .slice(0, 40);
 

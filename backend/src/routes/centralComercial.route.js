@@ -7,6 +7,10 @@ import {
   streamCentralContent,
   isSharePointConfigured,
 } from "../services/sharepointCentral.js";
+import {
+  folderIdForCategory,
+  getPublicCatalog,
+} from "../services/centralCatalog.js";
 
 const router = express.Router();
 
@@ -53,6 +57,23 @@ router.get("/status", async (req, res) => {
   }
 });
 
+router.get("/catalog", async (req, res) => {
+  try {
+    if (!isSharePointConfigured()) {
+      const err = new Error(
+        "A Central ainda não está conectada ao SharePoint. Peça à gestão para configurar o Microsoft Graph.",
+      );
+      err.status = 503;
+      err.code = "GRAPH_NOT_CONFIGURED";
+      throw err;
+    }
+    const payload = await getPublicCatalog();
+    return res.json({ success: true, ...payload });
+  } catch (error) {
+    return sendServiceError(res, error);
+  }
+});
+
 router.get("/browse", async (req, res) => {
   try {
     if (!isSharePointConfigured()) {
@@ -64,13 +85,13 @@ router.get("/browse", async (req, res) => {
       throw err;
     }
     const parentId = String(req.query.parentId || "").trim();
-    if (parentId && !/^[A-Za-z0-9!._=-]{8,512}$/.test(parentId)) {
+    if (!parentId || !/^[A-Za-z0-9!._=-]{8,512}$/.test(parentId)) {
       return res.status(400).json({
         success: false,
         error: "Identificador de pasta inválido",
       });
     }
-    const payload = await listFolder(parentId || null);
+    const payload = await listFolder(parentId);
     return res.json({ success: true, ...payload });
   } catch (error) {
     return sendServiceError(res, error);
@@ -87,7 +108,15 @@ router.get("/search", async (req, res) => {
       err.code = "GRAPH_NOT_CONFIGURED";
       throw err;
     }
-    const payload = await searchCentral(req.query.q);
+    const categoryId = String(req.query.category || "").trim();
+    let folderId = null;
+    if (categoryId && categoryId !== "all") {
+      folderId = await folderIdForCategory(categoryId);
+      if (!folderId) {
+        return res.json({ success: true, items: [] });
+      }
+    }
+    const payload = await searchCentral(req.query.q, { folderId });
     return res.json({ success: true, ...payload });
   } catch (error) {
     return sendServiceError(res, error);

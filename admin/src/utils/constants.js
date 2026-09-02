@@ -73,6 +73,7 @@ export const API_ENDPOINTS = {
   },
   CENTRAL: {
     STATUS: "/v1/central-comercial/status",
+    CATALOG: "/v1/central-comercial/catalog",
     BROWSE: "/v1/central-comercial/browse",
     SEARCH: "/v1/central-comercial/search",
     ITEM: (id) => `/v1/central-comercial/items/${encodeURIComponent(id)}`,

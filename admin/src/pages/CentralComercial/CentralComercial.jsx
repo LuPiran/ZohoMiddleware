@@ -16,14 +16,10 @@ import Button from "../../components/ui/Button";
 import {
   browseCentral,
   downloadCentralItem,
+  getCentralCatalog,
   searchCentral,
 } from "../../services/centralComercial";
-import {
-  buildHomeSections,
-  categoryOptionsFromRoot,
-  decorateItem,
-  FALLBACK_CATEGORY_OPTIONS,
-} from "./catalogHelpers";
+import { categoryOptionsFromCatalog, decorateItem } from "./catalogHelpers";
 import { getCatalogIcon, getIconTone } from "./iconMap";
 import ResourceItem from "./ResourceItem";
 import FileViewer from "./FileViewer";
@@ -53,7 +49,8 @@ export default function CentralComercial() {
   const [stack, setStack] = useState([]);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("all");
-  const [rootItems, setRootItems] = useState([]);
+  const [catalogSections, setCatalogSections] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [folderItems, setFolderItems] = useState([]);
   const [folderMeta, setFolderMeta] = useState(null);
   const [searchResults, setSearchResults] = useState([]);
@@ -64,14 +61,10 @@ export default function CentralComercial() {
 
   const current = stack[stack.length - 1] || null;
   const isSearch = query.trim().length >= 2;
-  const homeSections = useMemo(
-    () => buildHomeSections(rootItems),
-    [rootItems],
+  const categoryOptions = useMemo(
+    () => categoryOptionsFromCatalog(categories),
+    [categories],
   );
-  const categoryOptions = useMemo(() => {
-    const live = categoryOptionsFromRoot(rootItems);
-    return live.length > 1 ? live : FALLBACK_CATEGORY_OPTIONS;
-  }, [rootItems]);
 
   const viewKey = isSearch
     ? `search:${query}`
@@ -79,13 +72,13 @@ export default function CentralComercial() {
       ? `page:${current.id}`
       : "home";
 
-  const loadRoot = useCallback(async () => {
+  const loadCatalog = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const payload = await browseCentral();
-      setRootItems((payload.items || []).map(decorateItem));
-      setFolderMeta(payload.folder || null);
+      const payload = await getCentralCatalog();
+      setCatalogSections(payload.sections || []);
+      setCategories(payload.categories || []);
     } catch (err) {
       setError(
         apiErrorMessage(
@@ -93,15 +86,16 @@ export default function CentralComercial() {
           "Não foi possível abrir a Central Comercial agora.",
         ),
       );
-      setRootItems([]);
+      setCatalogSections([]);
+      setCategories([]);
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    loadRoot();
-  }, [loadRoot]);
+    loadCatalog();
+  }, [loadCatalog]);
 
   useEffect(() => {
     if (!current) {
@@ -142,20 +136,8 @@ export default function CentralComercial() {
     const handle = window.setTimeout(async () => {
       setSearchingLive(true);
       try {
-        const payload = await searchCentral(q);
-        let items = (payload.items || []).map(decorateItem);
-        if (category !== "all") {
-          const selected = rootItems.find((item) => item.id === category);
-          if (selected) {
-            const needle = selected.name.toLowerCase();
-            items = items.filter((item) =>
-              String(item.name || "")
-                .toLowerCase()
-                .includes(needle.slice(0, 12)),
-            );
-          }
-        }
-        setSearchResults(items);
+        const payload = await searchCentral(q, category);
+        setSearchResults((payload.items || []).map(decorateItem));
         setError("");
       } catch (err) {
         setError(apiErrorMessage(err, "A busca não pôde ser concluída."));
@@ -165,7 +147,7 @@ export default function CentralComercial() {
       }
     }, 280);
     return () => window.clearTimeout(handle);
-  }, [query, category, rootItems]);
+  }, [query, category]);
 
   useGSAP(
     () => {
@@ -205,7 +187,20 @@ export default function CentralComercial() {
   }
 
   function openFolder(item) {
-    setStack((prev) => [...prev, { id: item.id, name: item.name }]);
+    const fromCatalog = Boolean(item.sharepointFolderId);
+    const folderId = item.sharepointFolderId || item.id;
+    if (!folderId) {
+      setError("Esta pasta ainda não foi vinculada ao SharePoint.");
+      return;
+    }
+    setStack((prev) => [
+      ...prev,
+      {
+        id: folderId,
+        name: item.name,
+        categoryId: fromCatalog ? item.id : prev[0]?.categoryId,
+      },
+    ]);
     setQuery("");
     scrollTop();
   }
@@ -242,16 +237,33 @@ export default function CentralComercial() {
     if (next === "all") {
       setStack([]);
     } else {
-      const folder = rootItems.find((item) => item.id === next);
-      if (folder) setStack([{ id: folder.id, name: folder.name }]);
+      const selected = categories.find((item) => item.id === next);
+      if (selected?.sharepointFolderId) {
+        setStack([
+          {
+            id: selected.sharepointFolderId,
+            name: selected.name,
+            categoryId: selected.id,
+          },
+        ]);
+      }
     }
     scrollTop();
   }
 
   useEffect(() => {
     if (query.trim().length >= 2) return;
-    setCategory(stack[0]?.id || "all");
-  }, [stack, query]);
+    const top = stack[0];
+    if (!top) {
+      setCategory("all");
+      return;
+    }
+    const matched =
+      top.categoryId ||
+      categories.find((item) => item.sharepointFolderId === top.id)?.id ||
+      "all";
+    setCategory(matched);
+  }, [stack, query, categories]);
 
   const subtitle = current
     ? current.name
@@ -391,7 +403,7 @@ export default function CentralComercial() {
               transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
             >
               {error && !loading ? (
-                <ErrorCard message={error} onRetry={current ? undefined : loadRoot} />
+                <ErrorCard message={error} onRetry={current ? undefined : loadCatalog} />
               ) : null}
 
               {isSearch ? (
@@ -410,7 +422,7 @@ export default function CentralComercial() {
                 />
               ) : (
                 <HomeView
-                  sections={homeSections}
+                  sections={catalogSections}
                   loading={loading}
                   onOpen={openItem}
                   onDownload={handleDownload}
