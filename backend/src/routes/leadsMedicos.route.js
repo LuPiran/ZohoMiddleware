@@ -16,6 +16,7 @@ import {
   scheduleAgendamento,
   getEvidenceFileForUser,
 } from "../services/leadsMedicos.js";
+import { buildEquipeKpis } from "../services/leadsMedicosKpis.js";
 import { authenticateLeadsWebhook } from "../middleware/leadsWebhookAuth.js";
 import { authenticateToken } from "../services/jwtService.js";
 import { requireSafeResourceId } from "../middleware/authz.js";
@@ -130,6 +131,27 @@ router.get("/", authenticateToken, async (req, res) => {
     return res.status(500).json({
       success: false,
       error: error.message || "Erro ao listar leads médicos",
+    });
+  }
+});
+
+/**
+ * KPIs agregados da equipe do gerente logado — 403 se o usuário não for
+ * gerente (checado dentro de `buildEquipeKpis`).
+ * GET /v1/leads-medicos/equipe/kpis
+ */
+router.get("/equipe/kpis", authenticateToken, async (req, res) => {
+  try {
+    const kpis = await buildEquipeKpis(req.user);
+    return res.json({ success: true, data: kpis });
+  } catch (error) {
+    console.error("[LEADS] Erro ao montar KPIs da equipe:", error);
+    const handled = dynamoErrorResponse(res, error);
+    if (handled) return handled;
+
+    return res.status(500).json({
+      success: false,
+      error: error.message || "Erro ao montar KPIs da equipe",
     });
   }
 });
@@ -319,6 +341,14 @@ router.post(
   evidenceUploadMiddleware,
   async (req, res) => {
     try {
+      let compraInfo = null;
+      if (req.body?.compraInfo) {
+        try {
+          compraInfo = JSON.parse(req.body.compraInfo);
+        } catch {
+          compraInfo = null;
+        }
+      }
       const lead = await registerContactAttempt(
         req.params.id,
         req.user,
@@ -326,6 +356,7 @@ router.post(
         {
           observacao: req.body?.observacao || req.body?.descricao,
           files: req.files,
+          compraInfo,
         },
       );
       return res.json({ success: true, data: lead });

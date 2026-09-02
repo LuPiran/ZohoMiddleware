@@ -11,6 +11,7 @@ import {
   MdChevronLeft,
   MdChevronRight,
   MdRefresh,
+  MdBarChart,
 } from "react-icons/md";
 import MainLayout from "../../components/layout/MainLayout";
 import Input from "../../components/ui/Input";
@@ -403,16 +404,29 @@ export default function LeadsMedicos() {
               </p>
             )}
           </div>
-          <button
-            type="button"
-            onClick={loadLeads}
-            disabled={loading}
-            title="Atualizar dados"
-            aria-label="Atualizar dados"
-            className="shrink-0 mt-0.5 inline-flex h-9 w-9 items-center justify-center rounded-lg border border-tegra-gray-medium text-tegra-text-secondary transition hover:bg-tegra-gray-light hover:text-tegra-blue-dark disabled:opacity-40"
-          >
-            <MdRefresh className={`text-xl ${loading ? "animate-spin" : ""}`} />
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            {role === "gerente" && (
+              <Button
+                variant="secondary"
+                size="sm"
+                className="inline-flex items-center gap-1.5"
+                onClick={() => navigate(ROUTES.LEADS_MEDICOS_EQUIPE)}
+              >
+                <MdBarChart className="text-lg" aria-hidden />
+                KPIs da equipe
+              </Button>
+            )}
+            <button
+              type="button"
+              onClick={loadLeads}
+              disabled={loading}
+              title="Atualizar dados"
+              aria-label="Atualizar dados"
+              className="mt-0.5 inline-flex h-9 w-9 items-center justify-center rounded-lg border border-tegra-gray-medium text-tegra-text-secondary transition hover:bg-tegra-gray-light hover:text-tegra-blue-dark disabled:opacity-40"
+            >
+              <MdRefresh className={`text-xl ${loading ? "animate-spin" : ""}`} />
+            </button>
+          </div>
         </header>
 
         <LeadsDashboard

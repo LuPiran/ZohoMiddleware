@@ -29,10 +29,12 @@ export function buildEvidenceFormData({ observacao, files }) {
   return form;
 }
 
-export async function registrarTentativa(id, round, observacao, files = []) {
+export async function registrarTentativa(id, round, observacao, files = [], compraInfo = null) {
+  const form = buildEvidenceFormData({ observacao, files });
+  if (compraInfo) form.append("compraInfo", JSON.stringify(compraInfo));
   const response = await api.post(
     API_ENDPOINTS.LEADS_MEDICOS.TENTATIVA(id, round),
-    buildEvidenceFormData({ observacao, files }),
+    form,
     { timeout: 120000 },
   );
   return {
@@ -123,6 +125,14 @@ export async function recusarOferta(id) {
   };
 }
 
+export async function getEquipeKpis() {
+  const response = await api.get(API_ENDPOINTS.LEADS_MEDICOS.EQUIPE_KPIS);
+  return {
+    success: Boolean(response.data?.success),
+    data: response.data?.data || null,
+  };
+}
+
 export async function listPendingOffers() {
   const response = await api.get(API_ENDPOINTS.LEADS_MEDICOS.OFERTAS_PENDENTES);
   return {
@@ -148,4 +158,5 @@ export const leadsMedicosService = {
   aceitarOferta: confirmarCheckin,
   recusarOferta,
   listPendingOffers,
+  getEquipeKpis,
 };

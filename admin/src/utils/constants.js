@@ -7,6 +7,7 @@ export const ROUTES = {
   DASHBOARD: "/dashboard",
   LEADS_MEDICOS: "/leads-medicos",
   LEADS_MEDICOS_DETAIL: "/leads-medicos/:id",
+  LEADS_MEDICOS_EQUIPE: "/leads-medicos-equipe",
   PLATFORM_UPDATES: "/atualizacoes-plataforma",
   USUARIOS: "/usuarios",
   RECOMPRA: "/recompra",
@@ -62,6 +63,7 @@ export const API_ENDPOINTS = {
     ACEITAR: (id) => `/v1/leads-medicos/${id}/aceitar`,
     RECUSAR: (id) => `/v1/leads-medicos/${id}/recusar`,
     OFERTAS_PENDENTES: "/v1/leads-medicos/ofertas-pendentes",
+    EQUIPE_KPIS: "/v1/leads-medicos/equipe/kpis",
     EVIDENCIA_ARQUIVO: (id, evidenciaId) =>
       `/v1/leads-medicos/${id}/evidencias/${evidenciaId}/arquivo`,
   },

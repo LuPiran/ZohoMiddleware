@@ -236,6 +236,36 @@ export async function findConsultoresByGerencia(gerencia) {
 }
 
 /**
+ * Equipe de um gerente — tenta 2 estratégias de match e une o resultado
+ * (dedupe por id), porque não sabemos de antemão qual convenção o campo
+ * "Gerencia" do Zoho segue nos registros dos consultores:
+ *   1) `consultor.gerencia === gerente.gerencia` — cobre o caso de um nome
+ *      de time compartilhado entre o gerente e sua equipe.
+ *   2) `consultor.gerencia === nome do gerente` — cobre o caso (mais comum
+ *      em CRM) de o campo guardar o nome do gerente/responsável direto.
+ * Aditivo: se a estratégia 1 já bastava, a 2 não muda nada.
+ */
+export async function findEquipeDoGerente(gerente) {
+  const items = await listActiveConsultores();
+  const porGerencia = String(gerente?.gerencia || "").trim().toLowerCase();
+  const nomeGerente = String(getConsultorDisplayName(gerente) || "")
+    .trim()
+    .toLowerCase();
+
+  const byId = new Map();
+  for (const c of items) {
+    const gerenciaConsultor = String(c.gerencia || "").trim().toLowerCase();
+    if (!gerenciaConsultor) continue;
+    const matchPorGerencia = porGerencia && gerenciaConsultor === porGerencia;
+    const matchPorNome = nomeGerente && gerenciaConsultor === nomeGerente;
+    if (matchPorGerencia || matchPorNome) {
+      byId.set(c.id, c);
+    }
+  }
+  return [...byId.values()];
+}
+
+/**
  * E-mails do(s) gerente(s) responsáveis pela gerência informada — hoje o
  * único nível de escalonamento em notificações (não existe perfil Gestão
  * separado para esse fim). Depende de `gerencia` estar sincronizada no

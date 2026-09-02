@@ -3,6 +3,7 @@ import Login from "../pages/Auth/Login";
 import Dashboard from "../pages/Dashboard/Dashboard";
 import LeadsMedicos from "../pages/LeadsMedicos/LeadsMedicos";
 import LeadDetail from "../pages/LeadsMedicos/LeadDetail";
+import EquipeKpis from "../pages/LeadsMedicos/EquipeKpis";
 import PlatformUpdates from "../pages/PlatformUpdates/PlatformUpdates";
 import Users from "../pages/Users/Users";
 import Recompra from "../pages/Recompra/Recompra";
@@ -93,6 +94,14 @@ export default function AppRoutes() {
         element={
           <OptionalFormRoute permissionCheck={podeVerLeadsMedicos}>
             <LeadDetail />
+          </OptionalFormRoute>
+        }
+      />
+      <Route
+        path={ROUTES.LEADS_MEDICOS_EQUIPE}
+        element={
+          <OptionalFormRoute permissionCheck={podeVerLeadsMedicos}>
+            <EquipeKpis />
           </OptionalFormRoute>
         }
       />

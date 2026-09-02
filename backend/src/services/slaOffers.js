@@ -355,6 +355,10 @@ export function applyOfferToLead(lead, consultor, { reason } = {}) {
   lead.gerencia = lead.gerencia || getConsultorGerencia(consultor);
   lead.slaStatus = "ofertado";
   lead.slaDeadline = offerDeadlineIso();
+  // Marco fixo do 1º oferecimento — nunca sobrescrito depois de setado,
+  // diferente de slaDeadline (que muda a cada nova oferta). Usado pra
+  // calcular "tempo médio até aceite" nos KPIs de equipe.
+  lead.primeiraOfertaEm = lead.primeiraOfertaEm || now;
   delete lead.slaCheckinAt;
   lead.slaOfertaRound = Number(lead.slaOfertaRound || 0) + 1;
   lead.updatedAt = now;

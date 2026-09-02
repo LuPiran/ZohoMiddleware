@@ -945,6 +945,14 @@ export default function Compra({
               leadAttemptCtx.round,
               leadAttemptCtx.observacao,
               leadAttemptFiles,
+              {
+                compraZohoId: response.data?.id || null,
+                compraProtocolo: response.protocolo || null,
+                produtos: produtosValidos.map((p) => ({
+                  nome: p.nome,
+                  quantidade: p.quantidade,
+                })),
+              },
             );
             showToast("Compra registrada e tentativa enviada ao Zoho", "success", 3000);
           } catch (attemptError) {

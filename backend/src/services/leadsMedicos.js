@@ -18,7 +18,7 @@ import { ENV } from "../config/env.js";
 import {
   decrementCargaAceita,
   findConsultorByEmail,
-  findConsultoresByGerencia,
+  findEquipeDoGerente,
   getConsultorDisplayName,
   getConsultorGerencia,
   incrementCargaAceita,
@@ -545,7 +545,7 @@ function normalizeText(value) {
     .trim();
 }
 
-function resolveViewerRole(perfil) {
+export function resolveViewerRole(perfil) {
   const p = normalizeText(perfil);
   if (
     p === "admin painel" ||
@@ -1105,6 +1105,46 @@ export function toLeadListItem(lead) {
 }
 
 /**
+ * Leads de toda a equipe de um gerente — usada tanto pela listagem normal
+ * (`listLeadsForUser`) quanto pelos KPIs de equipe (`leadsMedicosKpis.js`).
+ * Recebe o registro do PRÓPRIO gerente em `portal_consultores`.
+ */
+export async function listLeadsForGerencia(gerenteRecord) {
+  const gerencia = getConsultorGerencia(gerenteRecord);
+  const equipe = gerenteRecord ? await findEquipeDoGerente(gerenteRecord) : [];
+
+  const collected = new Map();
+
+  // Query via GSI (gsi_consultor) por cada membro — evita full scan
+  for (const membro of equipe) {
+    const keys = new Set(
+      [membro.id, membro.nome].filter(Boolean).map(String),
+    );
+    for (const key of keys) {
+      const rows = await queryLeadsByConsultorId(key);
+      for (const row of rows) {
+        if (row?.id && (!row.slaStatus || isSlaAccepted(row))) {
+          collected.set(row.id, row);
+        }
+      }
+    }
+  }
+
+  // Fallback: scan para leads que tenham campo gerencia preenchido
+  // (leads criados antes do novo rodízio, sem consultorId indexado)
+  if (gerencia) {
+    const all = await scanAllLeads();
+    for (const row of all) {
+      if (row?.id && leadMatchesGerencia(row, gerencia)) {
+        collected.set(row.id, row);
+      }
+    }
+  }
+
+  return { equipe, leads: [...collected.values()] };
+}
+
+/**
  * Lista leads conforme regra de negócio:
  * - admin: todos
  * - gerente: leads da mesma gerência (+ os próprios)
@@ -1140,46 +1180,11 @@ export async function listLeadsForUser(user = {}) {
   if (role === "admin") {
     leads = await scanAllLeads();
   } else if (role === "gerente") {
-    // Carrega a equipe do gerente via scan em memória
-    const equipe = [];
-    if (viewer.gerencia) {
-      try {
-        const membros = await findConsultoresByGerencia(viewer.gerencia);
-        equipe.push(...membros);
-      } catch (err) {
-        console.warn("[LEADS] Lookup equipe do gerente:", err.message);
-      }
+    try {
+      leads = (await listLeadsForGerencia(consultorRecord)).leads;
+    } catch (err) {
+      console.warn("[LEADS] Lookup equipe do gerente:", err.message);
     }
-
-    const collected = new Map();
-
-    // Query via GSI (gsi_consultor) por cada membro — evita full scan
-    for (const membro of equipe) {
-      const keys = new Set(
-        [membro.id, membro.nome].filter(Boolean).map(String),
-      );
-      for (const key of keys) {
-        const rows = await queryLeadsByConsultorId(key);
-        for (const row of rows) {
-          if (row?.id && (!row.slaStatus || isSlaAccepted(row))) {
-            collected.set(row.id, row);
-          }
-        }
-      }
-    }
-
-    // Fallback: scan para leads que tenham campo gerencia preenchido
-    // (leads criados antes do novo rodízio, sem consultorId indexado)
-    if (viewer.gerencia) {
-      const all = await scanAllLeads();
-      for (const row of all) {
-        if (row?.id && leadMatchesGerencia(row, viewer.gerencia)) {
-          collected.set(row.id, row);
-        }
-      }
-    }
-
-    leads = [...collected.values()];
   } else {
     const keys = new Set(
       [viewer.id, viewer.nome].filter(Boolean).map((v) => String(v)),
@@ -1305,9 +1310,9 @@ async function resolveViewerContext(user = {}) {
 
   // Para gerente: pré-carrega equipe para checar acesso ao lead individual
   let equipe = [];
-  if (role === "gerente" && gerencia) {
+  if (role === "gerente" && consultorRecord) {
     try {
-      equipe = await findConsultoresByGerencia(gerencia);
+      equipe = await findEquipeDoGerente(consultorRecord);
     } catch (err) {
       console.warn("[LEADS] Lookup equipe do gerente:", err.message);
     }
@@ -1454,6 +1459,7 @@ export function toLeadDetail(lead) {
     dataLeadRejeitado: lead.dataLeadRejeitado || null,
     dataLeadSemTratativa: lead.dataLeadSemTratativa || null,
     agendamentos: Array.isArray(lead.agendamentos) ? lead.agendamentos : [],
+    comprasVinculadas: Array.isArray(lead.comprasVinculadas) ? lead.comprasVinculadas : [],
     createdAt: lead.createdAt || null,
     updatedAt: lead.updatedAt || null,
     historico: (Array.isArray(lead.historico) ? lead.historico : [])
@@ -1593,7 +1599,12 @@ async function updateLeadItem(leadId, updates, condition) {
 /**
  * Registra tentativa de contato (1, 2 ou 3) como "Tratado Pelo Consultor".
  */
-export async function registerContactAttempt(leadId, user, round, { observacao, files } = {}) {
+export async function registerContactAttempt(
+  leadId,
+  user,
+  round,
+  { observacao, files, compraInfo } = {},
+) {
   await getLeadForUser(leadId, user);
   const now = new Date().toISOString();
   const raw = (
@@ -1616,6 +1627,26 @@ export async function registerContactAttempt(leadId, user, round, { observacao, 
   const alreadyInteresse =
     normalizeText(raw.status).includes("interesse") &&
     !normalizeText(raw.status).includes("sem");
+
+  // Vínculo Compra <-> Lead — só o Portal guarda isso (nada muda no Zoho).
+  // Vale só pra compras feitas a partir de agora; leads antigos não têm.
+  const compraValida =
+    compraInfo && typeof compraInfo === "object" && !Array.isArray(compraInfo)
+      ? compraInfo
+      : null;
+  const comprasVinculadas = compraValida
+    ? [
+        ...(Array.isArray(raw.comprasVinculadas) ? raw.comprasVinculadas : []),
+        {
+          compraZohoId: compraValida.compraZohoId || null,
+          compraProtocolo: compraValida.compraProtocolo || null,
+          produtos: Array.isArray(compraValida.produtos) ? compraValida.produtos : [],
+          round: n,
+          criadoEm: now,
+        },
+      ]
+    : undefined;
+
   const historico = appendHistorico(raw, [
     {
       action:
@@ -1636,6 +1667,16 @@ export async function registerContactAttempt(leadId, user, round, { observacao, 
           detail: "O médico sinalizou interesse durante o contato. Lead avançando no funil de atendimento.",
           by: actor,
         },
+    compraValida
+      ? {
+          action: "compra_registrada",
+          label: "Compra registrada a partir deste lead",
+          detail: compraValida.compraProtocolo
+            ? `Protocolo da compra: ${compraValida.compraProtocolo}`
+            : "Compra vinculada a este lead.",
+          by: actor,
+        }
+      : null,
   ]);
 
   const updated = await updateLeadItem(leadId, {
@@ -1645,6 +1686,7 @@ export async function registerContactAttempt(leadId, user, round, { observacao, 
     workdriveFolderId: evidence.workdriveFolderId,
     workdriveFolderName: evidence.workdriveFolderName,
     protocolo: evidence.protocolo,
+    ...(comprasVinculadas ? { comprasVinculadas } : {}),
   });
   if (!raw.protocolo && evidence.protocolo) {
     syncZohoLeadProtocolo(updated);
