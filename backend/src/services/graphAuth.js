@@ -68,14 +68,25 @@ export async function getGraphAccessToken() {
       token,
       expiresAt: now + expiresIn * 1000,
     };
+    console.info("[GRAPH] token obtido", {
+      tenantId,
+      clientId: `${clientId.slice(0, 8)}…`,
+      expiresIn,
+    });
     return token;
   } catch (error) {
     if (error.status === 503) throw error;
-    console.error(
-      "[GRAPH] Falha ao obter token",
-      error.response?.status,
-      error.response?.data?.error_description || error.message,
-    );
+    const description =
+      error.response?.data?.error_description || error.message;
+    const aad = String(description).match(/AADSTS\d+/)?.[0] || null;
+    console.error("[GRAPH] Falha ao obter token", {
+      http: error.response?.status || null,
+      aad,
+      error: error.response?.data?.error || null,
+      description: description?.slice(0, 400),
+      tenantId,
+      clientId: `${clientId.slice(0, 8)}…`,
+    });
     const err = new Error(
       "Não foi possível autenticar no Microsoft Graph. Verifique o app confidencial e as permissões Sites.Read.All.",
     );

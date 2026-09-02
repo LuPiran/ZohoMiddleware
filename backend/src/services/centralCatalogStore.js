@@ -2,6 +2,7 @@ import { GetCommand, PutCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
 import { dynamoDocClient } from "../config/dynamodb.js";
 import { ENV } from "../config/env.js";
 import { CENTRAL_CATEGORIES } from "../data/centralCategories.js";
+import { logCentralDynamo } from "../utils/graphLog.js";
 
 const PK_LOCATION = "LOCATION";
 const SK_ROOT = "ROOT";
@@ -12,8 +13,23 @@ const memory = {
   categories: new Map(),
 };
 
+let lastPersist = {
+  table: null,
+  region: null,
+  locationSaved: false,
+  categoriesSaved: 0,
+  lastError: null,
+};
+
 function tableName() {
   return ENV.DYNAMODB_CENTRAL_TABLE || "portal_central_comercial";
+}
+
+function dynamoMeta() {
+  return {
+    table: tableName(),
+    region: ENV.AWS_REGION || "us-east-1",
+  };
 }
 
 function isMissingTable(error) {
@@ -24,8 +40,28 @@ function isMissingTable(error) {
   );
 }
 
+function dynamoFail(error) {
+  return {
+    name: error?.name || null,
+    http: error?.$metadata?.httpStatusCode || null,
+    message: error?.message || String(error),
+    missingTable: isMissingTable(error),
+  };
+}
+
+export function getDynamoPersistStatus() {
+  return {
+    ...lastPersist,
+    ...dynamoMeta(),
+    locationInMemory: Boolean(memory.location),
+    categoriesInMemory: memory.categories.size,
+  };
+}
+
 export async function getStoredLocation() {
-  if (memory.location) return memory.location;
+  if (memory.location) {
+    return memory.location;
+  }
   try {
     const result = await dynamoDocClient.send(
       new GetCommand({
@@ -40,12 +76,22 @@ export async function getStoredLocation() {
         driveId: item.driveId,
         rootFolderId: item.rootFolderId,
       };
+      lastPersist.locationSaved = true;
+      lastPersist.lastError = null;
+      logCentralDynamo("leitura LOCATION ok", {
+        ...dynamoMeta(),
+        rootFolderId: item.rootFolderId.slice(0, 12),
+      });
       return memory.location;
     }
+    logCentralDynamo("leitura LOCATION vazia", dynamoMeta());
   } catch (error) {
-    if (!isMissingTable(error)) {
-      console.warn("[CENTRAL][STORE] leitura da localização:", error.message);
-    }
+    lastPersist.lastError = dynamoFail(error);
+    logCentralDynamo("leitura LOCATION falhou", {
+      ok: false,
+      ...dynamoMeta(),
+      ...dynamoFail(error),
+    });
   }
   return null;
 }
@@ -69,10 +115,23 @@ export async function saveLocation(location) {
         },
       }),
     );
+    lastPersist.locationSaved = true;
+    lastPersist.lastError = null;
+    logCentralDynamo("GRAVOU LOCATION", {
+      ok: true,
+      ...dynamoMeta(),
+      pk: PK_LOCATION,
+      sk: SK_ROOT,
+      rootFolderId: payload.rootFolderId?.slice(0, 16),
+    });
   } catch (error) {
-    if (!isMissingTable(error)) {
-      console.warn("[CENTRAL][STORE] persistir localização:", error.message);
-    }
+    lastPersist.locationSaved = false;
+    lastPersist.lastError = dynamoFail(error);
+    logCentralDynamo("NÃO gravou LOCATION", {
+      ok: false,
+      ...dynamoMeta(),
+      ...dynamoFail(error),
+    });
   }
   return payload;
 }
@@ -96,10 +155,20 @@ export async function getStoredCategoryBindings() {
         memory.categories.set(item.sk, item.sharepointFolderId);
       }
     }
+    lastPersist.categoriesSaved = bindings.size;
+    lastPersist.lastError = null;
+    logCentralDynamo("leitura CATEGORY ok", {
+      ...dynamoMeta(),
+      quantidade: bindings.size,
+      ids: [...bindings.keys()],
+    });
   } catch (error) {
-    if (!isMissingTable(error)) {
-      console.warn("[CENTRAL][STORE] leitura das categorias:", error.message);
-    }
+    lastPersist.lastError = dynamoFail(error);
+    logCentralDynamo("leitura CATEGORY falhou", {
+      ok: false,
+      ...dynamoMeta(),
+      ...dynamoFail(error),
+    });
   }
   return bindings;
 }
@@ -119,10 +188,23 @@ export async function saveCategoryBinding(categoryId, sharepointFolderId) {
         },
       }),
     );
+    lastPersist.categoriesSaved = memory.categories.size;
+    lastPersist.lastError = null;
+    logCentralDynamo("GRAVOU CATEGORY", {
+      ok: true,
+      ...dynamoMeta(),
+      pk: PK_CATEGORY,
+      sk: categoryId,
+      sharepointFolderId: String(sharepointFolderId).slice(0, 16),
+    });
   } catch (error) {
-    if (!isMissingTable(error)) {
-      console.warn("[CENTRAL][STORE] persistir categoria:", error.message);
-    }
+    lastPersist.lastError = dynamoFail(error);
+    logCentralDynamo("NÃO gravou CATEGORY", {
+      ok: false,
+      ...dynamoMeta(),
+      sk: categoryId,
+      ...dynamoFail(error),
+    });
   }
 }
 

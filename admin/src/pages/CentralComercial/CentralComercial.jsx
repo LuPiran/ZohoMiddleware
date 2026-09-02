@@ -16,10 +16,10 @@ import Button from "../../components/ui/Button";
 import {
   browseCentral,
   downloadCentralItem,
-  getCentralCatalog,
+  getCentralStatus,
   searchCentral,
 } from "../../services/centralComercial";
-import { categoryOptionsFromCatalog, decorateItem } from "./catalogHelpers";
+import { decorateItem, formatBytes, formatModified } from "./catalogHelpers";
 import { getCatalogIcon, getIconTone } from "./iconMap";
 import ResourceItem from "./ResourceItem";
 import FileViewer from "./FileViewer";
@@ -31,13 +31,43 @@ const HEX_PATTERN = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/200
 const HEADER_NAVY = "#244586";
 const HEADER_NAVY_DEEP = "#1b3668";
 const HEADER_TEAL = "#25b3b8";
+const KIND_OPTIONS = [
+  { value: "all", label: "Tudo" },
+  { value: "folders", label: "Pastas" },
+  { value: "files", label: "Arquivos" },
+];
 
 function apiErrorMessage(error, fallback) {
-  return (
-    error.response?.data?.error ||
-    error.message ||
-    fallback
-  );
+  return error.response?.data?.error || error.message || fallback;
+}
+
+function persistHint(dynamo) {
+  if (!dynamo) return null;
+  if (dynamo.locationSaved) {
+    return {
+      tone: "ok",
+      text: `IDs da pasta gravados no DynamoDB (${dynamo.table}).`,
+    };
+  }
+  if (dynamo.lastError?.missingTable) {
+    return {
+      tone: "warn",
+      text: `Tabela ${dynamo.table} ainda não existe. A pasta abre, mas o ID some no restart.`,
+    };
+  }
+  if (dynamo.lastError) {
+    return {
+      tone: "warn",
+      text: `Dynamo não gravou: ${dynamo.lastError.message}. Confira os logs [CENTRAL][DYNAMO].`,
+    };
+  }
+  if (dynamo.locationInMemory) {
+    return {
+      tone: "warn",
+      text: "Pasta resolvida só em memória. Ainda não confirmamos gravação no Dynamo.",
+    };
+  }
+  return null;
 }
 
 export default function CentralComercial() {
@@ -48,9 +78,7 @@ export default function CentralComercial() {
 
   const [stack, setStack] = useState([]);
   const [query, setQuery] = useState("");
-  const [category, setCategory] = useState("all");
-  const [catalogSections, setCatalogSections] = useState([]);
-  const [categories, setCategories] = useState([]);
+  const [kind, setKind] = useState("all");
   const [folderItems, setFolderItems] = useState([]);
   const [folderMeta, setFolderMeta] = useState(null);
   const [searchResults, setSearchResults] = useState([]);
@@ -58,73 +86,60 @@ export default function CentralComercial() {
   const [searching, setSearchingLive] = useState(false);
   const [error, setError] = useState("");
   const [viewer, setViewer] = useState(null);
+  const [dynamo, setDynamo] = useState(null);
 
   const current = stack[stack.length - 1] || null;
   const isSearch = query.trim().length >= 2;
-  const categoryOptions = useMemo(
-    () => categoryOptionsFromCatalog(categories),
-    [categories],
-  );
+  const hint = persistHint(dynamo);
 
   const viewKey = isSearch
-    ? `search:${query}`
-    : current
-      ? `page:${current.id}`
-      : "home";
+    ? `search:${query}:${current?.id || "root"}`
+    : `page:${current?.id || "root"}:${kind}`;
 
-  const loadCatalog = useCallback(async () => {
-    setLoading(true);
-    setError("");
+  const visibleItems = useMemo(() => {
+    if (kind === "folders") return folderItems.filter((item) => item.isFolder);
+    if (kind === "files") return folderItems.filter((item) => !item.isFolder);
+    return folderItems;
+  }, [folderItems, kind]);
+
+  const loadRootStatus = useCallback(async () => {
     try {
-      const payload = await getCentralCatalog();
-      setCatalogSections(payload.sections || []);
-      setCategories(payload.categories || []);
-    } catch (err) {
-      setError(
-        apiErrorMessage(
-          err,
-          "Não foi possível abrir a Central Comercial agora.",
-        ),
-      );
-      setCatalogSections([]);
-      setCategories([]);
-    } finally {
-      setLoading(false);
+      const status = await getCentralStatus();
+      setDynamo(status.dynamo || null);
+    } catch {
+      setDynamo(null);
     }
   }, []);
 
-  useEffect(() => {
-    loadCatalog();
-  }, [loadCatalog]);
-
-  useEffect(() => {
-    if (!current) {
-      setFolderItems([]);
-      return undefined;
-    }
-    let cancelled = false;
+  const loadFolder = useCallback(async (folderId, cancelled) => {
     setLoading(true);
     setError("");
-    browseCentral(current.id)
-      .then((payload) => {
-        if (cancelled) return;
-        setFolderMeta(payload.folder || current);
-        setFolderItems((payload.items || []).map(decorateItem));
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        setError(
-          apiErrorMessage(err, "Não foi possível abrir esta pasta."),
-        );
-        setFolderItems([]);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+    try {
+      const payload = await browseCentral(folderId || undefined);
+      if (cancelled?.()) return;
+      setFolderMeta(payload.folder || null);
+      setFolderItems((payload.items || []).map(decorateItem));
+      loadRootStatus();
+    } catch (err) {
+      if (cancelled?.()) return;
+      setError(apiErrorMessage(err, "Não foi possível abrir esta pasta."));
+      setFolderItems([]);
+    } finally {
+      if (!cancelled?.()) setLoading(false);
+    }
+  }, [loadRootStatus]);
+
+  useEffect(() => {
+    loadRootStatus();
+  }, [loadRootStatus]);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadFolder(current?.id, () => cancelled);
     return () => {
       cancelled = true;
     };
-  }, [current]);
+  }, [current?.id, loadFolder]);
 
   useEffect(() => {
     const q = query.trim();
@@ -136,7 +151,7 @@ export default function CentralComercial() {
     const handle = window.setTimeout(async () => {
       setSearchingLive(true);
       try {
-        const payload = await searchCentral(q, category);
+        const payload = await searchCentral(q, current?.id);
         setSearchResults((payload.items || []).map(decorateItem));
         setError("");
       } catch (err) {
@@ -147,7 +162,7 @@ export default function CentralComercial() {
       }
     }, 280);
     return () => window.clearTimeout(handle);
-  }, [query, category]);
+  }, [query, current?.id]);
 
   useGSAP(
     () => {
@@ -173,7 +188,7 @@ export default function CentralComercial() {
         {
           clipPath: "inset(0% 0% 0% 0%)",
           filter: "blur(0px)",
-          duration: 0.55,
+          duration: 0.45,
           ease: "power3.out",
           clearProps: "clipPath,filter",
         },
@@ -187,20 +202,12 @@ export default function CentralComercial() {
   }
 
   function openFolder(item) {
-    const fromCatalog = Boolean(item.sharepointFolderId);
-    const folderId = item.sharepointFolderId || item.id;
-    if (!folderId) {
-      setError("Esta pasta ainda não foi vinculada ao SharePoint.");
+    const folderId = item?.id;
+    if (!folderId || String(folderId).length < 8) {
+      setError("Esta pasta ainda não tem um identificador válido do SharePoint.");
       return;
     }
-    setStack((prev) => [
-      ...prev,
-      {
-        id: folderId,
-        name: item.name,
-        categoryId: fromCatalog ? item.id : prev[0]?.categoryId,
-      },
-    ]);
+    setStack((prev) => [...prev, { id: folderId, name: item.name }]);
     setQuery("");
     scrollTop();
   }
@@ -226,48 +233,13 @@ export default function CentralComercial() {
   function goHome() {
     setStack([]);
     setQuery("");
-    setCategory("all");
+    setKind("all");
     scrollTop();
   }
-
-  function handleCategoryChange(event) {
-    const next = event.target.value || "all";
-    setCategory(next);
-    if (query.trim().length >= 2) return;
-    if (next === "all") {
-      setStack([]);
-    } else {
-      const selected = categories.find((item) => item.id === next);
-      if (selected?.sharepointFolderId) {
-        setStack([
-          {
-            id: selected.sharepointFolderId,
-            name: selected.name,
-            categoryId: selected.id,
-          },
-        ]);
-      }
-    }
-    scrollTop();
-  }
-
-  useEffect(() => {
-    if (query.trim().length >= 2) return;
-    const top = stack[0];
-    if (!top) {
-      setCategory("all");
-      return;
-    }
-    const matched =
-      top.categoryId ||
-      categories.find((item) => item.sharepointFolderId === top.id)?.id ||
-      "all";
-    setCategory(matched);
-  }, [stack, query, categories]);
 
   const subtitle = current
     ? current.name
-    : "Materiais e recursos técnicos";
+    : folderMeta?.name || "Central comercial TegraPharma";
 
   return (
     <MainLayout>
@@ -313,19 +285,18 @@ export default function CentralComercial() {
             />
             <div className="relative z-10 grid grid-cols-1 sm:grid-cols-[minmax(11rem,14rem)_1fr] gap-2">
               <Select
-                value={category}
-                onChange={handleCategoryChange}
-                options={categoryOptions}
-                placeholder="Filtrar categoria"
-                isSearchable
+                value={kind}
+                onChange={(event) => setKind(event.target.value || "all")}
+                options={KIND_OPTIONS}
+                placeholder="Filtrar"
                 variant="onDark"
-                inputId="central-categoria"
-                aria-label="Filtrar categoria"
+                inputId="central-tipo"
+                aria-label="Filtrar pastas ou arquivos"
               />
               <Input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Buscar um item…"
+                placeholder="Buscar nesta pasta…"
                 icon={<MdSearch />}
                 showIconClear={query.length > 0}
                 iconClear={<MdClose />}
@@ -337,61 +308,72 @@ export default function CentralComercial() {
           </div>
         </section>
 
-        {current && !isSearch ? (
-          <div className="mb-5 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
-            <div className="flex flex-col sm:flex-row gap-2.5">
-              <Button
-                type="button"
-                onClick={goBack}
-                className="flex-1 inline-flex items-center justify-center gap-2"
-              >
-                <MdArrowBack aria-hidden />
-                Voltar
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={goHome}
-                className="flex-1 inline-flex items-center justify-center gap-2"
-              >
-                <MdHome aria-hidden />
-                Início
-              </Button>
-            </div>
-            <nav
-              aria-label="Navegação da pasta"
-              className="mt-3 flex flex-wrap items-center gap-1.5 text-sm text-tegra-text-secondary"
+        <div className="mb-5 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
+          <div className="flex flex-col sm:flex-row gap-2.5">
+            <Button
+              type="button"
+              onClick={goBack}
+              disabled={!current}
+              className="flex-1 inline-flex items-center justify-center gap-2"
             >
-              <button
-                type="button"
-                onClick={goHome}
-                className="text-[#3da2b8] underline-offset-2 hover:underline"
-              >
-                Início
-              </button>
-              {stack.map((crumb, index) => (
-                <span key={crumb.id} className="inline-flex items-center gap-1.5">
-                  <span className="text-slate-300" aria-hidden>
-                    ›
-                  </span>
-                  {index === stack.length - 1 ? (
-                    <span className="font-semibold text-tegra-blue-dark">
-                      {crumb.name}
-                    </span>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setStack(stack.slice(0, index + 1))}
-                      className="text-[#3da2b8] underline-offset-2 hover:underline"
-                    >
-                      {crumb.name}
-                    </button>
-                  )}
-                </span>
-              ))}
-            </nav>
+              <MdArrowBack aria-hidden />
+              Voltar
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={goHome}
+              className="flex-1 inline-flex items-center justify-center gap-2"
+            >
+              <MdHome aria-hidden />
+              Início
+            </Button>
           </div>
-        ) : null}
+          <nav
+            aria-label="Caminho da pasta"
+            className="mt-3 flex flex-wrap items-center gap-1.5 text-sm text-tegra-text-secondary"
+          >
+            <button
+              type="button"
+              onClick={goHome}
+              className="text-[#3da2b8] underline-offset-2 hover:underline"
+            >
+              Início
+            </button>
+            {stack.map((crumb, index) => (
+              <span key={crumb.id} className="inline-flex items-center gap-1.5">
+                <span className="text-slate-300" aria-hidden>
+                  ›
+                </span>
+                {index === stack.length - 1 ? (
+                  <span className="font-semibold text-tegra-blue-dark">
+                    {crumb.name}
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setStack(stack.slice(0, index + 1))}
+                    className="text-[#3da2b8] underline-offset-2 hover:underline"
+                  >
+                    {crumb.name}
+                  </button>
+                )}
+              </span>
+            ))}
+          </nav>
+          {hint ? (
+            <p
+              className={`mt-3 flex gap-2 text-xs sm:text-sm leading-relaxed ${
+                hint.tone === "ok"
+                  ? "text-tegra-text-secondary"
+                  : "text-[#8a4a4d]"
+              }`}
+            >
+              <MdInfoOutline className="mt-0.5 shrink-0 text-base" aria-hidden />
+              <span>{hint.text}</span>
+            </p>
+          ) : null}
+        </div>
 
         <div ref={folderRef} className="min-h-[12rem]">
           <AnimatePresence mode="wait">
@@ -400,10 +382,16 @@ export default function CentralComercial() {
               initial={reduceMotion ? false : { opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={reduceMotion ? undefined : { opacity: 0, y: -8 }}
-              transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
             >
-              {error && !loading ? (
-                <ErrorCard message={error} onRetry={current ? undefined : loadCatalog} />
+              {error && !loading && !searching ? (
+                <ErrorCard
+                  message={error}
+                  onRetry={() => {
+                    loadRootStatus();
+                    loadFolder(current?.id);
+                  }}
+                />
               ) : null}
 
               {isSearch ? (
@@ -412,18 +400,11 @@ export default function CentralComercial() {
                   loading={searching}
                   onOpen={openItem}
                 />
-              ) : current ? (
-                <FolderView
-                  title={folderMeta?.name || current.name}
-                  items={folderItems}
-                  loading={loading}
-                  onOpen={openItem}
-                  onDownload={handleDownload}
-                />
               ) : (
-                <HomeView
-                  sections={catalogSections}
+                <ExplorerView
+                  items={visibleItems}
                   loading={loading}
+                  kind={kind}
                   onOpen={openItem}
                   onDownload={handleDownload}
                 />
@@ -455,116 +436,48 @@ function ErrorCard({ message, onRetry }) {
   );
 }
 
-function HomeView({ sections, loading, onOpen, onDownload }) {
+function ExplorerView({ items, loading, kind, onOpen, onDownload }) {
+  const emptyMessage =
+    kind === "folders"
+      ? "Nenhuma pasta nesta visualização."
+      : kind === "files"
+        ? "Nenhum arquivo nesta pasta."
+        : "Esta pasta está vazia.";
   return (
-    <div className="space-y-7">
-      <div className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5">
-        <h2 className="text-base sm:text-lg font-semibold text-tegra-text-primary mb-3 sm:mb-4">
-          Como usar
-        </h2>
-        <p className="flex gap-3 text-sm sm:text-base text-tegra-text-secondary leading-relaxed">
-          <MdInfoOutline
-            className="mt-0.5 shrink-0 text-lg text-tegra-blue-dark"
-            aria-hidden
-          />
-          <span>
-            Navegue pelas pastas da Central. Arquivos abrem e baixam aqui no
-            portal — sem sair para o SharePoint.
-          </span>
-        </p>
+    <section className="bg-tegra-bg-primary rounded-lg shadow-md p-3 sm:p-4 md:p-5">
+      <div className="central-explorer-head hidden sm:grid" aria-hidden>
+        <span>Nome</span>
+        <span>Modificado</span>
+        <span>Tamanho</span>
+        <span />
       </div>
-
-      {loading && sections.length === 0 ? <LoadingGrid /> : null}
-
-      {!loading && sections.length === 0 ? (
-        <div className="rounded-2xl border border-slate-200 bg-white px-6 py-16 text-center shadow-sm">
-          <p className="text-base font-semibold text-tegra-blue-dark">
-            Nenhum material disponível
-          </p>
-          <p className="mt-2 text-sm text-tegra-text-secondary">
-            A pasta da Central está vazia ou ainda não foi conectada.
-          </p>
+      {loading ? (
+        <LoadingList />
+      ) : items.length === 0 ? (
+        <p className="py-10 text-center text-sm text-tegra-text-secondary">
+          {emptyMessage}
+        </p>
+      ) : (
+        <div className="flex flex-col">
+          {items.map((item, index) => (
+            <ResourceItem
+              key={item.id}
+              layout="explorer"
+              icon={item.isFolder ? "folder" : item.icon}
+              toneKey={item.icon}
+              title={item.name}
+              description={item.desc}
+              modified={formatModified(item.modifiedAt)}
+              sizeLabel={item.isFolder ? "—" : formatBytes(item.size)}
+              isFolder={item.isFolder}
+              onOpen={() => onOpen(item)}
+              onDownload={() => onDownload(item)}
+              delay={Math.min(index * 0.03, 0.16)}
+            />
+          ))}
         </div>
-      ) : null}
-
-      {sections.map((section) => (
-        <section
-          key={section.label}
-          className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6"
-        >
-          <h2 className="text-base sm:text-lg font-semibold text-tegra-text-primary mb-3 sm:mb-4">
-            {section.label}
-          </h2>
-          <div
-            className={
-              section.asGrid
-                ? "grid grid-cols-1 sm:grid-cols-2 gap-3"
-                : "flex flex-col gap-3"
-            }
-          >
-            {section.items.map((item, index) => (
-              <ResourceItem
-                key={item.id}
-                layout={section.asGrid ? "grid" : "row"}
-                icon={item.icon}
-                toneKey={item.icon}
-                title={item.name}
-                description={item.desc}
-                isFolder={item.isFolder}
-                onOpen={() => onOpen(item)}
-                onDownload={() => onDownload(item)}
-                delay={Math.min(index * 0.04, 0.2)}
-              />
-            ))}
-          </div>
-        </section>
-      ))}
-
-      <p className="pb-6 text-center text-xs text-tegra-text-light">
-        Central TegraPharma · Materiais e recursos técnicos
-      </p>
-    </div>
-  );
-}
-
-function FolderView({ title, items, loading, onOpen, onDownload }) {
-  return (
-    <div className="space-y-5">
-      <div>
-        <h2 className="text-xl sm:text-2xl font-bold text-tegra-blue-dark">
-          {title}
-        </h2>
-        <p className="mt-1 text-sm sm:text-base text-tegra-text-secondary">
-          Abra uma pasta ou visualize o arquivo no portal.
-        </p>
-      </div>
-
-      <section className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6">
-        {loading ? (
-          <LoadingList />
-        ) : items.length === 0 ? (
-          <p className="py-8 text-center text-sm text-tegra-text-secondary">
-            Esta pasta está vazia.
-          </p>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {items.map((item, index) => (
-              <ResourceItem
-                key={item.id}
-                icon={item.isFolder ? "folder" : item.icon}
-                toneKey={item.icon}
-                title={item.name}
-                description={item.desc}
-                isFolder={item.isFolder}
-                onOpen={() => onOpen(item)}
-                onDownload={() => onDownload(item)}
-                delay={Math.min(index * 0.035, 0.18)}
-              />
-            ))}
-          </div>
-        )}
-      </section>
-    </div>
+      )}
+    </section>
   );
 }
 
@@ -584,7 +497,7 @@ function SearchView({ results, loading, onOpen }) {
           Nada encontrado
         </p>
         <p className="mt-2 text-sm text-tegra-text-secondary">
-          Tente outra palavra ou mude a categoria do filtro.
+          Tente outra palavra ou abra a pasta certa antes de buscar.
         </p>
       </div>
     );
@@ -606,7 +519,7 @@ function SearchView({ results, loading, onOpen }) {
               onClick={() => onOpen(item)}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: Math.min(index * 0.03, 0.2), duration: 0.25 }}
+              transition={{ delay: Math.min(index * 0.03, 0.2), duration: 0.22 }}
               className={`flex items-center gap-3.5 rounded-xl bg-white p-3.5 text-left shadow-sm transition hover:shadow-md ${tone.border} ${tone.hover}`}
             >
               <span
@@ -630,26 +543,13 @@ function SearchView({ results, loading, onOpen }) {
   );
 }
 
-function LoadingGrid() {
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-      {Array.from({ length: 4 }).map((_, index) => (
-        <div
-          key={index}
-          className="h-[5.5rem] rounded-xl bg-white shadow-sm central-file-pulse"
-        />
-      ))}
-    </div>
-  );
-}
-
 function LoadingList() {
   return (
-    <div className="flex flex-col gap-3">
-      {Array.from({ length: 4 }).map((_, index) => (
+    <div className="flex flex-col gap-2">
+      {Array.from({ length: 6 }).map((_, index) => (
         <div
           key={index}
-          className="h-[4.25rem] rounded-xl bg-white shadow-sm central-file-pulse"
+          className="h-[3.35rem] rounded-lg bg-white shadow-sm central-file-pulse"
         />
       ))}
     </div>

@@ -21,6 +21,43 @@
   }
 }
 
+.central-explorer-head,
+.central-explorer-row {
+  grid-template-columns: minmax(0, 1fr) 8.75rem 5.5rem 2.75rem;
+  column-gap: 0.75rem;
+  align-items: center;
+}
+
+.central-explorer-head {
+  padding: 0.35rem 0.85rem 0.7rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #0f799a;
+}
+
+.central-explorer-row {
+  display: grid;
+  width: 100%;
+  padding: 0.7rem 0.85rem;
+  margin-bottom: 0.45rem;
+}
+
+.central-explorer-meta {
+  font-size: 0.78rem;
+  color: #5b6b80;
+  white-space: nowrap;
+}
+
+@media (max-width: 639px) {
+  .central-explorer-row {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+  }
+}
+
 @keyframes central-file-shimmer {
   from {
     background-position: 120% 0;

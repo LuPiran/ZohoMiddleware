@@ -5,6 +5,7 @@ import {
   saveCategoryBinding,
 } from "./centralCatalogStore.js";
 import { isSharePointConfigured, listFolder } from "./sharepointCentral.js";
+import { logSharePoint } from "../utils/graphLog.js";
 
 let bindingInFlight = null;
 
@@ -17,16 +18,36 @@ export async function ensureCategoryBindings() {
   if (!isSharePointConfigured()) return bindings;
   if (bindingInFlight) return bindingInFlight;
 
+  logSharePoint("bootstrap categorias", {
+    jaVinculadas: bindings.size,
+    faltando: missing.map((item) => item.id),
+  });
+
   bindingInFlight = (async () => {
     try {
       const payload = await listFolder(null);
       for (const item of payload.items || []) {
         const category = matchCategoryBySharePointName(item.name);
         if (!category || bindings.get(category.id)) continue;
+        logSharePoint("vinculando categoria", {
+          categoria: category.id,
+          pasta: item.name,
+          id: String(item.id).slice(0, 16),
+        });
         await saveCategoryBinding(category.id, item.id);
         bindings.set(category.id, item.id);
       }
+      logSharePoint("bootstrap categorias ok", {
+        vinculadas: bindings.size,
+      });
       return bindings;
+    } catch (error) {
+      logSharePoint("bootstrap categorias falhou", {
+        ok: false,
+        message: error.message,
+        code: error.code || null,
+      });
+      throw error;
     } finally {
       bindingInFlight = null;
     }

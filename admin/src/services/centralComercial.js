@@ -13,16 +13,16 @@ export async function getCentralCatalog() {
 
 export async function browseCentral(parentId) {
   const response = await api.get(API_ENDPOINTS.CENTRAL.BROWSE, {
-    params: { parentId },
+    params: parentId ? { parentId } : {},
   });
   return response.data;
 }
 
-export async function searchCentral(query, categoryId) {
+export async function searchCentral(query, folderId) {
   const response = await api.get(API_ENDPOINTS.CENTRAL.SEARCH, {
     params: {
       q: query,
-      ...(categoryId && categoryId !== "all" ? { category: categoryId } : {}),
+      ...(folderId ? { folderId } : {}),
     },
   });
   return response.data;

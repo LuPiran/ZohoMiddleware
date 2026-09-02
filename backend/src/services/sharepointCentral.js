@@ -3,6 +3,7 @@ import { ENV } from "../config/env.js";
 import { getGraphAccessToken, isGraphFilesConfigured } from "./graphAuth.js";
 import { isItemUnderRoot, normalizeFolderPath } from "./sharepointPath.js";
 import { getStoredLocation, saveLocation } from "./centralCatalogStore.js";
+import { logGraphFailure, logGraphInfo, logSharePoint } from "../utils/graphLog.js";
 
 const GRAPH = "https://graph.microsoft.com/v1.0";
 const SELECT =
@@ -46,7 +47,7 @@ export function isSharePointConfigured() {
   return isGraphFilesConfigured();
 }
 
-function graphError(error, fallback) {
+function graphError(error, fallback, extra = {}) {
   const status = error.response?.status;
   const graphCode = error.response?.data?.error?.code;
   const message =
@@ -56,12 +57,17 @@ function graphError(error, fallback) {
     throw error;
   }
 
-  console.error("[SHAREPOINT]", status || "", graphCode || "", message);
+  logGraphFailure(fallback, error, extra);
 
   if (status === 401 || status === 403 || status === 404) {
-    const err = new Error("Material não encontrado ou sem permissão.");
-    err.status = 404;
-    err.code = "SHAREPOINT_NOT_FOUND";
+    const err = new Error(
+      status === 403
+        ? `SharePoint recusou o acesso (403 ${graphCode || "accessDenied"}). Confira Sites.Read.All (aplicativo) + consentimento admin.`
+        : "Material não encontrado ou sem permissão.",
+    );
+    err.status = status === 403 ? 403 : 404;
+    err.code = status === 403 ? "SHAREPOINT_FORBIDDEN" : "SHAREPOINT_NOT_FOUND";
+    err.graphCode = graphCode || undefined;
     throw err;
   }
 
@@ -73,10 +79,14 @@ function graphError(error, fallback) {
 
 async function graphRequest(method, url, { params, data, responseType, timeout } = {}) {
   const token = await getGraphAccessToken();
+  const fullUrl = url.startsWith("http") ? url : `${GRAPH}${url}`;
+  const started = Date.now();
+  const path = String(url).replace(GRAPH, "");
+  logGraphInfo("request", { method, path: path.slice(0, 180) });
   try {
-    return await axios({
+    const response = await axios({
       method,
-      url: url.startsWith("http") ? url : `${GRAPH}${url}`,
+      url: fullUrl,
       params,
       data,
       responseType: responseType || "json",
@@ -86,8 +96,20 @@ async function graphRequest(method, url, { params, data, responseType, timeout }
       maxContentLength: Infinity,
       validateStatus: (status) => status >= 200 && status < 300,
     });
+    logGraphInfo("ok", {
+      method,
+      path: path.slice(0, 180),
+      ms: Date.now() - started,
+      http: response.status,
+      requestId: response.headers?.["request-id"] || null,
+    });
+    return response;
   } catch (error) {
-    graphError(error, "Falha ao consultar o SharePoint.");
+    graphError(error, "Falha ao consultar o SharePoint.", {
+      method,
+      path: path.slice(0, 180),
+      ms: Date.now() - started,
+    });
   }
 }
 
@@ -226,12 +248,29 @@ export async function getSharePointRoot({ force = false } = {}) {
   }
 
   if (!stored || stored.rootFolderId !== root.id) {
+    logSharePoint("persistindo LOCATION no Dynamo", {
+      motivo: stored ? "root mudou" : "primeira resolução",
+      rootId: String(root.id).slice(0, 16),
+    });
     await saveLocation({
       siteId: siteId || stored?.siteId || "",
       driveId,
       rootFolderId: root.id,
     });
+  } else {
+    logSharePoint("LOCATION já conhecida", {
+      rootId: String(root.id).slice(0, 16),
+      origem: "dynamo-ou-memoria",
+    });
   }
+
+  logSharePoint("raiz resolvida", {
+    siteId: (siteId || stored?.siteId || "").slice(0, 24),
+    driveId: String(driveId).slice(0, 20),
+    rootId: String(root.id).slice(0, 16),
+    rootName: root.name,
+    via: stored?.rootFolderId ? "ids" : "caminho",
+  });
 
   rootCache = {
     siteId: siteId || stored?.siteId || "",
@@ -377,6 +416,13 @@ export async function listFolder(itemId) {
     items: children,
   };
   listCache.set(cacheKey, { payload, expiresAt: Date.now() + LIST_TTL_MS });
+  logSharePoint("pasta listada", {
+    pasta: payload.folder?.name,
+    id: String(payload.folder?.id || cacheKey).slice(0, 16),
+    itens: children.length,
+    pastas: children.filter((row) => row.isFolder).length,
+    arquivos: children.filter((row) => !row.isFolder).length,
+  });
   return payload;
 }
 
@@ -402,7 +448,11 @@ export async function searchCentral(query, { folderId } = {}) {
   let raw = [];
   try {
     raw = await collectPages(path, { $select: SELECT, $top: 50 });
-  } catch {
+  } catch (error) {
+    logGraphFailure("busca na pasta falhou; tentando raiz do drive", error, {
+      q,
+      scopeId: String(scope.id).slice(0, 16),
+    });
     raw = await collectPages(
       `/drives/${driveId}/root/search(q='${q.replace(/'/g, "")}')`,
       { $select: SELECT, $top: 50 },
@@ -414,6 +464,12 @@ export async function searchCentral(query, { folderId } = {}) {
     .map(publicItem)
     .slice(0, 40);
 
+  logSharePoint("busca", {
+    q,
+    escopo: scope.name,
+    encontrados: items.length,
+    brutos: raw.length,
+  });
   return { items };
 }
 
@@ -470,6 +526,14 @@ export async function streamCentralContent(itemId, res, { mode = "preview" } = {
   let url = `${GRAPH}/drives/${driveId}/items/${encodeURIComponent(item.id)}/content`;
   if (asPdf) url += "?format=pdf";
 
+  logSharePoint("conteúdo", {
+    modo: mode,
+    nome: item.name,
+    id: String(item.id).slice(0, 16),
+    pdf: asPdf,
+    tamanho: Number(item.size || 0),
+  });
+
   let response;
   try {
     response = await axios.get(url, {
@@ -480,10 +544,21 @@ export async function streamCentralContent(itemId, res, { mode = "preview" } = {
       validateStatus: () => true,
     });
   } catch (error) {
-    graphError(error, "Falha ao obter o arquivo no SharePoint.");
+    graphError(error, "Falha ao obter o arquivo no SharePoint.", {
+      modo: mode,
+      itemId: String(item.id).slice(0, 16),
+    });
   }
 
   if (response.status >= 400) {
+    logSharePoint("conteúdo recusado", {
+      ok: false,
+      http: response.status,
+      modo: mode,
+      pdf: asPdf,
+      nome: item.name,
+      requestId: response.headers?.["request-id"] || null,
+    });
     response.data?.destroy?.();
     if (asPdf) {
       const err = new Error(
