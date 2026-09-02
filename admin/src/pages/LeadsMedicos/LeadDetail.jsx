@@ -48,11 +48,14 @@ function SlaTimer({ lead, onAccept, onRefuse, submitting }) {
   }
 
   if (slaStatus === "rejeitado") {
+    const porTimeout = lead.motivoRejeicao === "expirado";
     return (
       <div className="rounded-xl border border-gray-300 bg-gray-100 px-4 py-3 flex items-center gap-3">
         <span className="text-gray-500 text-lg">✕</span>
         <p className="text-sm font-semibold text-gray-700">
-          Lead rejeitado — encerrado no Portal e devolvido ao Zoho, não retorna à fila
+          {porTimeout
+            ? "Lead sem resposta em 48h — encerrado no Portal e devolvido ao Zoho, não retorna à fila"
+            : "Lead recusado pelo consultor — encerrado no Portal e devolvido ao Zoho, não retorna à fila"}
         </p>
       </div>
     );

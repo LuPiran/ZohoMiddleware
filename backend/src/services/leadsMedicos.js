@@ -1457,6 +1457,7 @@ export function toLeadDetail(lead) {
     dataQuartaTentativa: lead.dataQuartaTentativa || null,
     statusQuartaTentativa: lead.statusQuartaTentativa || null,
     dataLeadRejeitado: lead.dataLeadRejeitado || null,
+    motivoRejeicao: lead.motivoRejeicao || null,
     dataLeadSemTratativa: lead.dataLeadSemTratativa || null,
     agendamentos: Array.isArray(lead.agendamentos) ? lead.agendamentos : [],
     comprasVinculadas: Array.isArray(lead.comprasVinculadas) ? lead.comprasVinculadas : [],

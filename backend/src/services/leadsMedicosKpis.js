@@ -100,6 +100,8 @@ export async function buildEquipeKpis(user = {}) {
     const statusCount = {};
     let convertidos = 0;
     let rejeitados = 0;
+    let recusados = 0;
+    let expirados = 0;
     let semTratativa = 0;
     let semInteresse = 0;
     let semContato = 0;
@@ -116,7 +118,14 @@ export async function buildEquipeKpis(user = {}) {
       statusCount[status] = (statusCount[status] || 0) + 1;
 
       if (lead.dataConversao) convertidos += 1;
-      if (lead.dataLeadRejeitado) rejeitados += 1;
+      if (lead.dataLeadRejeitado) {
+        rejeitados += 1;
+        // motivoRejeicao só existe pra leads rejeitados a partir desta
+        // entrega — leads antigos contam em "rejeitados" mas não entram
+        // em nenhum dos dois baldes abaixo (evita presumir qual foi o motivo).
+        if (lead.motivoRejeicao === "expirado") expirados += 1;
+        else if (lead.motivoRejeicao === "recusa") recusados += 1;
+      }
       if (lead.dataLeadSemTratativa) semTratativa += 1;
       if (lead.dataSemInteresse) semInteresse += 1;
       if (lead.dataSemContato) semContato += 1;
@@ -151,6 +160,8 @@ export async function buildEquipeKpis(user = {}) {
       taxaConversao: pct(convertidos, total),
       rejeitados,
       taxaRejeicao: pct(rejeitados, total),
+      recusados,
+      expirados,
       semTratativa,
       taxaSemTratativa: pct(semTratativa, total),
       semInteresse,
@@ -173,6 +184,8 @@ export async function buildEquipeKpis(user = {}) {
       acc.totalLeads += c.totalLeads;
       acc.convertidos += c.convertidos;
       acc.rejeitados += c.rejeitados;
+      acc.recusados += c.recusados;
+      acc.expirados += c.expirados;
       acc.semTratativa += c.semTratativa;
       acc.agendamentos += c.agendamentos;
       acc.comprasVinculadas += c.comprasVinculadas;
@@ -182,6 +195,8 @@ export async function buildEquipeKpis(user = {}) {
       totalLeads: 0,
       convertidos: 0,
       rejeitados: 0,
+      recusados: 0,
+      expirados: 0,
       semTratativa: 0,
       agendamentos: 0,
       comprasVinculadas: 0,

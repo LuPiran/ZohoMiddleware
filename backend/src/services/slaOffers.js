@@ -526,6 +526,10 @@ export async function rejectLeadOffer(lead, { reason, by } = {}) {
   // (sweeper, ou aceite tentado depois do prazo já vencido) pelo texto do
   // motivo — os 2 call sites de timeout sempre mencionam "expirad[o/a]".
   const timeout = /expirad/i.test(reason || "");
+  // Guardado no próprio lead — sem isso, "Lead Rejeitado" mistura recusa
+  // explícita e estouro de prazo no mesmo balde, e os KPIs não conseguem
+  // separar as duas coisas.
+  const motivoRejeicao = timeout ? "expirado" : "recusa";
 
   const updated = await persistOfferSwitch(
     lead,
@@ -534,13 +538,18 @@ export async function rejectLeadOffer(lead, { reason, by } = {}) {
       slaDeadline: null,
       status: ZOHO_LEAD_STATUS.REJEITADO,
       dataLeadRejeitado: now,
+      motivoRejeicao,
     },
     [
       closedEntry,
       {
-        action: "lead_rejeitado_terminal",
-        label: "Lead encerrado — devolvido ao Zoho como rejeitado",
-        detail: `${consultorAtual} não aceitou este lead. Encerrado no Portal e sincronizado ao Zoho como "Lead Rejeitado" — não retorna à fila.`,
+        action: timeout ? "lead_rejeitado_timeout" : "lead_rejeitado_recusa",
+        label: timeout
+          ? "Lead encerrado — prazo de 48h esgotado sem resposta"
+          : "Lead encerrado — recusado pelo consultor",
+        detail: timeout
+          ? `${consultorAtual} não respondeu à oferta dentro das 48h. Encerrado no Portal e sincronizado ao Zoho como "Lead Rejeitado" — não retorna à fila.`
+          : `${consultorAtual} recusou explicitamente este lead. Encerrado no Portal e sincronizado ao Zoho como "Lead Rejeitado" — não retorna à fila.`,
         by: by || "sistema",
       },
     ],
