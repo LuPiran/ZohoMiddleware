@@ -1459,7 +1459,7 @@ export function toLeadDetail(lead) {
     dataLeadRejeitado: lead.dataLeadRejeitado || null,
     motivoRejeicao: lead.motivoRejeicao || null,
     dataLeadSemTratativa: lead.dataLeadSemTratativa || null,
-    dataQualificadoMkt: lead.dataQualificadoMkt || null,
+    dataEncaminhadoMkt: lead.dataEncaminhadoMkt || null,
     agendamentos: Array.isArray(lead.agendamentos) ? lead.agendamentos : [],
     comprasVinculadas: Array.isArray(lead.comprasVinculadas) ? lead.comprasVinculadas : [],
     createdAt: lead.createdAt || null,
@@ -1666,9 +1666,9 @@ export async function registerContactAttempt(
     },
     isMkt
       ? {
-          action: "lead_qualificado_mkt",
-          label: "Lead qualificado — encaminhado ao Marketing",
-          detail: "Consultor optou por não seguir com a venda agora e qualificou o lead para o time de Marketing.",
+          action: "lead_encaminhado_mkt",
+          label: "Lead encaminhado ao Marketing",
+          detail: "Consultor optou por não seguir com a venda agora e encaminhou o lead para o time de Marketing.",
           by: actor,
         }
       : alreadyInteresse
@@ -1705,7 +1705,7 @@ export async function registerContactAttempt(
   }
   syncZohoLeadAttemptTreated(updated, n, { observacao: note, at: now, destino });
   if (isMkt) {
-    void notifyStatusChange(updated, user, ZOHO_LEAD_STATUS.QUALIFICADO_MKT);
+    void notifyStatusChange(updated, user, ZOHO_LEAD_STATUS.ENCAMINHADO_MKT);
   } else {
     void notifyTentativa(updated, n, user);
   }

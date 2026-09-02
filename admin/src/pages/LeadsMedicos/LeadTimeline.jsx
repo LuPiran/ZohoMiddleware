@@ -23,7 +23,7 @@ const ICONS = {
   semInteresse: MdClose,
   semTratativa: MdClose,
   rejeitado: MdBlock,
-  qualificadoMkt: MdCampaign,
+  encaminhadoMkt: MdCampaign,
   convertido: MdEmojiEvents,
 };
 

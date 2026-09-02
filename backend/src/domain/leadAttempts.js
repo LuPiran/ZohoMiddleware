@@ -265,7 +265,7 @@ export function assertCanMarkSemInteresse(lead) {
 /**
  * `destino` decide o desfecho da tentativa tratada: "venda" (padrão) segue
  * pro fluxo normal de Compra, "mkt" encerra a atuação do consultor aqui e
- * encaminha o lead qualificado pro marketing (sem criar nenhuma compra).
+ * encaminha o lead pro marketing (sem criar nenhuma compra).
  */
 export function treatedAttemptUpdates(lead, round, { observacao, at, destino = "venda" }) {
   const { n, meta } = assertCanRegisterAttempt(lead, round);
@@ -279,10 +279,10 @@ export function treatedAttemptUpdates(lead, round, { observacao, at, destino = "
       [meta.desc]: note,
       [meta.date]: at,
       [meta.status]: ZOHO_ATTEMPT_STATUS.TRATADO,
-      status: isMkt ? ZOHO_LEAD_STATUS.QUALIFICADO_MKT : ZOHO_LEAD_STATUS.COM_INTERESSE,
+      status: isMkt ? ZOHO_LEAD_STATUS.ENCAMINHADO_MKT : ZOHO_LEAD_STATUS.COM_INTERESSE,
       dataEmContato: lead.dataEmContato || at,
       dataEmAquecimento: lead.dataEmAquecimento || at,
-      ...(isMkt ? { dataQualificadoMkt: at } : {}),
+      ...(isMkt ? { dataEncaminhadoMkt: at } : {}),
       updatedAt: at,
     },
   };
@@ -481,7 +481,7 @@ export function buildLeadTimeline(lead) {
     Boolean(lead.dataSemInteresse) ||
     normalizeAttemptText(lead.status).includes("sem interesse");
   const semTratativa = Boolean(lead.dataLeadSemTratativa);
-  const qualificadoMkt = Boolean(lead.dataQualificadoMkt);
+  const encaminhadoMkt = Boolean(lead.dataEncaminhadoMkt);
   const rejeitado = Boolean(lead.dataLeadRejeitado);
   const converted = Boolean(
     lead.dataConversao || normalizeAttemptText(lead.status).includes("convert"),
@@ -581,11 +581,11 @@ export function buildLeadTimeline(lead) {
         label: "Lead Sem Tratativa",
         date: lead.dataLeadSemTratativa,
       });
-    } else if (qualificadoMkt) {
+    } else if (encaminhadoMkt) {
       stages.push({
-        id: "qualificadoMkt",
-        label: "Qualificado p/ Marketing",
-        date: lead.dataQualificadoMkt,
+        id: "encaminhadoMkt",
+        label: "Encaminhado ao Marketing",
+        date: lead.dataEncaminhadoMkt,
       });
     } else if (treatedRound || interesseDate) {
       stages.push({
@@ -681,7 +681,7 @@ export function buildAttemptView(lead) {
     hasSemContato: hasSemContato(lead),
     hasSemTratativa: Boolean(lead.dataLeadSemTratativa),
     hasLeadRejeitado: Boolean(lead.dataLeadRejeitado),
-    hasQualificadoMkt: Boolean(lead.dataQualificadoMkt),
+    hasEncaminhadoMkt: Boolean(lead.dataEncaminhadoMkt),
     canMarkSemContato: canMarkSemContato(lead),
     agendamentos: Array.isArray(lead.agendamentos) ? lead.agendamentos : [],
     canScheduleAgendamento: !scheduleAgendamentoError,

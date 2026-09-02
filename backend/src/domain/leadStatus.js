@@ -7,7 +7,7 @@ export const ZOHO_LEAD_STATUS = {
   CONVERTIDO: "Lead Convertido",
   REJEITADO: "Lead Rejeitado",
   SEM_TRATATIVA: "Lead Sem Tratativa",
-  QUALIFICADO_MKT: "Lead Qualificado MKT",
+  ENCAMINHADO_MKT: "Lead Encaminhado ao Marketing",
 };
 
 export const ZOHO_ATTEMPT_STATUS = {

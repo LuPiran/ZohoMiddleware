@@ -4,7 +4,7 @@ export default function ContinuarCompraModal({
   open,
   onClose,
   onVenda,
-  onQualificarMkt,
+  onEncaminharMkt,
   submitting,
 }) {
   if (!open) return null;
@@ -59,7 +59,7 @@ export default function ContinuarCompraModal({
 
           <button
             type="button"
-            onClick={onQualificarMkt}
+            onClick={onEncaminharMkt}
             disabled={submitting}
             className="w-full flex items-start gap-3 rounded-xl border-2 border-violet-300 bg-violet-50 p-4 text-left transition hover:border-violet-500 hover:bg-violet-100 disabled:cursor-not-allowed disabled:opacity-50"
           >
@@ -72,7 +72,7 @@ export default function ContinuarCompraModal({
             </span>
             <span>
               <span className="block font-bold text-tegra-blue-dark">
-                Apenas qualificar para o Marketing
+                Apenas encaminhar para o Marketing
               </span>
               <span className="mt-0.5 block text-sm text-tegra-text-secondary">
                 Registra a tentativa e encerra sua atuação aqui — sem criar nenhuma compra.

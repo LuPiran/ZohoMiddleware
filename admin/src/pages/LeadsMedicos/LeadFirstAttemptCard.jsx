@@ -187,7 +187,7 @@ export default function LeadFirstAttemptCard({
   onSemContato,
   onRequestFourthAttempt,
   onScheduleAgendamento,
-  onQualificarMkt,
+  onEncaminharMkt,
   submitting,
 }) {
   const navigate = useNavigate();
@@ -272,9 +272,9 @@ export default function LeadFirstAttemptCard({
     });
   };
 
-  const handleConfirmQualificarMkt = async () => {
+  const handleConfirmEncaminharMkt = async () => {
     const note = observacao.trim();
-    await onQualificarMkt(note, files);
+    await onEncaminharMkt(note, files);
     setContinuarModalOpen(false);
     resetForm();
   };
@@ -348,14 +348,14 @@ export default function LeadFirstAttemptCard({
     );
   }
 
-  if (attempt.hasQualificadoMkt) {
+  if (attempt.hasEncaminhadoMkt) {
     return (
       <section className="rounded-xl border border-violet-200 bg-violet-50/60 px-4 sm:px-5 py-5">
-        <h2 className="text-base font-bold text-violet-700">Lead qualificado — Marketing</h2>
+        <h2 className="text-base font-bold text-violet-700">Lead encaminhado — Marketing</h2>
         <p className="mt-1 text-sm text-tegra-text-secondary">
           Encaminhado ao time de Marketing em{" "}
-          {lead.dataQualificadoMkt
-            ? new Date(lead.dataQualificadoMkt).toLocaleDateString("pt-BR")
+          {lead.dataEncaminhadoMkt
+            ? new Date(lead.dataEncaminhadoMkt).toLocaleDateString("pt-BR")
             : "—"}
           . Sem compra registrada por este lead.
         </p>
@@ -680,7 +680,7 @@ export default function LeadFirstAttemptCard({
         open={continuarModalOpen}
         onClose={() => !submitting && setContinuarModalOpen(false)}
         onVenda={handleConfirmVenda}
-        onQualificarMkt={handleConfirmQualificarMkt}
+        onEncaminharMkt={handleConfirmEncaminharMkt}
         submitting={submitting}
       />
     </section>

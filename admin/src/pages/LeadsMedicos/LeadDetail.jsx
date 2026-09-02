@@ -225,7 +225,7 @@ export default function LeadDetail() {
     }
   };
 
-  const handleQualificarMkt = async (observacao, files) => {
+  const handleEncaminharMkt = async (observacao, files) => {
     setSubmitting(true);
     try {
       const result = await leadsMedicosService.registrarTentativa(
@@ -237,12 +237,12 @@ export default function LeadDetail() {
         "mkt",
       );
       setLead(result.data);
-      showToast("Lead qualificado e encaminhado ao Marketing", "success", 3000);
+      showToast("Lead encaminhado ao Marketing", "success", 3000);
     } catch (err) {
       const message =
         err?.response?.data?.error ||
         err?.message ||
-        "Erro ao qualificar o lead para o Marketing";
+        "Erro ao encaminhar o lead para o Marketing";
       showToast(message, "error", 3500);
     } finally {
       setSubmitting(false);
@@ -398,7 +398,7 @@ export default function LeadDetail() {
               onSemContato={handleSemContato}
               onRequestFourthAttempt={handleRequestFourthAttempt}
               onScheduleAgendamento={handleScheduleAgendamento}
-              onQualificarMkt={handleQualificarMkt}
+              onEncaminharMkt={handleEncaminharMkt}
             />
             <LeadHistory historico={lead.historico} />
           </>

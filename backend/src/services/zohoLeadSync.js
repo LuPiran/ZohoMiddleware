@@ -25,8 +25,9 @@ const STATUS_ALIASES = {
   rejeitado: ZOHO_LEAD_STATUS.REJEITADO,
   "lead sem tratativa": ZOHO_LEAD_STATUS.SEM_TRATATIVA,
   "sem tratativa": ZOHO_LEAD_STATUS.SEM_TRATATIVA,
-  "lead qualificado mkt": ZOHO_LEAD_STATUS.QUALIFICADO_MKT,
-  "qualificado mkt": ZOHO_LEAD_STATUS.QUALIFICADO_MKT,
+  "lead encaminhado ao marketing": ZOHO_LEAD_STATUS.ENCAMINHADO_MKT,
+  "encaminhado ao marketing": ZOHO_LEAD_STATUS.ENCAMINHADO_MKT,
+  "encaminhado marketing": ZOHO_LEAD_STATUS.ENCAMINHADO_MKT,
 };
 
 export function canonicalizeLeadStatus(raw, fallback = ZOHO_LEAD_STATUS.NOVO) {
@@ -260,10 +261,10 @@ export function buildZohoAttemptTreatedFields(lead, round, { observacao, at, des
   return {
     ...field(
       ENV.ZOHO_LEAD_STATUS_FIELD,
-      isMkt ? ZOHO_LEAD_STATUS.QUALIFICADO_MKT : ZOHO_LEAD_STATUS.COM_INTERESSE,
+      isMkt ? ZOHO_LEAD_STATUS.ENCAMINHADO_MKT : ZOHO_LEAD_STATUS.COM_INTERESSE,
     ),
     ...(isMkt
-      ? field(ENV.ZOHO_LEAD_DATA_QUALIFICADO_MKT_FIELD, toZohoDate(at))
+      ? field(ENV.ZOHO_LEAD_DATA_ENCAMINHADO_MKT_FIELD, toZohoDate(at))
       : field(ENV.ZOHO_LEAD_DATA_INTERESSE_FIELD, toZohoDate(at))),
     ...field(ENV.ZOHO_LEAD_DATA_1A_FIELD, toZohoDate(firstAt)),
     ...field(ENV.ZOHO_LEAD_OBS_1A_FIELD, firstObs),
