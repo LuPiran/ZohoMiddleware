@@ -35,7 +35,9 @@ export const msalConfig = {
 
 const graphOboScope = (import.meta.env.VITE_GRAPH_OBO_SCOPE || "").trim();
 export const graphTokenRequest = {
-  scopes: graphOboScope ? [graphOboScope] : ["Sites.Read.All"],
+  scopes: graphOboScope
+    ? [graphOboScope]
+    : ["Files.Read.All", "Sites.Read.All"],
 };
 
 export const loginRequest = {

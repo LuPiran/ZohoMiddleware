@@ -203,7 +203,7 @@ export const ENV = {
   // SharePoint / Central Comercial — Graph delegado (token do consultor)
   GRAPH_DELEGATED_SCOPE:
     process.env.GRAPH_DELEGATED_SCOPE ||
-    "https://graph.microsoft.com/Sites.Read.All",
+    "https://graph.microsoft.com/Files.Read.All https://graph.microsoft.com/Sites.Read.All",
   GRAPH_FILES_TENANT_ID:
     process.env.GRAPH_FILES_TENANT_ID ||
     process.env.MICROSOFT_TENANT_ID ||

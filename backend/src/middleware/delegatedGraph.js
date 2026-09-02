@@ -34,6 +34,7 @@ export async function delegatedGraphMiddleware(req, res, next) {
       code: error.code || null,
       message: error.message,
       user: req.user?.id || null,
+      oid: error.oid || null,
     });
     return res.status(status).json({
       success: false,

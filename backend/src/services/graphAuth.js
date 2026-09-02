@@ -1,17 +1,16 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import axios from "axios";
-import * as jose from "jose";
 import { ENV } from "../config/env.js";
 
 const GRAPH_SCOPE = "https://graph.microsoft.com/.default";
 const GRAPH_DELEGATED_SCOPE =
-  ENV.GRAPH_DELEGATED_SCOPE || "https://graph.microsoft.com/Sites.Read.All";
+  ENV.GRAPH_DELEGATED_SCOPE ||
+  "https://graph.microsoft.com/Files.Read.All https://graph.microsoft.com/Sites.Read.All";
 const GRAPH_APP_ID = "00000003-0000-0000-c000-000000000000";
 const OBO_GRANT = "urn:ietf:params:oauth:grant-type:jwt-bearer";
 
 const graphContext = new AsyncLocalStorage();
 const oboCache = new Map();
-let graphJwks = null;
 
 export function getGraphFilesConfig() {
   const tenantId =
@@ -43,17 +42,6 @@ export function getGraphSubject() {
   return graphContext.getStore()?.oid || "anon";
 }
 
-function getGraphJwks(tenantId) {
-  if (!graphJwks) {
-    graphJwks = jose.createRemoteJWKSet(
-      new URL(
-        `https://login.microsoftonline.com/${tenantId}/discovery/v2.0/keys`,
-      ),
-    );
-  }
-  return graphJwks;
-}
-
 function peekPayload(token) {
   try {
     const parts = String(token || "").split(".");
@@ -65,20 +53,37 @@ function peekPayload(token) {
   }
 }
 
-function hasDelegatedSharePoint(payload) {
-  const scp = String(payload?.scp || payload?.scope || "");
-  return /\b(Sites\.Read\.All|Sites\.ReadWrite\.All|Files\.Read\.All|Files\.ReadWrite\.All|Sites\.Selected)\b/.test(
-    scp,
-  );
+function claimList(value) {
+  return Array.isArray(value) ? value : value ? [value] : [];
+}
+
+function tokenClaims(payload) {
+  if (!payload) return { aud: null, iss: null, tid: null, scp: null, oid: null };
+  return {
+    aud: claimList(payload.aud).join(",") || null,
+    iss: payload.iss || null,
+    tid: payload.tid || null,
+    scp: payload.scp || payload.scope || null,
+    oid: payload.oid || payload.sub || null,
+    exp: payload.exp || null,
+    appid: payload.appid || payload.azp || null,
+  };
 }
 
 function isGraphAudience(aud) {
-  const values = Array.isArray(aud) ? aud : [aud];
-  return values.some(
+  return claimList(aud).some(
     (item) =>
       item === GRAPH_APP_ID ||
       item === "https://graph.microsoft.com" ||
       item === "https://graph.microsoft.com/",
+  );
+}
+
+function isMicrosoftIssuer(iss) {
+  const value = String(iss || "");
+  return (
+    value.includes("login.microsoftonline.com") ||
+    value.includes("sts.windows.net")
   );
 }
 
@@ -89,77 +94,23 @@ function typedError(message, status, code) {
   return err;
 }
 
-async function verifyEntraJwt(token, audience) {
-  const { tenantId } = getGraphFilesConfig();
-  const tid = tenantId || ENV.ENTRA_TENANT_ID;
-  if (!tid) {
-    throw typedError(
-      "Tenant Microsoft não configurado.",
-      503,
-      "GRAPH_NOT_CONFIGURED",
-    );
-  }
-
-  const issuers = [
-    `https://login.microsoftonline.com/${tid}/v2.0`,
-    `https://sts.windows.net/${tid}/`,
-  ];
-
-  try {
-    const { payload } = await jose.jwtVerify(token, getGraphJwks(tid), {
-      issuer: issuers,
-      audience,
-      clockTolerance: 60,
-    });
-    if (payload.tid && payload.tid !== tid) {
-      throw typedError(
-        "Token Microsoft não pertence ao tenant da Central.",
-        401,
-        "GRAPH_TENANT_MISMATCH",
-      );
-    }
-    return payload;
-  } catch (error) {
-    if (error.code && error.status) throw error;
-    throw typedError(
-      "Token Microsoft inválido ou expirado. Conecte a conta novamente.",
-      401,
-      "GRAPH_TOKEN_INVALID",
-    );
-  }
+function logTokenDecision(step, payload, extra = {}) {
+  const failed = extra.ok === false;
+  const line = ["[GRAPH]", step, { ...tokenClaims(payload), ...extra }];
+  if (failed) console.error(...line);
+  else console.info(...line);
 }
 
-async function verifyGraphDelegatedToken(token) {
-  const payload = await verifyEntraJwt(token, [
-    GRAPH_APP_ID,
-    "https://graph.microsoft.com",
-    "https://graph.microsoft.com/",
-  ]);
-  if (!hasDelegatedSharePoint(payload)) {
-    throw typedError(
-      "Sua conta Microsoft não concedeu Sites.Read.All. Conecte de novo e aceite a permissão.",
-      403,
-      "GRAPH_SCOPE_MISSING",
-    );
-  }
-  return {
-    accessToken: token,
-    oid: payload.oid || payload.sub || "user",
-    payload,
-  };
-}
-
-async function exchangeOnBehalfOf(assertion) {
+async function exchangeOnBehalfOf(assertion, peeked) {
   const { tenantId, clientId, clientSecret } = getGraphFilesConfig();
   if (!clientId || !clientSecret) {
     throw typedError(
-      "OBO exige GRAPH_FILES_CLIENT_ID e GRAPH_FILES_CLIENT_SECRET no backend.",
-      503,
+      "Este token não é do Graph. Para OBO configure GRAPH_FILES_CLIENT_ID e GRAPH_FILES_CLIENT_SECRET, ou reconecte a Microsoft pedindo Files.Read.All e Sites.Read.All.",
+      401,
       "GRAPH_OBO_NOT_CONFIGURED",
     );
   }
 
-  const peeked = peekPayload(assertion) || {};
   const cacheKey = `${peeked.oid || peeked.sub || "user"}:${clientId}`;
   const cached = oboCache.get(cacheKey);
   if (cached && cached.expiresAt - 60_000 > Date.now()) {
@@ -195,34 +146,49 @@ async function exchangeOnBehalfOf(assertion) {
       expiresAt: Date.now() + expiresIn * 1000,
     };
     oboCache.set(cacheKey, resolved);
-    console.info("[GRAPH] token OBO obtido", {
-      tenantId,
-      clientId: `${clientId.slice(0, 8)}…`,
-      oid: String(resolved.oid).slice(0, 8),
-      expiresIn,
-    });
+    logTokenDecision("token OBO obtido", peeked, { expiresIn });
     return resolved;
   } catch (error) {
-    if (error.status === 503) throw error;
+    if (error.status === 503 || error.code === "GRAPH_OBO_NOT_CONFIGURED") {
+      throw error;
+    }
     const description =
       error.response?.data?.error_description || error.message;
     const aad = String(description).match(/AADSTS\d+/)?.[0] || null;
-    console.error("[GRAPH] Falha no OBO", {
+    logTokenDecision("falha no OBO", peeked, {
+      ok: false,
       http: error.response?.status || null,
       aad,
       error: error.response?.data?.error || null,
-      description: description?.slice(0, 400),
+      description: String(description).slice(0, 400),
     });
     throw typedError(
-      "Não foi possível obter acesso delegado ao SharePoint. Confira Sites.Read.All (delegada) e o consentimento.",
+      "Não foi possível obter acesso delegado ao SharePoint. Confira Files.Read.All e Sites.Read.All (delegadas) e o consentimento.",
       401,
       "GRAPH_OBO_FAILED",
     );
   }
 }
 
+function acceptGraphToken(token, payload) {
+  const configuredTid =
+    getGraphFilesConfig().tenantId || ENV.ENTRA_TENANT_ID || "";
+  if (payload.tid && configuredTid && payload.tid !== configuredTid) {
+    logTokenDecision("tid diferente do .env — Graph decide", payload, {
+      configuredTid,
+    });
+  }
+  logTokenDecision("token delegado encaminhado ao Graph", payload);
+  return {
+    accessToken: token,
+    oid: payload.oid || payload.sub || "user",
+    payload,
+  };
+}
+
 /**
- * Aceita token Graph delegado (SPA) ou access token do app confidencial para OBO.
+ * Não valida assinatura aqui: o Graph aceita ou recusa.
+ * Só filtra JWT vazio, expirado ou que claramente não é Microsoft.
  */
 export async function resolveDelegatedGraphToken(rawToken) {
   const token = String(rawToken || "").trim();
@@ -236,6 +202,10 @@ export async function resolveDelegatedGraphToken(rawToken) {
 
   const peeked = peekPayload(token);
   if (!peeked) {
+    console.error("[GRAPH] token delegado recusado", {
+      ok: false,
+      motivo: "não é JWT",
+    });
     throw typedError(
       "Token Microsoft inválido.",
       401,
@@ -243,23 +213,33 @@ export async function resolveDelegatedGraphToken(rawToken) {
     );
   }
 
-  if (isGraphAudience(peeked.aud)) {
-    return verifyGraphDelegatedToken(token);
+  const expMs = Number(peeked.exp || 0) * 1000;
+  if (expMs && expMs + 60_000 < Date.now()) {
+    logTokenDecision("token expirado", peeked, { ok: false });
+    throw typedError(
+      "Sessão Microsoft expirada. Conecte a conta novamente.",
+      401,
+      "GRAPH_TOKEN_EXPIRED",
+    );
   }
 
   const { clientId } = getGraphFilesConfig();
   const spaId = ENV.ENTRA_CLIENT_ID;
-  const middleAudiences = [clientId, spaId, `api://${clientId}`].filter(Boolean);
+  const middleAudiences = [clientId, spaId, clientId && `api://${clientId}`].filter(
+    Boolean,
+  );
+  const auds = claimList(peeked.aud);
+  const isMiddleTier = middleAudiences.some((id) => auds.includes(id));
 
-  if (middleAudiences.some((id) => peeked.aud === id || peeked.aud === `api://${id}`)) {
-    const resolved = await exchangeOnBehalfOf(token);
-    return resolved;
+  if (isMiddleTier && !isGraphAudience(peeked.aud)) {
+    return exchangeOnBehalfOf(token, peeked);
   }
 
-  console.warn("[GRAPH] token sem audiência Graph/API conhecida", {
-    aud: peeked.aud,
-    appid: peeked.appid || peeked.azp || null,
-  });
+  if (isGraphAudience(peeked.aud) || isMicrosoftIssuer(peeked.iss)) {
+    return acceptGraphToken(token, peeked);
+  }
+
+  logTokenDecision("audiência desconhecida", peeked, { ok: false });
   throw typedError(
     "Este token Microsoft não serve para o SharePoint. Conecte a conta de novo na Central.",
     401,

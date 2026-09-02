@@ -28,7 +28,7 @@ export function clearCachedGraphToken() {
 }
 
 /**
- * Obtém access token delegado do Graph (Sites.Read.All).
+ * Obtém access token delegado do Graph (Files.Read.All + Sites.Read.All).
  * Não chama o Graph no browser — só o token, enviado ao backend.
  */
 export async function acquireGraphAccessToken({ interactive = false } = {}) {
