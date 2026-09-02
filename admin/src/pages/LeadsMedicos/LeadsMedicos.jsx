@@ -588,17 +588,11 @@ export default function LeadsMedicos() {
                         <StatusBadge status={lead.status} />
                       </span>
                     </div>
-                    <dl className="grid grid-cols-2 gap-2 text-xs text-tegra-text-secondary">
+                    <dl className="text-xs text-tegra-text-secondary">
                       <div>
                         <dt>Criação</dt>
                         <dd className="text-tegra-text-primary font-medium">
                           {formatDate(lead.criadoEm)}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt>Entrada</dt>
-                        <dd className="text-tegra-text-primary font-medium">
-                          {formatDate(lead.entradaEm)}
                         </dd>
                       </div>
                     </dl>
@@ -646,12 +640,6 @@ export default function LeadsMedicos() {
                       >
                         Data de criação
                       </th>
-                      <th
-                        scope="col"
-                        className="px-4 py-3 font-semibold whitespace-nowrap"
-                      >
-                        Data de entrada
-                      </th>
                       <th scope="col" className="px-4 py-3 font-semibold">
                         Status
                       </th>
@@ -690,9 +678,6 @@ export default function LeadsMedicos() {
                         )}
                         <td className="px-4 py-3 text-tegra-text-secondary whitespace-nowrap">
                           {formatDate(lead.criadoEm)}
-                        </td>
-                        <td className="px-4 py-3 text-tegra-text-secondary whitespace-nowrap">
-                          {formatDate(lead.entradaEm)}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           <StatusBadge status={lead.status} />
