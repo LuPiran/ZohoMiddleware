@@ -13,6 +13,7 @@ import {
   registerContactAttempt,
   registerFirstAttempt,
   requestFourthAttempt,
+  scheduleAgendamento,
   getEvidenceFileForUser,
 } from "../services/leadsMedicos.js";
 import { authenticateLeadsWebhook } from "../middleware/leadsWebhookAuth.js";
@@ -368,6 +369,35 @@ router.post(
       return res.status(500).json({
         success: false,
         error: error.message || "Erro ao solicitar a 4ª tentativa",
+      });
+    }
+  },
+);
+
+/**
+ * Agenda um próximo contato (até 4 por lead) — só guarda a data, não exige
+ * observação/evidência e não avança a rodada de tentativa aberta.
+ * POST /v1/leads-medicos/:id/agendamento
+ */
+router.post(
+  "/:id/agendamento",
+  authenticateToken,
+  requireSafeResourceId("id"),
+  writeRateLimiter,
+  async (req, res) => {
+    try {
+      const lead = await scheduleAgendamento(req.params.id, req.user, {
+        data: req.body?.data,
+      });
+      return res.json({ success: true, data: lead });
+    } catch (error) {
+      console.error("[LEADS] Erro ao agendar contato:", error);
+      const handled = dynamoErrorResponse(res, error);
+      if (handled) return handled;
+
+      return res.status(500).json({
+        success: false,
+        error: error.message || "Erro ao agendar contato",
       });
     }
   },

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   MdAddAlarm,
+  MdEventAvailable,
   MdPhoneMissed,
   MdSchedule,
   MdSend,
@@ -15,6 +16,7 @@ import { ROUTES } from "../../utils/constants";
 import { setPendingLeadAttemptFiles } from "../../services/leadAttemptTransfer";
 import EvidenceUploader, { EvidenceGallery } from "./EvidenceUploader";
 import RequestFourthAttemptModal from "./RequestFourthAttemptModal";
+import AgendarContatoModal from "./AgendarContatoModal";
 import { buildLeadPrefill } from "./leadPrefill";
 
 const MIN_OBSERVACAO = 10;
@@ -54,6 +56,11 @@ function formatDeadline(iso) {
     month: "short",
     year: "numeric",
   });
+}
+
+function formatAgendamentoData(iso) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString("pt-BR");
 }
 
 function RoundHistory({ title, date, status, description, evidencias, leadId }) {
@@ -178,6 +185,7 @@ export default function LeadFirstAttemptCard({
   onSemInteresse,
   onSemContato,
   onRequestFourthAttempt,
+  onScheduleAgendamento,
   submitting,
 }) {
   const navigate = useNavigate();
@@ -187,6 +195,7 @@ export default function LeadFirstAttemptCard({
   const [files, setFiles] = useState([]);
   const [fileError, setFileError] = useState("");
   const [fourthAttemptModalOpen, setFourthAttemptModalOpen] = useState(false);
+  const [agendarModalOpen, setAgendarModalOpen] = useState(false);
 
   const attempt = lead?.attempt || {};
   const round = attempt.currentRound;
@@ -255,6 +264,11 @@ export default function LeadFirstAttemptCard({
   const handleRequestFourthAttempt = async (payload) => {
     await onRequestFourthAttempt(payload);
     setFourthAttemptModalOpen(false);
+  };
+
+  const handleScheduleAgendamento = async (payload) => {
+    await onScheduleAgendamento(payload);
+    setAgendarModalOpen(false);
   };
 
   const handleSemInteresse = async () => {
@@ -387,6 +401,8 @@ export default function LeadFirstAttemptCard({
 
   const showCountdown = Boolean(attempt.currentRound || attempt.deadlineAt);
   const canRequestFourth = round === 3 && attempt.canRequestFourthAttempt;
+  const agendamentos = Array.isArray(attempt.agendamentos) ? attempt.agendamentos : [];
+  const canSchedule = Boolean(attempt.canScheduleAgendamento);
 
   return (
     <section
@@ -417,6 +433,18 @@ export default function LeadFirstAttemptCard({
           <div className="space-y-2">
             {history.map((item) => (
               <RoundHistory key={item.title} leadId={lead.id} {...item} />
+            ))}
+          </div>
+        )}
+
+        {agendamentos.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-tegra-teal/25 bg-tegra-teal/5 px-3 py-2.5 text-xs text-tegra-text-secondary">
+            <MdEventAvailable className="shrink-0 text-tegra-teal" aria-hidden />
+            <span className="font-semibold text-tegra-blue-dark">Agendamentos:</span>
+            {agendamentos.map((item) => (
+              <span key={item.n} className="whitespace-nowrap">
+                {item.n}ª — {formatAgendamentoData(item.data)}
+              </span>
             ))}
           </div>
         )}
@@ -483,6 +511,17 @@ export default function LeadFirstAttemptCard({
                   Solicitar 4ª tentativa
                 </Button>
               )}
+              {canSchedule && (
+                <Button
+                  variant="secondary"
+                  className="w-full inline-flex items-center justify-center gap-1.5 text-sm"
+                  disabled={submitting}
+                  onClick={() => setAgendarModalOpen(true)}
+                >
+                  <MdEventAvailable aria-hidden />
+                  Agendar +
+                </Button>
+              )}
               {attempt.canRegisterAttempt && (
                 <Button
                   variant="teal"
@@ -529,6 +568,17 @@ export default function LeadFirstAttemptCard({
                   Solicitar 4ª tentativa
                 </Button>
               )}
+              {canSchedule && (
+                <Button
+                  variant="secondary"
+                  className="inline-flex items-center justify-center gap-2"
+                  disabled={submitting}
+                  onClick={() => setAgendarModalOpen(true)}
+                >
+                  <MdEventAvailable aria-hidden />
+                  Agendar +
+                </Button>
+              )}
               {attempt.canRegisterAttempt && (
                 <Button
                   variant="teal"
@@ -550,7 +600,18 @@ export default function LeadFirstAttemptCard({
               disabled={submitting}
               error={fileError}
             />
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-3">
+              {canSchedule && (
+                <Button
+                  variant="secondary"
+                  className="inline-flex items-center justify-center gap-2"
+                  disabled={submitting}
+                  onClick={() => setAgendarModalOpen(true)}
+                >
+                  <MdEventAvailable aria-hidden />
+                  Agendar +
+                </Button>
+              )}
               <Button
                 variant="warning"
                 className="inline-flex items-center justify-center gap-2"
@@ -569,6 +630,13 @@ export default function LeadFirstAttemptCard({
         open={fourthAttemptModalOpen}
         onClose={() => !submitting && setFourthAttemptModalOpen(false)}
         onConfirm={handleRequestFourthAttempt}
+        submitting={submitting}
+      />
+
+      <AgendarContatoModal
+        open={agendarModalOpen}
+        onClose={() => !submitting && setAgendarModalOpen(false)}
+        onConfirm={handleScheduleAgendamento}
         submitting={submitting}
       />
     </section>

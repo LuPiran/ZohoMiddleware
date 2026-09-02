@@ -205,6 +205,23 @@ export default function LeadDetail() {
     }
   };
 
+  const handleScheduleAgendamento = async ({ data }) => {
+    setSubmitting(true);
+    try {
+      const result = await leadsMedicosService.agendarContato(id, data);
+      setLead(result.data);
+      showToast("Contato agendado", "success", 2500);
+    } catch (err) {
+      const message =
+        err?.response?.data?.error ||
+        err?.message ||
+        "Erro ao agendar contato";
+      showToast(message, "error", 3500);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleAccept = async () => {
     setSubmitting(true);
     try {
@@ -353,6 +370,7 @@ export default function LeadDetail() {
               onSemInteresse={handleSemInteresse}
               onSemContato={handleSemContato}
               onRequestFourthAttempt={handleRequestFourthAttempt}
+              onScheduleAgendamento={handleScheduleAgendamento}
             />
             <LeadHistory historico={lead.historico} />
           </>

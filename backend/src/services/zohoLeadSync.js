@@ -317,6 +317,27 @@ export function buildZohoFourthAttemptRequestedFields(
   };
 }
 
+const AGENDAMENTO_FIELDS = {
+  1: () => ENV.ZOHO_LEAD_DATA_AGENDAMENTO_1_FIELD,
+  2: () => ENV.ZOHO_LEAD_DATA_AGENDAMENTO_2_FIELD,
+  3: () => ENV.ZOHO_LEAD_DATA_AGENDAMENTO_3_FIELD,
+  4: () => ENV.ZOHO_LEAD_DATA_AGENDAMENTO_4_FIELD,
+};
+
+/**
+ * Agendamento é independente do fluxo de tentativa formal — só guarda a data
+ * de próximo contato previsto (até 4 por lead), sem mexer em status/rodada.
+ */
+export function syncZohoLeadAgendamento(lead, { n, data } = {}) {
+  syncZohoLead(lead.idZoho, buildZohoAgendamentoFields({ n, data }));
+}
+
+export function buildZohoAgendamentoFields({ n, data } = {}) {
+  const fieldName = AGENDAMENTO_FIELDS[n]?.();
+  if (!fieldName) return {};
+  return { ...field(fieldName, toZohoDate(data)) };
+}
+
 /**
  * Lead recusado ou não aceito dentro do prazo — devolvido ao Zoho como
  * terminal, sem voltar ao rodízio. Registra também quem estava com a oferta.

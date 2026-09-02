@@ -34,6 +34,7 @@ import {
   ZOHO_LEAD_STATUS,
   canonicalizeLeadStatus,
   syncZohoLeadAccepted,
+  syncZohoLeadAgendamento,
   syncZohoLeadAttemptNoReturn,
   syncZohoLeadAttemptTreated,
   syncZohoLeadDistribuicao,
@@ -44,6 +45,7 @@ import {
 } from "./zohoLeadSync.js";
 import {
   ATTEMPT_ROUNDS,
+  agendamentoUpdates,
   buildAttemptView,
   buildLeadTimeline,
   currentOpenAttemptRound,
@@ -1451,6 +1453,7 @@ export function toLeadDetail(lead) {
     statusQuartaTentativa: lead.statusQuartaTentativa || null,
     dataLeadRejeitado: lead.dataLeadRejeitado || null,
     dataLeadSemTratativa: lead.dataLeadSemTratativa || null,
+    agendamentos: Array.isArray(lead.agendamentos) ? lead.agendamentos : [],
     createdAt: lead.createdAt || null,
     updatedAt: lead.updatedAt || null,
     historico: (Array.isArray(lead.historico) ? lead.historico : [])
@@ -1918,6 +1921,35 @@ export async function requestFourthAttempt(
     dataQuartaTentativa: updates.dataQuartaTentativa,
     motivo: note,
   });
+  return toLeadDetail(updated);
+}
+
+/**
+ * Agenda um próximo contato (até 4 por lead) — só guarda a data, não trata
+ * a tentativa nem avança a rodada aberta. A tentativa em si continua sendo
+ * registrada pelo fluxo normal (observação/evidência, ou sem interesse/
+ * sem contato) quando o contato de fato acontecer.
+ */
+export async function scheduleAgendamento(leadId, user, { data } = {}) {
+  await getLeadForUser(leadId, user);
+  const now = new Date().toISOString();
+  const raw = (
+    await dynamoDocClient.send(
+      new GetCommand({ TableName: TABLE(), Key: { id: leadId } }),
+    )
+  ).Item;
+
+  const { n, entry, updates } = agendamentoUpdates(raw, { data, at: now });
+  const dataFormatada = new Date(entry.data).toLocaleDateString("pt-BR");
+  const historico = appendHistorico(raw, {
+    action: "agendamento",
+    label: `Agendamento ${n}ª tentativa`,
+    detail: `Próximo contato previsto para ${dataFormatada}`,
+    by: user.email || user.id || "usuario",
+  });
+
+  const updated = await updateLeadItem(leadId, { ...updates, historico });
+  syncZohoLeadAgendamento(updated, { n, data: entry.data });
   return toLeadDetail(updated);
 }
 

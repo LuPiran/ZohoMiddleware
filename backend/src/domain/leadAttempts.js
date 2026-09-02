@@ -419,6 +419,50 @@ export function semContatoUpdates(lead, { at }) {
   };
 }
 
+export const MAX_AGENDAMENTOS = 4;
+
+/**
+ * "Agendamento" é independente do fluxo formal de tentativa (1ª-4ª): só
+ * guarda uma data de próximo contato previsto, sem exigir observação/
+ * evidência e sem avançar a rodada aberta — a rodada só avança de verdade
+ * quando o consultor trata a tentativa pelo fluxo normal (ou marca sem
+ * interesse/sem contato). Cada lead pode ter até 4 agendamentos.
+ */
+export function assertCanScheduleAgendamento(lead) {
+  if (isLeadClosed(lead)) {
+    throw validationError("Lead já encerrado.");
+  }
+  if (!isLeadAccepted(lead)) {
+    throw validationError("Aceite o lead antes de agendar um contato.");
+  }
+  const total = Array.isArray(lead?.agendamentos) ? lead.agendamentos.length : 0;
+  if (total >= MAX_AGENDAMENTOS) {
+    throw validationError(`Limite de ${MAX_AGENDAMENTOS} agendamentos atingido.`);
+  }
+}
+
+export function agendamentoUpdates(lead, { data, at }) {
+  assertCanScheduleAgendamento(lead);
+
+  const target = data ? new Date(data) : null;
+  if (!target || Number.isNaN(target.getTime())) {
+    throw validationError("Informe uma data válida para o agendamento.");
+  }
+
+  const existentes = Array.isArray(lead?.agendamentos) ? lead.agendamentos : [];
+  const n = existentes.length + 1;
+  const entry = { n, data: target.toISOString(), criadoEm: at };
+
+  return {
+    n,
+    entry,
+    updates: {
+      agendamentos: [...existentes, entry],
+      updatedAt: at,
+    },
+  };
+}
+
 export function applyLeadUpdates(lead, updates) {
   if (!updates) return lead;
   return { ...lead, ...updates };
@@ -597,6 +641,13 @@ export function buildAttemptView(lead) {
     requestFourthAttemptError = error.message;
   }
 
+  let scheduleAgendamentoError = null;
+  try {
+    assertCanScheduleAgendamento(lead);
+  } catch (error) {
+    scheduleAgendamentoError = error.message;
+  }
+
   return {
     currentRound,
     deadlineAt: deadlineAt ? deadlineAt.toISOString() : null,
@@ -616,6 +667,8 @@ export function buildAttemptView(lead) {
     hasSemTratativa: Boolean(lead.dataLeadSemTratativa),
     hasLeadRejeitado: Boolean(lead.dataLeadRejeitado),
     canMarkSemContato: canMarkSemContato(lead),
+    agendamentos: Array.isArray(lead.agendamentos) ? lead.agendamentos : [],
+    canScheduleAgendamento: !scheduleAgendamentoError,
     converted: Boolean(
       lead.dataConversao ||
         normalizeAttemptText(lead.status).includes("convert"),

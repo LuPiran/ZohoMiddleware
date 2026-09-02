@@ -123,6 +123,17 @@ export const ENV = {
   ZOHO_LEAD_DATA_SEM_TRATATIVA_FIELD:
     process.env.ZOHO_LEAD_DATA_SEM_TRATATIVA_FIELD || "Data_Lead_Sem_Tratativa",
 
+  // Agendamento — data de próximo contato previsto (independente da rodada de
+  // tentativa formal), até 4 por lead
+  ZOHO_LEAD_DATA_AGENDAMENTO_1_FIELD:
+    process.env.ZOHO_LEAD_DATA_AGENDAMENTO_1_FIELD || "Data_Agendamento_1",
+  ZOHO_LEAD_DATA_AGENDAMENTO_2_FIELD:
+    process.env.ZOHO_LEAD_DATA_AGENDAMENTO_2_FIELD || "Data_Agendamento_2",
+  ZOHO_LEAD_DATA_AGENDAMENTO_3_FIELD:
+    process.env.ZOHO_LEAD_DATA_AGENDAMENTO_3_FIELD || "Data_Agendamento_3",
+  ZOHO_LEAD_DATA_AGENDAMENTO_4_FIELD:
+    process.env.ZOHO_LEAD_DATA_AGENDAMENTO_4_FIELD || "Data_Agendamento_4",
+
   // Campos de distribuição/SLA — sincronizados de volta ao Zoho após distribuição/aceite/rejeição
   ZOHO_LEAD_DIST_CONSULTOR_NOME_FIELD:
     process.env.ZOHO_LEAD_DIST_CONSULTOR_NOME_FIELD || "Dist_Consultor_Nome",

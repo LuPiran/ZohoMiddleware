@@ -62,6 +62,16 @@ export async function solicitarQuartaTentativa(id, { dataQuartaTentativa, motivo
   };
 }
 
+export async function agendarContato(id, data) {
+  const response = await api.post(API_ENDPOINTS.LEADS_MEDICOS.AGENDAMENTO(id), {
+    data,
+  });
+  return {
+    success: Boolean(response.data?.success),
+    data: response.data?.data || null,
+  };
+}
+
 export async function marcarTentativaSemRetorno(id, round, observacao) {
   const response = await api.post(
     API_ENDPOINTS.LEADS_MEDICOS.TENTATIVA_SEM_RETORNO(id, round),
@@ -133,6 +143,7 @@ export const leadsMedicosService = {
   marcarSemContato: marcarLeadSemContato,
   marcarSemRetorno: marcarTentativaSemRetorno,
   solicitarQuartaTentativa,
+  agendarContato,
   confirmarCheckin,
   aceitarOferta: confirmarCheckin,
   recusarOferta,
