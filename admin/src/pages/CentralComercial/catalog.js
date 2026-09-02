@@ -430,7 +430,7 @@ export const CATALOG_PAGES = {
             "label": "Tegra UsaLine 3.000mg CBD Broad Spectrum Orgânico",
             "tag": "Broad Spectrum",
             "desc": null,
-            "url": "https://onixcann.sharepoint.com/sites/EstruturadePastas-TegraPharma/Documentos%20Compartilhados/Projeto%20Eld/Central%20comercial%20TegraPharma/L%C3%A2minas%20de%20produtos/Usaline/3000mg%20Broad"
+            "url": "https://onixcann.sharepoint.com/sites/EstruturadePastas-TegraPharma/Documentos%20Compartilhados/Forms/AllItems.aspx?id=%2Fsites%2FEstruturadePastas%2DTegraPharma%2FDocumentos%20Compartilhados%2FProjeto%20Eld%2FCentral%20comercial%20TegraPharma%2FL%C3%A2minas%20de%20produtos%2FUsaline%2F3000mg%20Broad%20Org%C3%A2nico&p=true&ga=1"
           }
         ]
       }
