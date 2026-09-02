@@ -76,7 +76,8 @@ app.use(
       "Origin",
       "X-Webhook-Secret",
       "X-Api-Key",
-      "X-Request-Id",
+      "X-Graph-Token",
+      "X-Microsoft-Graph-Token",
     ],
   }),
 );
@@ -246,14 +247,18 @@ app.listen(ENV.PORT, () => {
     "[CONFIG] ZOHO_LEADS_WEBHOOK_SECRET:",
     ENV.ZOHO_LEADS_WEBHOOK_SECRET ? "✓ Configurado" : "✗ Não configurado",
   );
-  console.log("[CONFIG] Graph / Central Comercial:");
+  console.log("[CONFIG] Graph / Central Comercial: modo delegado (token do consultor)");
   console.log(
-    "[CONFIG] GRAPH_FILES_CLIENT_ID:",
-    ENV.GRAPH_FILES_CLIENT_ID ? "✓ Configurado" : "✗ Não configurado",
+    "[CONFIG] ENTRA_TENANT_ID / GRAPH_FILES_TENANT_ID:",
+    ENV.ENTRA_TENANT_ID || ENV.GRAPH_FILES_TENANT_ID ? "✓" : "✗",
   );
   console.log(
-    "[CONFIG] GRAPH_FILES_CLIENT_SECRET:",
-    ENV.GRAPH_FILES_CLIENT_SECRET ? "✓ Configurado" : "✗ Não configurado",
+    "[CONFIG] GRAPH_FILES_CLIENT_ID (OBO opcional):",
+    ENV.GRAPH_FILES_CLIENT_ID ? "✓ Configurado" : "○ só token Graph do SPA",
+  );
+  console.log(
+    "[CONFIG] GRAPH_FILES_CLIENT_SECRET (OBO opcional):",
+    ENV.GRAPH_FILES_CLIENT_SECRET ? "✓ Configurado" : "○ só token Graph do SPA",
   );
   console.log(
     "[CONFIG] GRAPH_SHAREPOINT_SITE_ID:",

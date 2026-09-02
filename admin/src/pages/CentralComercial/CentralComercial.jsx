@@ -7,6 +7,7 @@ import {
   MdClose,
   MdHome,
   MdInfoOutline,
+  MdLogin,
   MdSearch,
 } from "react-icons/md";
 import MainLayout from "../../components/layout/MainLayout";
@@ -23,6 +24,7 @@ import { decorateItem, formatBytes, formatModified } from "./catalogHelpers";
 import { getCatalogIcon, getIconTone } from "./iconMap";
 import ResourceItem from "./ResourceItem";
 import FileViewer from "./FileViewer";
+import { acquireGraphAccessToken, clearCachedGraphToken } from "../../auth/graphToken";
 import "./CentralComercial.css";
 
 gsap.registerPlugin(useGSAP);
@@ -39,6 +41,18 @@ const KIND_OPTIONS = [
 
 function apiErrorMessage(error, fallback) {
   return error.response?.data?.error || error.message || fallback;
+}
+
+function apiErrorCode(error) {
+  return error.response?.data?.code || "";
+}
+
+function isDelegatedAuthError(error) {
+  const code = apiErrorCode(error);
+  return (
+    code.startsWith("GRAPH_") ||
+    error.response?.status === 401
+  );
 }
 
 function persistHint(dynamo) {
@@ -85,6 +99,8 @@ export default function CentralComercial() {
   const [loading, setLoading] = useState(true);
   const [searching, setSearchingLive] = useState(false);
   const [error, setError] = useState("");
+  const [needsMicrosoft, setNeedsMicrosoft] = useState(false);
+  const [connecting, setConnecting] = useState(false);
   const [viewer, setViewer] = useState(null);
   const [dynamo, setDynamo] = useState(null);
 
@@ -117,12 +133,14 @@ export default function CentralComercial() {
     try {
       const payload = await browseCentral(folderId || undefined);
       if (cancelled?.()) return;
+      setNeedsMicrosoft(false);
       setFolderMeta(payload.folder || null);
       setFolderItems((payload.items || []).map(decorateItem));
       loadRootStatus();
     } catch (err) {
       if (cancelled?.()) return;
       setError(apiErrorMessage(err, "Não foi possível abrir esta pasta."));
+      setNeedsMicrosoft(isDelegatedAuthError(err));
       setFolderItems([]);
     } finally {
       if (!cancelled?.()) setLoading(false);
@@ -156,6 +174,7 @@ export default function CentralComercial() {
         setError("");
       } catch (err) {
         setError(apiErrorMessage(err, "A busca não pôde ser concluída."));
+        setNeedsMicrosoft(isDelegatedAuthError(err));
         setSearchResults([]);
       } finally {
         setSearchingLive(false);
@@ -215,6 +234,30 @@ export default function CentralComercial() {
   function openItem(item) {
     if (item.isFolder) openFolder(item);
     else setViewer(item);
+  }
+
+  async function connectMicrosoft() {
+    setConnecting(true);
+    setError("");
+    try {
+      clearCachedGraphToken();
+      const token = await acquireGraphAccessToken({ interactive: true });
+      if (!token) {
+        setNeedsMicrosoft(true);
+        setError("A Microsoft não retornou permissão para o SharePoint.");
+        return;
+      }
+      setNeedsMicrosoft(false);
+      await loadFolder(current?.id);
+    } catch (err) {
+      setNeedsMicrosoft(true);
+      setError(
+        err?.message ||
+          "Não foi possível conectar a conta Microsoft. Aceite Sites.Read.All e tente de novo.",
+      );
+    } finally {
+      setConnecting(false);
+    }
   }
 
   async function handleDownload(item) {
@@ -387,6 +430,9 @@ export default function CentralComercial() {
               {error && !loading && !searching ? (
                 <ErrorCard
                   message={error}
+                  needsMicrosoft={needsMicrosoft}
+                  connecting={connecting}
+                  onConnect={connectMicrosoft}
                   onRetry={() => {
                     loadRootStatus();
                     loadFolder(current?.id);
@@ -423,15 +469,35 @@ export default function CentralComercial() {
   );
 }
 
-function ErrorCard({ message, onRetry }) {
+function ErrorCard({ message, onRetry, needsMicrosoft, connecting, onConnect }) {
   return (
     <div className="mb-5 rounded-2xl border border-[#E5989B]/40 bg-white p-4 sm:p-5 shadow-sm">
       <p className="text-sm sm:text-base text-tegra-blue-dark">{message}</p>
-      {onRetry ? (
-        <Button type="button" className="mt-3" onClick={onRetry}>
-          Tentar de novo
-        </Button>
-      ) : null}
+      <div className="mt-3 flex flex-col sm:flex-row gap-2">
+        {needsMicrosoft && onConnect ? (
+          <Button
+            type="button"
+            variant="microsoft"
+            onClick={onConnect}
+            disabled={connecting}
+            loading={connecting}
+            className="inline-flex items-center justify-center gap-2"
+          >
+            <MdLogin aria-hidden />
+            {connecting ? "Conectando…" : "Conectar Microsoft"}
+          </Button>
+        ) : null}
+        {onRetry ? (
+          <Button
+            type="button"
+            variant={needsMicrosoft ? "secondary" : undefined}
+            onClick={onRetry}
+            disabled={connecting}
+          >
+            Tentar de novo
+          </Button>
+        ) : null}
+      </div>
     </div>
   );
 }

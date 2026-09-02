@@ -33,8 +33,13 @@ export const msalConfig = {
   },
 };
 
+const graphOboScope = (import.meta.env.VITE_GRAPH_OBO_SCOPE || "").trim();
+export const graphTokenRequest = {
+  scopes: graphOboScope ? [graphOboScope] : ["Sites.Read.All"],
+};
+
 export const loginRequest = {
-  scopes: ["openid", "profile", "email"],
+  scopes: ["openid", "profile", "email", ...graphTokenRequest.scopes],
 };
 
 let msalInstance = null;

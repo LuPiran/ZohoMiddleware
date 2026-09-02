@@ -4,6 +4,7 @@ import {
   ensureMsalInitialized,
   loginRequest,
 } from "../auth/msalConfig";
+import { clearCachedGraphToken } from "../auth/graphToken";
 
 /** Evita trocar o mesmo idToken duas vezes (React Strict Mode / double mount). */
 const microsoftExchangeInFlight = new Map();
@@ -225,6 +226,7 @@ export const authService = {
     try {
       const msal = await ensureMsalInitialized();
       await msal.clearCache();
+      clearCachedGraphToken();
     } catch (error) {
       console.warn("[AUTH] Logout Microsoft ignorado:", error?.message || error);
     }

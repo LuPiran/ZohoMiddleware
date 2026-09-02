@@ -200,7 +200,10 @@ export const ENV = {
   GRAPH_MAIL_CLIENT_SECRET: process.env.GRAPH_MAIL_CLIENT_SECRET,
   RESEND_API_KEY: process.env.RESEND_API_KEY,
 
-  // SharePoint / Central Comercial (app confidencial — NÃO usar o SPA PKCE)
+  // SharePoint / Central Comercial — Graph delegado (token do consultor)
+  GRAPH_DELEGATED_SCOPE:
+    process.env.GRAPH_DELEGATED_SCOPE ||
+    "https://graph.microsoft.com/Sites.Read.All",
   GRAPH_FILES_TENANT_ID:
     process.env.GRAPH_FILES_TENANT_ID ||
     process.env.MICROSOFT_TENANT_ID ||

@@ -1,6 +1,6 @@
 import axios from "axios";
 import { ENV } from "../config/env.js";
-import { getGraphAccessToken, isGraphFilesConfigured } from "./graphAuth.js";
+import { getGraphAccessToken, getGraphSubject, isGraphFilesConfigured } from "./graphAuth.js";
 import { isItemUnderRoot, normalizeFolderPath } from "./sharepointPath.js";
 import { getStoredLocation, saveLocation } from "./centralCatalogStore.js";
 import { logGraphFailure, logGraphInfo, logSharePoint } from "../utils/graphLog.js";
@@ -53,16 +53,29 @@ function graphError(error, fallback, extra = {}) {
   const message =
     error.response?.data?.error?.message || error.message || fallback;
 
-  if (error.status && error.code) {
+  const isOwn =
+    typeof error.code === "string" &&
+    (error.code.startsWith("GRAPH_") || error.code.startsWith("SHAREPOINT_"));
+  if (isOwn && error.status) {
     throw error;
   }
 
   logGraphFailure(fallback, error, extra);
 
-  if (status === 401 || status === 403 || status === 404) {
+  if (status === 401) {
+    const err = new Error(
+      "Sessão Microsoft expirada ou inválida para o SharePoint. Conecte a conta novamente.",
+    );
+    err.status = 401;
+    err.code = "GRAPH_TOKEN_EXPIRED";
+    err.graphCode = graphCode || undefined;
+    throw err;
+  }
+
+  if (status === 403 || status === 404) {
     const err = new Error(
       status === 403
-        ? `SharePoint recusou o acesso (403 ${graphCode || "accessDenied"}). Confira Sites.Read.All (aplicativo) + consentimento admin.`
+        ? `SharePoint recusou o acesso (403 ${graphCode || "accessDenied"}). Sua conta precisa ter permissão na pasta da Central.`
         : "Material não encontrado ou sem permissão.",
     );
     err.status = status === 403 ? 403 : 404;
@@ -373,7 +386,7 @@ async function collectPages(firstUrl, params) {
 }
 
 export async function listFolder(itemId) {
-  const cacheKey = itemId || "ROOT";
+  const cacheKey = `${getGraphSubject()}:${itemId || "ROOT"}`;
   const cached = listCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
     return cached.payload;

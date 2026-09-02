@@ -1,5 +1,6 @@
 import axios from "axios";
 import { STORAGE_KEYS, ROUTES } from "../utils/constants";
+import { acquireGraphAccessToken } from "../auth/graphToken";
 
 const envApiBaseUrl = (import.meta.env.VITE_API_URL || "").trim();
 const appHost = typeof window !== "undefined" ? window.location.hostname : "";
@@ -8,7 +9,6 @@ const isEnvPointingToLocalhost = /https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.
   envApiBaseUrl,
 );
 
-// If the app is opened from LAN IP on mobile, ignore localhost API URL and use same-origin.
 const API_BASE_URL = !isAppOnLocalhost && isEnvPointingToLocalhost ? "" : envApiBaseUrl;
 
 const api = axios.create({
@@ -18,7 +18,6 @@ const api = axios.create({
   },
 });
 
-// Função auxiliar para obter o token do storage correto
 function getToken() {
   const sessionToken = sessionStorage.getItem(STORAGE_KEYS.TOKEN);
   if (sessionToken) {
@@ -28,12 +27,26 @@ function getToken() {
   return localStorage.getItem(STORAGE_KEYS.TOKEN);
 }
 
-// Interceptor para adicionar token JWT em todas as requisições
+function isCentralComercialRequest(config) {
+  const url = `${config?.baseURL || ""}${config?.url || ""}`;
+  return url.includes("/v1/central-comercial");
+}
+
 api.interceptors.request.use(
-  (config) => {
+  async (config) => {
     const token = getToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+    if (isCentralComercialRequest(config)) {
+      try {
+        const graphToken = await acquireGraphAccessToken({ interactive: false });
+        if (graphToken) {
+          config.headers["X-Graph-Token"] = graphToken;
+        }
+      } catch (error) {
+        console.warn("[CENTRAL] token Graph silencioso indisponível:", error?.message || error);
+      }
     }
     if (typeof FormData !== "undefined" && config.data instanceof FormData) {
       delete config.headers["Content-Type"];
@@ -45,33 +58,29 @@ api.interceptors.request.use(
   },
 );
 
-// Interceptor para tratar erros de autenticação
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Não redireciona se o erro for da rota de login (permite tratamento no componente)
     const isLoginRoute =
       error.config?.url?.includes("/v1/auth/login") ||
       error.config?.url?.includes("/v1/auth/microsoft");
+    const isCentralRoute = isCentralComercialRequest(error.config || {});
     const isInactiveAccount =
       error.response?.status === 403 &&
       isLoginRoute &&
       (error.response?.data?.error?.includes("inativo") ||
         error.response?.data?.error?.includes("inativa"));
 
-    // Para erro 403 de conta inativa, marca como silencioso para evitar logs
     if (isInactiveAccount) {
-      // Adiciona flag para indicar que é um erro tratado e não deve ser logado
       error.silent = true;
       error._suppressConsoleLog = true;
     }
 
     if (
       (error.response?.status === 401 || error.response?.status === 403) &&
-      !isLoginRoute
+      !isLoginRoute &&
+      !isCentralRoute
     ) {
-      // Token inválido ou expirado - limpa ambos os storages e redireciona
-      // Apenas se NÃO for uma tentativa de login
       localStorage.removeItem(STORAGE_KEYS.USER);
       localStorage.removeItem(STORAGE_KEYS.TOKEN);
       localStorage.removeItem(STORAGE_KEYS.IS_AUTHENTICATED);
@@ -84,10 +93,5 @@ api.interceptors.response.use(
     return Promise.reject(error);
   },
 );
-
-// Este arquivo contém apenas a configuração base do axios
-// Os serviços específicos estão em:
-// - services/auth.js - Serviços de autenticação
-// - services/upload.js - Serviços de upload
 
 export default api;

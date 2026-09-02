@@ -9,6 +9,10 @@ import {
 } from "../services/sharepointCentral.js";
 import { getDynamoPersistStatus } from "../services/centralCatalogStore.js";
 import { getPublicCatalog } from "../services/centralCatalog.js";
+import {
+  delegatedGraphMiddleware,
+  optionalDelegatedGraph,
+} from "../middleware/delegatedGraph.js";
 
 const router = express.Router();
 
@@ -41,7 +45,7 @@ function sendServiceError(res, error) {
   });
 }
 
-router.get("/status", async (req, res) => {
+router.get("/status", optionalDelegatedGraph, async (req, res) => {
   try {
     if (!isSharePointConfigured()) {
       const dynamo = getDynamoPersistStatus();
@@ -49,6 +53,24 @@ router.get("/status", async (req, res) => {
       return res.json({
         success: true,
         configured: false,
+        auth: "delegated",
+        connected: false,
+        dynamo,
+      });
+    }
+    if (!req.graphDelegated) {
+      const dynamo = getDynamoPersistStatus();
+      console.info("[CENTRAL] status", {
+        configured: true,
+        connected: false,
+        motivo: "sem token delegado",
+        dynamo,
+      });
+      return res.json({
+        success: true,
+        configured: true,
+        auth: "delegated",
+        connected: false,
         dynamo,
       });
     }
@@ -56,12 +78,16 @@ router.get("/status", async (req, res) => {
     const dynamo = getDynamoPersistStatus();
     console.info("[CENTRAL] status", {
       configured: true,
+      connected: true,
       root: root.name,
+      oid: req.graphUserOid,
       dynamo,
     });
     return res.json({
       success: true,
       configured: true,
+      auth: "delegated",
+      connected: true,
       root: { id: root.id, name: root.name },
       dynamo,
     });
@@ -69,6 +95,8 @@ router.get("/status", async (req, res) => {
     return sendServiceError(res, error);
   }
 });
+
+router.use(delegatedGraphMiddleware);
 
 router.get("/catalog", async (req, res) => {
   try {
