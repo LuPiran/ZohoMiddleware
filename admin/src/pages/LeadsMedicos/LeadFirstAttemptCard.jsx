@@ -17,6 +17,7 @@ import { setPendingLeadAttemptFiles } from "../../services/leadAttemptTransfer";
 import EvidenceUploader, { EvidenceGallery } from "./EvidenceUploader";
 import RequestFourthAttemptModal from "./RequestFourthAttemptModal";
 import AgendarContatoModal from "./AgendarContatoModal";
+import ContinuarCompraModal from "./ContinuarCompraModal";
 import { buildLeadPrefill } from "./leadPrefill";
 
 const MIN_OBSERVACAO = 10;
@@ -186,6 +187,7 @@ export default function LeadFirstAttemptCard({
   onSemContato,
   onRequestFourthAttempt,
   onScheduleAgendamento,
+  onQualificarMkt,
   submitting,
 }) {
   const navigate = useNavigate();
@@ -196,6 +198,7 @@ export default function LeadFirstAttemptCard({
   const [fileError, setFileError] = useState("");
   const [fourthAttemptModalOpen, setFourthAttemptModalOpen] = useState(false);
   const [agendarModalOpen, setAgendarModalOpen] = useState(false);
+  const [continuarModalOpen, setContinuarModalOpen] = useState(false);
 
   const attempt = lead?.attempt || {};
   const round = attempt.currentRound;
@@ -240,9 +243,17 @@ export default function LeadFirstAttemptCard({
     setFileError("");
   };
 
+  // "Continuar para compra" abre a escolha antes de decidir o destino —
+  // valida aqui pra não abrir o modal só pra barrar em seguida.
   const handleAttempt = () => {
     const note = validateObservacao();
     if (!note || !validateEvidencias()) return;
+    setContinuarModalOpen(true);
+  };
+
+  const handleConfirmVenda = () => {
+    const note = observacao.trim();
+    setContinuarModalOpen(false);
 
     // Arquivos não cabem em location.state (limite de ~640KB do pushState) —
     // ficam num singleton de módulo que a página /compra recolhe ao montar.
@@ -259,6 +270,13 @@ export default function LeadFirstAttemptCard({
         },
       },
     });
+  };
+
+  const handleConfirmQualificarMkt = async () => {
+    const note = observacao.trim();
+    await onQualificarMkt(note, files);
+    setContinuarModalOpen(false);
+    resetForm();
   };
 
   const handleRequestFourthAttempt = async (payload) => {
@@ -322,6 +340,24 @@ export default function LeadFirstAttemptCard({
             ? new Date(lead.dataSemInteresse).toLocaleDateString("pt-BR")
             : "—"}
           .
+        </p>
+        <div className="mt-4">
+          <EvidenceGallery evidencias={lead.evidencias} leadId={lead.id} />
+        </div>
+      </section>
+    );
+  }
+
+  if (attempt.hasQualificadoMkt) {
+    return (
+      <section className="rounded-xl border border-violet-200 bg-violet-50/60 px-4 sm:px-5 py-5">
+        <h2 className="text-base font-bold text-violet-700">Lead qualificado — Marketing</h2>
+        <p className="mt-1 text-sm text-tegra-text-secondary">
+          Encaminhado ao time de Marketing em{" "}
+          {lead.dataQualificadoMkt
+            ? new Date(lead.dataQualificadoMkt).toLocaleDateString("pt-BR")
+            : "—"}
+          . Sem compra registrada por este lead.
         </p>
         <div className="mt-4">
           <EvidenceGallery evidencias={lead.evidencias} leadId={lead.id} />
@@ -637,6 +673,14 @@ export default function LeadFirstAttemptCard({
         open={agendarModalOpen}
         onClose={() => !submitting && setAgendarModalOpen(false)}
         onConfirm={handleScheduleAgendamento}
+        submitting={submitting}
+      />
+
+      <ContinuarCompraModal
+        open={continuarModalOpen}
+        onClose={() => !submitting && setContinuarModalOpen(false)}
+        onVenda={handleConfirmVenda}
+        onQualificarMkt={handleConfirmQualificarMkt}
         submitting={submitting}
       />
     </section>

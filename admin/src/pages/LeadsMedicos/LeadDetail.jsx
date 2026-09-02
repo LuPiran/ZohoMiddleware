@@ -225,6 +225,30 @@ export default function LeadDetail() {
     }
   };
 
+  const handleQualificarMkt = async (observacao, files) => {
+    setSubmitting(true);
+    try {
+      const result = await leadsMedicosService.registrarTentativa(
+        id,
+        lead?.attempt?.currentRound,
+        observacao,
+        files,
+        null,
+        "mkt",
+      );
+      setLead(result.data);
+      showToast("Lead qualificado e encaminhado ao Marketing", "success", 3000);
+    } catch (err) {
+      const message =
+        err?.response?.data?.error ||
+        err?.message ||
+        "Erro ao qualificar o lead para o Marketing";
+      showToast(message, "error", 3500);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleAccept = async () => {
     setSubmitting(true);
     try {
@@ -374,6 +398,7 @@ export default function LeadDetail() {
               onSemContato={handleSemContato}
               onRequestFourthAttempt={handleRequestFourthAttempt}
               onScheduleAgendamento={handleScheduleAgendamento}
+              onQualificarMkt={handleQualificarMkt}
             />
             <LeadHistory historico={lead.historico} />
           </>

@@ -105,6 +105,7 @@ export async function buildEquipeKpis(user = {}) {
     let semTratativa = 0;
     let semInteresse = 0;
     let semContato = 0;
+    let qualificadosMkt = 0;
     let tentativasTratadas = 0;
     let agendamentos = 0;
     let comprasVinculadas = 0;
@@ -129,6 +130,7 @@ export async function buildEquipeKpis(user = {}) {
       if (lead.dataLeadSemTratativa) semTratativa += 1;
       if (lead.dataSemInteresse) semInteresse += 1;
       if (lead.dataSemContato) semContato += 1;
+      if (lead.dataQualificadoMkt) qualificadosMkt += 1;
 
       tentativasTratadas += countTentativasTratadas(lead);
       agendamentos += Array.isArray(lead.agendamentos) ? lead.agendamentos.length : 0;
@@ -166,6 +168,7 @@ export async function buildEquipeKpis(user = {}) {
       taxaSemTratativa: pct(semTratativa, total),
       semInteresse,
       semContato,
+      qualificadosMkt,
       tentativasTratadas,
       agendamentos,
       comprasVinculadas,
@@ -187,6 +190,7 @@ export async function buildEquipeKpis(user = {}) {
       acc.recusados += c.recusados;
       acc.expirados += c.expirados;
       acc.semTratativa += c.semTratativa;
+      acc.qualificadosMkt += c.qualificadosMkt;
       acc.agendamentos += c.agendamentos;
       acc.comprasVinculadas += c.comprasVinculadas;
       return acc;
@@ -198,6 +202,7 @@ export async function buildEquipeKpis(user = {}) {
       recusados: 0,
       expirados: 0,
       semTratativa: 0,
+      qualificadosMkt: 0,
       agendamentos: 0,
       comprasVinculadas: 0,
     },

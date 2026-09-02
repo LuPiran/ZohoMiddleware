@@ -349,6 +349,7 @@ router.post(
           compraInfo = null;
         }
       }
+      const destino = req.body?.destino === "mkt" ? "mkt" : "venda";
       const lead = await registerContactAttempt(
         req.params.id,
         req.user,
@@ -357,6 +358,7 @@ router.post(
           observacao: req.body?.observacao || req.body?.descricao,
           files: req.files,
           compraInfo,
+          destino,
         },
       );
       return res.json({ success: true, data: lead });

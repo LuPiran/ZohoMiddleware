@@ -134,6 +134,11 @@ export const ENV = {
   ZOHO_LEAD_DATA_AGENDAMENTO_4_FIELD:
     process.env.ZOHO_LEAD_DATA_AGENDAMENTO_4_FIELD || "Data_Agendamento_4",
 
+  // Consultor escolhe "só qualificar pro MKT" em vez de ir pra Compra —
+  // status próprio, para não misturar com "Lead Com Interesse"
+  ZOHO_LEAD_DATA_QUALIFICADO_MKT_FIELD:
+    process.env.ZOHO_LEAD_DATA_QUALIFICADO_MKT_FIELD || "Data_Lead_Qualificado_MKT",
+
   // Campos de distribuição/SLA — sincronizados de volta ao Zoho após distribuição/aceite/rejeição
   ZOHO_LEAD_DIST_CONSULTOR_NOME_FIELD:
     process.env.ZOHO_LEAD_DIST_CONSULTOR_NOME_FIELD || "Dist_Consultor_Nome",

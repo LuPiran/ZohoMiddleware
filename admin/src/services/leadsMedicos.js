@@ -29,9 +29,17 @@ export function buildEvidenceFormData({ observacao, files }) {
   return form;
 }
 
-export async function registrarTentativa(id, round, observacao, files = [], compraInfo = null) {
+export async function registrarTentativa(
+  id,
+  round,
+  observacao,
+  files = [],
+  compraInfo = null,
+  destino = "venda",
+) {
   const form = buildEvidenceFormData({ observacao, files });
   if (compraInfo) form.append("compraInfo", JSON.stringify(compraInfo));
+  if (destino) form.append("destino", destino);
   const response = await api.post(
     API_ENDPOINTS.LEADS_MEDICOS.TENTATIVA(id, round),
     form,

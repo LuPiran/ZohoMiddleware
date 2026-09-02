@@ -1459,6 +1459,7 @@ export function toLeadDetail(lead) {
     dataLeadRejeitado: lead.dataLeadRejeitado || null,
     motivoRejeicao: lead.motivoRejeicao || null,
     dataLeadSemTratativa: lead.dataLeadSemTratativa || null,
+    dataQualificadoMkt: lead.dataQualificadoMkt || null,
     agendamentos: Array.isArray(lead.agendamentos) ? lead.agendamentos : [],
     comprasVinculadas: Array.isArray(lead.comprasVinculadas) ? lead.comprasVinculadas : [],
     createdAt: lead.createdAt || null,
@@ -1604,7 +1605,7 @@ export async function registerContactAttempt(
   leadId,
   user,
   round,
-  { observacao, files, compraInfo } = {},
+  { observacao, files, compraInfo, destino = "venda" } = {},
 ) {
   await getLeadForUser(leadId, user);
   const now = new Date().toISOString();
@@ -1614,9 +1615,11 @@ export async function registerContactAttempt(
     )
   ).Item;
 
+  const isMkt = destino === "mkt";
   const { n, note, updates } = treatedAttemptUpdates(raw, round, {
     observacao,
     at: now,
+    destino,
   });
   const evidence = await persistLeadEvidencias(raw, files, {
     acao: "tentativa",
@@ -1631,6 +1634,7 @@ export async function registerContactAttempt(
 
   // Vínculo Compra <-> Lead — só o Portal guarda isso (nada muda no Zoho).
   // Vale só pra compras feitas a partir de agora; leads antigos não têm.
+  // Nunca acontece quando destino="mkt" (esse caminho não passa por Compra).
   const compraValida =
     compraInfo && typeof compraInfo === "object" && !Array.isArray(compraInfo)
       ? compraInfo
@@ -1660,14 +1664,21 @@ export async function registerContactAttempt(
       detail: evidenceHistoryDetail(note, evidence.uploaded),
       by: actor,
     },
-    alreadyInteresse
-      ? null
-      : {
-          action: "lead_com_interesse",
-          label: "Médico demonstrou interesse!",
-          detail: "O médico sinalizou interesse durante o contato. Lead avançando no funil de atendimento.",
+    isMkt
+      ? {
+          action: "lead_qualificado_mkt",
+          label: "Lead qualificado — encaminhado ao Marketing",
+          detail: "Consultor optou por não seguir com a venda agora e qualificou o lead para o time de Marketing.",
           by: actor,
-        },
+        }
+      : alreadyInteresse
+        ? null
+        : {
+            action: "lead_com_interesse",
+            label: "Médico demonstrou interesse!",
+            detail: "O médico sinalizou interesse durante o contato. Lead avançando no funil de atendimento.",
+            by: actor,
+          },
     compraValida
       ? {
           action: "compra_registrada",
@@ -1692,8 +1703,12 @@ export async function registerContactAttempt(
   if (!raw.protocolo && evidence.protocolo) {
     syncZohoLeadProtocolo(updated);
   }
-  syncZohoLeadAttemptTreated(updated, n, { observacao: note, at: now });
-  void notifyTentativa(updated, n, user);
+  syncZohoLeadAttemptTreated(updated, n, { observacao: note, at: now, destino });
+  if (isMkt) {
+    void notifyStatusChange(updated, user, ZOHO_LEAD_STATUS.QUALIFICADO_MKT);
+  } else {
+    void notifyTentativa(updated, n, user);
+  }
   return toLeadDetail(updated);
 }
 

@@ -9,6 +9,7 @@ import {
   MdEmojiEvents,
   MdClose,
   MdBlock,
+  MdCampaign,
 } from "react-icons/md";
 
 const ICONS = {
@@ -22,6 +23,7 @@ const ICONS = {
   semInteresse: MdClose,
   semTratativa: MdClose,
   rejeitado: MdBlock,
+  qualificadoMkt: MdCampaign,
   convertido: MdEmojiEvents,
 };
 

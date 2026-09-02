@@ -25,6 +25,8 @@ const STATUS_ALIASES = {
   rejeitado: ZOHO_LEAD_STATUS.REJEITADO,
   "lead sem tratativa": ZOHO_LEAD_STATUS.SEM_TRATATIVA,
   "sem tratativa": ZOHO_LEAD_STATUS.SEM_TRATATIVA,
+  "lead qualificado mkt": ZOHO_LEAD_STATUS.QUALIFICADO_MKT,
+  "qualificado mkt": ZOHO_LEAD_STATUS.QUALIFICADO_MKT,
 };
 
 export function canonicalizeLeadStatus(raw, fallback = ZOHO_LEAD_STATUS.NOVO) {
@@ -245,18 +247,24 @@ export function syncZohoLeadAccepted(lead) {
   }
 }
 
-export function syncZohoLeadAttemptTreated(lead, round, { observacao, at } = {}) {
-  syncZohoLead(lead.idZoho, buildZohoAttemptTreatedFields(lead, round, { observacao, at }));
+export function syncZohoLeadAttemptTreated(lead, round, { observacao, at, destino } = {}) {
+  syncZohoLead(lead.idZoho, buildZohoAttemptTreatedFields(lead, round, { observacao, at, destino }));
 }
 
-export function buildZohoAttemptTreatedFields(lead, round, { observacao, at } = {}) {
+export function buildZohoAttemptTreatedFields(lead, round, { observacao, at, destino = "venda" } = {}) {
   const fields = attemptFieldMap(round);
   const firstAt = lead.dataPrimeiraTentativa || at;
   const firstObs = lead.descricaoPrimeiraTentativa || observacao;
+  const isMkt = destino === "mkt";
 
   return {
-    ...field(ENV.ZOHO_LEAD_STATUS_FIELD, ZOHO_LEAD_STATUS.COM_INTERESSE),
-    ...field(ENV.ZOHO_LEAD_DATA_INTERESSE_FIELD, toZohoDate(at)),
+    ...field(
+      ENV.ZOHO_LEAD_STATUS_FIELD,
+      isMkt ? ZOHO_LEAD_STATUS.QUALIFICADO_MKT : ZOHO_LEAD_STATUS.COM_INTERESSE,
+    ),
+    ...(isMkt
+      ? field(ENV.ZOHO_LEAD_DATA_QUALIFICADO_MKT_FIELD, toZohoDate(at))
+      : field(ENV.ZOHO_LEAD_DATA_INTERESSE_FIELD, toZohoDate(at))),
     ...field(ENV.ZOHO_LEAD_DATA_1A_FIELD, toZohoDate(firstAt)),
     ...field(ENV.ZOHO_LEAD_OBS_1A_FIELD, firstObs),
     ...field(fields.date, toZohoDate(at)),

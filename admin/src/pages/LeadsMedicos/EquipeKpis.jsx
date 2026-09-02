@@ -94,6 +94,7 @@ export default function EquipeKpis() {
       "  — Recusados pelo consultor": c.recusados,
       "  — Por timeout (48h)": c.expirados,
       "Sem tratativa": c.semTratativa,
+      "Qualificados MKT": c.qualificadosMkt,
       "Taxa sem tratativa": formatPct(c.taxaSemTratativa),
       "Sem interesse": c.semInteresse,
       "Sem contato": c.semContato,
@@ -258,6 +259,7 @@ export default function EquipeKpis() {
                   <th scope="col" className="px-4 py-3 font-semibold text-right whitespace-nowrap" title="Consultor clicou em Recusar">Recusas</th>
                   <th scope="col" className="px-4 py-3 font-semibold text-right whitespace-nowrap" title="Prazo de 48h venceu sem resposta">Timeout 48h</th>
                   <th scope="col" className="px-4 py-3 font-semibold text-right whitespace-nowrap">Sem tratativa</th>
+                  <th scope="col" className="px-4 py-3 font-semibold text-right whitespace-nowrap" title="Qualificado para o Marketing, sem compra">Qualif. MKT</th>
                   <th scope="col" className="px-4 py-3 font-semibold text-right whitespace-nowrap">Tentativas</th>
                   <th scope="col" className="px-4 py-3 font-semibold text-right whitespace-nowrap">Agendamentos</th>
                   <th scope="col" className="px-4 py-3 font-semibold text-right whitespace-nowrap">Compras</th>
@@ -269,7 +271,7 @@ export default function EquipeKpis() {
               <tbody className="divide-y divide-tegra-gray-medium">
                 {porConsultor.length === 0 ? (
                   <tr>
-                    <td colSpan={13} className="px-4 py-6 text-center text-tegra-text-secondary">
+                    <td colSpan={14} className="px-4 py-6 text-center text-tegra-text-secondary">
                       Nenhum lead encontrado pra essa equipe ainda.
                     </td>
                   </tr>
@@ -283,6 +285,7 @@ export default function EquipeKpis() {
                       <td className="px-4 py-3 text-right tabular-nums">{c.recusados}</td>
                       <td className="px-4 py-3 text-right tabular-nums">{c.expirados}</td>
                       <td className="px-4 py-3 text-right tabular-nums">{c.semTratativa}</td>
+                      <td className="px-4 py-3 text-right tabular-nums">{c.qualificadosMkt}</td>
                       <td className="px-4 py-3 text-right tabular-nums">{c.tentativasTratadas}</td>
                       <td className="px-4 py-3 text-right tabular-nums">{c.agendamentos}</td>
                       <td className="px-4 py-3 text-right tabular-nums">{c.comprasVinculadas}</td>
