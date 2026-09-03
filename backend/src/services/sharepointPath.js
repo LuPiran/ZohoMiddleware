@@ -10,6 +10,16 @@ export function normalizeFolderPath(value) {
     .replace(/^\/+|\/+$/g, "");
 }
 
+export function sanitizeBrowsePath(value) {
+  const parts = normalizeFolderPath(value)
+    .split("/")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (!parts.length) return "";
+  if (parts.some((part) => part === "." || part === "..")) return "";
+  return parts.join("/");
+}
+
 export function buildRootPathPrefix(root, configuredRootPath) {
   const parentPath = String(root?.parentReference?.path || "").replace(
     /\/$/,

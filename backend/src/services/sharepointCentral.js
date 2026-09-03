@@ -1,7 +1,11 @@
 import axios from "axios";
 import { ENV } from "../config/env.js";
 import { getGraphAccessToken, getGraphSubject, isGraphFilesConfigured } from "./graphAuth.js";
-import { isItemUnderRoot, normalizeFolderPath } from "./sharepointPath.js";
+import {
+  isItemUnderRoot,
+  normalizeFolderPath,
+  sanitizeBrowsePath,
+} from "./sharepointPath.js";
 import { getStoredLocation, saveLocation } from "./centralCatalogStore.js";
 import { logGraphFailure, logGraphInfo, logSharePoint } from "../utils/graphLog.js";
 
@@ -418,10 +422,12 @@ export function publicItem(item) {
   );
   const preview = classifyPreview(item);
   const size = Number(item?.size || 0);
+  const driveId = item.parentReference?.driveId || item.driveId || null;
   return {
     id: item.id,
     name: item.name || "",
     isFolder,
+    driveId,
     mimeType: item.file?.mimeType || null,
     size,
     childCount: item.folder?.childCount ?? null,
@@ -453,20 +459,94 @@ function withRootContext(resolved, item) {
   };
 }
 
-async function loadAllowedItem(itemId) {
+function siteDriveItemUrl(defaults, itemId) {
+  const sitePath = String(defaults.sitePath || "").replace(/^\/+|\/+$/g, "");
+  const encodedSite = encodeURIComponent(sitePath).replace(/%2F/gi, "/");
+  return `/sites/${defaults.hostname}:/${encodedSite}:/drive/items/${encodeURIComponent(itemId)}`;
+}
+
+function itemLookupUrls(itemId, resolved, driveHint) {
+  const encoded = encodeURIComponent(itemId);
+  const defaults = {
+    hostname: resolved.hostname || sharePointDefaults().hostname,
+    sitePath: resolved.sitePath || sharePointDefaults().sitePath,
+  };
+  const drives = [...new Set([driveHint, resolved.driveId].filter(Boolean))];
+  const siteId = resolved.siteId ? encodeURIComponent(resolved.siteId) : "";
+  return [
+    siteId ? `/sites/${siteId}/drive/items/${encoded}` : null,
+    siteDriveItemUrl(defaults, itemId),
+    ...drives.flatMap((id) => [
+      `/drives/${id}/items/${encoded}`,
+      `/drives/${id}/items/${itemId}`,
+    ]),
+  ];
+}
+
+async function tryLoadItem(itemId, resolved, driveHint) {
+  if (!itemId) return null;
+  if (itemId === resolved.root?.id) return resolved.root;
+  let lastError = null;
+  for (const url of itemLookupUrls(itemId, resolved, driveHint).filter(Boolean)) {
+    try {
+      const response = await graphRequest("GET", url);
+      if (response.data?.id) {
+        logSharePoint("item resolvido", {
+          url: String(url).slice(0, 140),
+          nome: response.data.name,
+          drive: String(response.data.parentReference?.driveId || "").slice(0, 20),
+        });
+        return response.data;
+      }
+    } catch (error) {
+      lastError = error;
+      logSharePoint("item não encontrado neste endereço", {
+        ok: false,
+        url: String(url).slice(0, 140),
+        message: error.message,
+        code: error.code || null,
+      });
+    }
+  }
+  if (lastError) {
+    logSharePoint("item inacessível por id", {
+      ok: false,
+      id: String(itemId).slice(0, 16),
+      message: lastError.message,
+    });
+  }
+  return null;
+}
+
+function adoptDriveFromItem(resolved, item) {
+  const driveId = item?.parentReference?.driveId || item?.driveId;
+  if (!driveId || driveId === resolved.driveId) return resolved;
+  logSharePoint("drive ajustado pelo item", {
+    de: String(resolved.driveId || "").slice(0, 20),
+    para: String(driveId).slice(0, 20),
+  });
+  const next = { ...resolved, driveId };
+  if (rootCache.root) {
+    rootCache = { ...rootCache, driveId };
+  }
+  return next;
+}
+
+async function loadAllowedItem(itemId, driveHint) {
   const resolved = await getSharePointRoot();
-  const { driveId, root, configuredRootPath } = resolved;
+  const { root, configuredRootPath } = resolved;
   if (itemId === root.id) return withRootContext(resolved, root);
 
-  const response = await graphRequest(
-    "GET",
-    `/drives/${driveId}/items/${encodeURIComponent(itemId)}`,
-  );
-  const item = response.data;
-  if (!isItemUnderRoot(item, { ...root, driveId }, configuredRootPath)) {
+  const item = await tryLoadItem(itemId, resolved, driveHint);
+  if (!item) notFound();
+  const next = adoptDriveFromItem(resolved, item);
+  if (
+    configuredRootPath &&
+    !isItemUnderRoot(item, { ...next.root, driveId: next.driveId }, configuredRootPath)
+  ) {
     notFound();
   }
-  return withRootContext(resolved, item);
+  return withRootContext(next, item);
 }
 
 async function collectPages(firstUrl, params) {
@@ -535,8 +615,28 @@ async function listViaSharePointList(siteId, relativePath = "") {
       $expand: "driveItem,fields",
     });
     const wanted = normalizeFolderPath(relativePath);
-    const driveItems = rows.map((row) => row.driveItem).filter(Boolean);
-    const picked = driveItems.filter((item) => parentRelativePath(item) === wanted);
+    const wantedFolded = foldName(wanted);
+    const picked = rows
+      .map((row) => {
+        const item = row.driveItem;
+        if (!item) return null;
+        const parentPath = parentRelativePath(item);
+        if (parentPath === wanted || foldName(parentPath) === wantedFolded) {
+          return item;
+        }
+        const dir = String(row.fields?.FileDirRef || "")
+          .replace(/\\/g, "/")
+          .replace(/\/+$/, "");
+        const tail = wanted
+          ? dir.toLowerCase().endsWith(`/${wantedFolded}`) ||
+            foldName(dir.split("/").slice(-wanted.split("/").length).join("/")) ===
+              wantedFolded
+          : /\/documentos compartilhados$/i.test(dir) ||
+            /\/shared documents$/i.test(dir) ||
+            !dir.includes("/", dir.indexOf("/sites/") + 1);
+        return tail ? item : null;
+      })
+      .filter(Boolean);
     logSharePoint("lista via SharePoint list", {
       lista: library.displayName || library.name,
       pasta: wanted || "ROOT",
@@ -553,17 +653,26 @@ async function listViaSharePointList(siteId, relativePath = "") {
   }
 }
 
-export async function listFolder(itemId) {
-  const cacheKey = `${getGraphSubject()}:${itemId || "ROOT"}`;
+export async function listFolder(itemId, { path: requestedPath, driveId: driveHint } = {}) {
+  const relativeHint = sanitizeBrowsePath(requestedPath);
+  const cacheKey = `${getGraphSubject()}:${itemId || relativeHint || "ROOT"}`;
   const cached = listCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
     return cached.payload;
   }
 
-  const ctx = itemId
-    ? await loadAllowedItem(itemId)
-    : await getSharePointRoot().then((resolved) => withRootContext(resolved, resolved.root));
-  const { item, driveId, root, configuredRootPath, siteId } = ctx;
+  let resolved = await getSharePointRoot();
+  let item = resolved.root;
+  if (itemId && itemId !== resolved.root.id) {
+    const loaded = await tryLoadItem(itemId, resolved, driveHint);
+    if (loaded) {
+      resolved = adoptDriveFromItem(resolved, loaded);
+      item = loaded;
+    }
+  }
+
+  const ctx = withRootContext(resolved, item);
+  const { driveId, root, siteId } = ctx;
   const defaults = sharePointDefaults();
 
   if (item.file && !item.folder) {
@@ -577,8 +686,12 @@ export async function listFolder(itemId) {
     hostname: ctx.hostname || defaults.hostname,
     sitePath: ctx.sitePath || defaults.sitePath,
   };
-  const relative = folderRelativePath(item, root);
+  const relative =
+    folderRelativePath(item, root) ||
+    relativeHint ||
+    (item.id !== root.id ? sanitizeBrowsePath(item.name) : "");
   const encodedRel = encodeDrivePath(relative);
+  const encodedId = itemId ? encodeURIComponent(itemId) : "";
   const atLibraryRoot = !relative;
 
   const urls = atLibraryRoot
@@ -589,14 +702,22 @@ export async function listFolder(itemId) {
         `/drives/${driveId}/items/${encodeURIComponent(item.id)}/children`,
       ]
     : [
-        `/drives/${driveId}/items/${encodeURIComponent(item.id)}/children`,
-        `/drives/${driveId}/root:/${encodedRel}:/children`,
         `${siteDriveRootUrl(siteDefaults)}:/${encodedRel}:/children`,
+        siteId ? `/sites/${siteId}/drive/root:/${encodedRel}:/children` : null,
+        `/drives/${driveId}/root:/${encodedRel}:/children`,
+        itemId ? `/sites/${siteId}/drive/items/${encodedId}/children` : null,
+        itemId ? `/drives/${driveId}/items/${encodedId}/children` : null,
+        item.id && item.id !== root.id
+          ? `/drives/${driveId}/items/${encodeURIComponent(item.id)}/children`
+          : null,
       ];
 
   let raw = await listChildrenTrying(urls);
   if (raw.length === 0) {
     raw = await listViaSharePointList(siteId, relative);
+  }
+  if (raw[0]) {
+    adoptDriveFromItem(resolved, raw[0]);
   }
 
   const children = raw
@@ -609,6 +730,11 @@ export async function listFolder(itemId) {
   const payload = {
     folder: publicItem({
       ...item,
+      id: item.id === root.id && itemId ? itemId : item.id,
+      name:
+        item.id === root.id && relative
+          ? relative.split("/").pop()
+          : item.name,
       folder: item.folder || { childCount: children.length },
     }),
     items: children,

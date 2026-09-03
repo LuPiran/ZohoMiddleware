@@ -127,6 +127,8 @@ router.get("/browse", async (req, res) => {
       throw err;
     }
     const parentId = String(req.query.parentId || "").trim();
+    const folderPath = String(req.query.path || "").trim();
+    const driveId = String(req.query.driveId || "").trim();
     if (parentId && !GRAPH_ITEM_ID.test(parentId)) {
       console.warn("[CENTRAL] browse recusado", {
         parentId,
@@ -141,8 +143,12 @@ router.get("/browse", async (req, res) => {
     console.info("[CENTRAL] browse", {
       user: req.user?.id,
       parentId: parentId || "ROOT",
+      path: folderPath || null,
     });
-    const payload = await listFolder(parentId || null);
+    const payload = await listFolder(parentId || null, {
+      path: folderPath,
+      driveId: /^[A-Za-z0-9!._=%+-]{8,512}$/.test(driveId) ? driveId : "",
+    });
     return res.json({ success: true, ...payload });
   } catch (error) {
     return sendServiceError(res, error);

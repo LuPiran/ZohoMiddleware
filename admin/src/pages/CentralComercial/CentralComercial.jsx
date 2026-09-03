@@ -125,11 +125,14 @@ export default function CentralComercial() {
     }
   }, []);
 
-  const loadFolder = useCallback(async (folderId, cancelled) => {
+  const loadFolder = useCallback(async (folder, cancelled) => {
     setLoading(true);
     setError("");
     try {
-      const payload = await browseCentral(folderId || undefined);
+      const payload = await browseCentral(folder?.id || undefined, {
+        path: folder?.path || undefined,
+        driveId: folder?.driveId || undefined,
+      });
       if (cancelled?.()) return;
       setNeedsMicrosoft(false);
       setFolderItems((payload.items || []).map(decorateItem));
@@ -150,11 +153,11 @@ export default function CentralComercial() {
 
   useEffect(() => {
     let cancelled = false;
-    loadFolder(current?.id, () => cancelled);
+    loadFolder(current, () => cancelled);
     return () => {
       cancelled = true;
     };
-  }, [current?.id, loadFolder]);
+  }, [current, loadFolder]);
 
   useEffect(() => {
     const q = query.trim();
@@ -223,7 +226,18 @@ export default function CentralComercial() {
       setError("Esta pasta ainda não tem um identificador válido do SharePoint.");
       return;
     }
-    setStack((prev) => [...prev, { id: folderId, name: item.name }]);
+    setStack((prev) => {
+      const path = [...prev.map((crumb) => crumb.name), item.name].join("/");
+      return [
+        ...prev,
+        {
+          id: folderId,
+          name: item.name,
+          driveId: item.driveId || null,
+          path,
+        },
+      ];
+    });
     setQuery("");
     scrollTop();
   }
@@ -245,7 +259,7 @@ export default function CentralComercial() {
         return;
       }
       setNeedsMicrosoft(false);
-      await loadFolder(current?.id);
+      await loadFolder(current);
     } catch (err) {
       setNeedsMicrosoft(true);
       setError(
@@ -367,12 +381,12 @@ export default function CentralComercial() {
               onConnect={connectMicrosoft}
               onRetry={() => {
                 loadRootStatus();
-                loadFolder(current?.id);
+                    loadFolder(current);
               }}
             />
           ) : null}
 
-          {!needsMicrosoft ? (
+          {!needsMicrosoft && !(error && !listingLoading) ? (
             <ExplorerView
               items={listingItems}
               loading={listingLoading}

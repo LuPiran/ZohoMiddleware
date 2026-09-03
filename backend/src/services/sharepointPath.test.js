@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isItemUnderRoot } from "./sharepointPath.js";
+import { isItemUnderRoot, sanitizeBrowsePath } from "./sharepointPath.js";
 
 const root = {
   id: "ROOT",
@@ -95,6 +95,13 @@ describe("isItemUnderRoot", () => {
         "",
       ),
     ).toBe(true);
+  });
+
+  it("sanitiza caminho de pasta do explorer", () => {
+    expect(sanitizeBrowsePath("Auditoria Sharepoint")).toBe("Auditoria Sharepoint");
+    expect(sanitizeBrowsePath("Pai/Filho")).toBe("Pai/Filho");
+    expect(sanitizeBrowsePath("../Segredo")).toBe("");
+    expect(sanitizeBrowsePath("")).toBe("");
   });
 
   it("na raiz da biblioteca aceita qualquer item do mesmo drive", () => {

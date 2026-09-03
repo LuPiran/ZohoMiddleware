@@ -11,9 +11,13 @@ export async function getCentralCatalog() {
   return response.data;
 }
 
-export async function browseCentral(parentId) {
+export async function browseCentral(parentId, { path, driveId } = {}) {
   const response = await api.get(API_ENDPOINTS.CENTRAL.BROWSE, {
-    params: parentId ? { parentId } : {},
+    params: {
+      ...(parentId ? { parentId } : {}),
+      ...(path ? { path } : {}),
+      ...(driveId ? { driveId } : {}),
+    },
   });
   return response.data;
 }
