@@ -2,6 +2,7 @@ import api from "./api";
 import { STORAGE_KEYS, API_ENDPOINTS } from "../utils/constants";
 import {
   ensureMsalInitialized,
+  getMsalRedirectResult,
   loginRequest,
 } from "../auth/msalConfig";
 import { clearCachedGraphToken } from "../auth/graphToken";
@@ -145,8 +146,7 @@ export const authService = {
   async handleMicrosoftRedirect() {
     if (!microsoftRedirectPromise) {
       microsoftRedirectPromise = (async () => {
-        const msal = await ensureMsalInitialized();
-        const result = await msal.handleRedirectPromise();
+        const result = await getMsalRedirectResult();
         const idToken = this.extractIdToken(result);
         if (!idToken) {
           return null;
@@ -170,6 +170,9 @@ export const authService = {
   async loginWithMicrosoftPopup() {
     const msal = await ensureMsalInitialized();
     const result = await msal.loginPopup(loginRequest);
+    if (result?.account) {
+      msal.setActiveAccount(result.account);
+    }
     const idToken = this.extractIdToken(result);
     if (!idToken) {
       throw {

@@ -98,6 +98,7 @@ export default function CentralComercial() {
   const [searching, setSearchingLive] = useState(false);
   const [error, setError] = useState("");
   const [needsMicrosoft, setNeedsMicrosoft] = useState(false);
+  const [graphReady, setGraphReady] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [viewer, setViewer] = useState(null);
   const [dynamo, setDynamo] = useState(null);
@@ -153,11 +154,32 @@ export default function CentralComercial() {
 
   useEffect(() => {
     let cancelled = false;
+    (async () => {
+      setLoading(true);
+      const token = await acquireGraphAccessToken({ interactive: false });
+      if (cancelled) return;
+      setGraphReady(true);
+      if (!token) {
+        setNeedsMicrosoft(true);
+        setError(
+          "Sua conta Microsoft continua no portal. Confirme a sessão uma vez para o SharePoint reabrir sozinho nas próximas visitas.",
+        );
+        setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!graphReady || needsMicrosoft) return undefined;
+    let cancelled = false;
     loadFolder(current, () => cancelled);
     return () => {
       cancelled = true;
     };
-  }, [current, loadFolder]);
+  }, [current, graphReady, needsMicrosoft, loadFolder]);
 
   useEffect(() => {
     const q = query.trim();
@@ -259,6 +281,7 @@ export default function CentralComercial() {
         return;
       }
       setNeedsMicrosoft(false);
+      setGraphReady(true);
       await loadFolder(current);
     } catch (err) {
       setNeedsMicrosoft(true);
@@ -379,9 +402,21 @@ export default function CentralComercial() {
               needsMicrosoft={needsMicrosoft}
               connecting={connecting}
               onConnect={connectMicrosoft}
-              onRetry={() => {
+              onRetry={async () => {
                 loadRootStatus();
-                    loadFolder(current);
+                const token = await acquireGraphAccessToken({ interactive: false });
+                if (token) {
+                  setNeedsMicrosoft(false);
+                  setError("");
+                  setGraphReady(true);
+                  loadFolder(current);
+                  return;
+                }
+                if (needsMicrosoft) {
+                  connectMicrosoft();
+                  return;
+                }
+                loadFolder(current);
               }}
             />
           ) : null}
@@ -416,34 +451,41 @@ export default function CentralComercial() {
 
 function ErrorCard({ message, onRetry, needsMicrosoft, connecting, onConnect }) {
   return (
-    <div className="mb-5 rounded-2xl border border-[#E5989B]/40 bg-white p-4 sm:p-5 shadow-sm">
-      <p className="text-sm sm:text-base text-tegra-blue-dark">{message}</p>
-      <div className="mt-3 flex flex-col sm:flex-row gap-2">
-        {needsMicrosoft && onConnect ? (
-          <Button
-            type="button"
-            variant="microsoft"
-            onClick={onConnect}
-            disabled={connecting}
-            loading={connecting}
-            className="inline-flex items-center justify-center gap-2"
-          >
-            <MdLogin aria-hidden />
-            {connecting ? "Conectando…" : "Conectar Microsoft"}
-          </Button>
-        ) : null}
-        {onRetry ? (
-          <Button
-            type="button"
-            variant={needsMicrosoft ? "secondary" : undefined}
-            onClick={onRetry}
-            disabled={connecting}
-          >
-            Tentar de novo
-          </Button>
-        ) : null}
+    <section className="central-explorer rounded-xl">
+      <div className="central-session">
+        <h2 className="text-lg font-semibold text-tegra-blue-dark">
+          {needsMicrosoft ? "Confirmar sessão Microsoft" : "Não foi possível abrir a pasta"}
+        </h2>
+        <p className="mt-2 max-w-xl text-sm leading-relaxed text-[#5b6b80]">
+          {message}
+        </p>
+        <div className="mt-5 flex flex-col sm:flex-row gap-2">
+          {needsMicrosoft && onConnect ? (
+            <Button
+              type="button"
+              variant="microsoft"
+              onClick={onConnect}
+              disabled={connecting}
+              loading={connecting}
+              className="inline-flex items-center justify-center gap-2"
+            >
+              <MdLogin aria-hidden />
+              {connecting ? "Abrindo Microsoft…" : "Continuar com a Microsoft"}
+            </Button>
+          ) : null}
+          {onRetry ? (
+            <Button
+              type="button"
+              variant={needsMicrosoft ? "secondary" : undefined}
+              onClick={onRetry}
+              disabled={connecting}
+            >
+              Tentar de novo
+            </Button>
+          ) : null}
+        </div>
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -556,6 +598,9 @@ function ExplorerView({
       </div>
       {loading ? (
         <div className="p-3">
+          <p className="mb-3 px-1 text-sm text-[#5b6b80]">
+            Abrindo Documentos Compartilhados…
+          </p>
           <LoadingList />
         </div>
       ) : items.length === 0 ? (

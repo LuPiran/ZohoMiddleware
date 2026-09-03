@@ -1,8 +1,11 @@
-import { PublicClientApplication, LogLevel } from "@azure/msal-browser";
+import {
+  BrowserCacheLocation,
+  PublicClientApplication,
+  LogLevel,
+} from "@azure/msal-browser";
 
 const clientId = import.meta.env.VITE_ENTRA_CLIENT_ID;
 const tenantId = import.meta.env.VITE_ENTRA_TENANT_ID;
-// Sempre usa a origem atual para o redirect bater com a porta do Vite (5173/5174/…).
 const redirectUri =
   typeof window !== "undefined"
     ? window.location.origin
@@ -17,8 +20,8 @@ export const msalConfig = {
     navigateToLoginRequestUrl: false,
   },
   cache: {
-    cacheLocation: "sessionStorage",
-    storeAuthStateInCookie: false,
+    cacheLocation: BrowserCacheLocation.LocalStorage,
+    storeAuthStateInCookie: true,
   },
   system: {
     loggerOptions: {
@@ -45,6 +48,23 @@ export const loginRequest = {
 };
 
 let msalInstance = null;
+let initPromise = null;
+let redirectResultPromise = null;
+
+function migrateSessionMsalCache() {
+  if (typeof window === "undefined") return;
+  try {
+    for (let i = 0; i < sessionStorage.length; i += 1) {
+      const key = sessionStorage.key(i);
+      if (!key || !key.toLowerCase().includes("msal")) continue;
+      if (!localStorage.getItem(key)) {
+        localStorage.setItem(key, sessionStorage.getItem(key) || "");
+      }
+    }
+  } catch {
+    /* storage indisponível */
+  }
+}
 
 export function getMsalInstance() {
   if (!msalInstance) {
@@ -53,13 +73,45 @@ export function getMsalInstance() {
         "Microsoft Entra ID não configurado no frontend (VITE_ENTRA_CLIENT_ID / VITE_ENTRA_TENANT_ID).",
       );
     }
+    migrateSessionMsalCache();
     msalInstance = new PublicClientApplication(msalConfig);
   }
   return msalInstance;
 }
 
+function activateAccount(instance, preferred) {
+  const account =
+    preferred || instance.getActiveAccount() || instance.getAllAccounts()[0] || null;
+  if (account) instance.setActiveAccount(account);
+  return account;
+}
+
 export async function ensureMsalInitialized() {
-  const instance = getMsalInstance();
-  await instance.initialize();
-  return instance;
+  if (!initPromise) {
+    initPromise = (async () => {
+      const instance = getMsalInstance();
+      await instance.initialize();
+      if (!redirectResultPromise) {
+        redirectResultPromise = instance.handleRedirectPromise().catch((error) => {
+          console.warn("[MSAL] redirect:", error?.message || error);
+          return null;
+        });
+      }
+      const redirect = await redirectResultPromise;
+      activateAccount(instance, redirect?.account || null);
+      return instance;
+    })();
+  }
+  return initPromise;
+}
+
+export async function getMsalRedirectResult() {
+  await ensureMsalInitialized();
+  return redirectResultPromise;
+}
+
+export function getActiveMsalAccount(instance) {
+  return (
+    instance?.getActiveAccount() || instance?.getAllAccounts()?.[0] || null
+  );
 }

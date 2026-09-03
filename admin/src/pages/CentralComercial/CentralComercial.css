@@ -102,6 +102,16 @@
   text-align: center;
 }
 
+.central-session {
+  padding: 2.5rem 1.5rem 2.75rem;
+}
+
+@media (min-width: 640px) {
+  .central-session {
+    padding: 3rem 2rem 3.15rem;
+  }
+}
+
 .central-explorer-head,
 .central-explorer-row {
   grid-template-columns: minmax(0, 1fr) 8.75rem 5.5rem 2.75rem;
