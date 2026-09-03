@@ -503,14 +503,17 @@ function ErrorCard({ message, onRetry, needsMicrosoft, connecting, onConnect }) 
 }
 
 function ExplorerView({ items, loading, kind, onOpen, onDownload }) {
+  const folders = items.filter((item) => item.isFolder).length;
+  const files = items.length - folders;
   const emptyMessage =
     kind === "folders"
       ? "Nenhuma pasta nesta visualização."
       : kind === "files"
         ? "Nenhum arquivo nesta pasta."
-        : "Esta pasta está vazia.";
+        : "Nenhum item nesta pasta.";
+
   return (
-    <section className="bg-tegra-bg-primary rounded-lg shadow-md p-3 sm:p-4 md:p-5">
+    <section className="central-explorer rounded-xl">
       <div className="central-explorer-head hidden sm:grid" aria-hidden>
         <span>Nome</span>
         <span>Modificado</span>
@@ -518,11 +521,19 @@ function ExplorerView({ items, loading, kind, onOpen, onDownload }) {
         <span />
       </div>
       {loading ? (
-        <LoadingList />
+        <div className="p-3">
+          <LoadingList />
+        </div>
       ) : items.length === 0 ? (
-        <p className="py-10 text-center text-sm text-tegra-text-secondary">
-          {emptyMessage}
-        </p>
+        <div className="px-6 py-14 text-center">
+          <p className="text-base font-semibold text-tegra-blue-dark">
+            {emptyMessage}
+          </p>
+          <p className="mt-2 text-sm text-tegra-text-secondary">
+            Se o SharePoint tem pastas aqui, reconecte a Microsoft e atualize a
+            página.
+          </p>
+        </div>
       ) : (
         <div className="flex flex-col">
           {items.map((item, index) => (
@@ -530,7 +541,7 @@ function ExplorerView({ items, loading, kind, onOpen, onDownload }) {
               key={item.id}
               layout="explorer"
               icon={item.isFolder ? "folder" : item.icon}
-              toneKey={item.icon}
+              toneKey={item.isFolder ? "folder" : item.icon}
               title={item.name}
               description={item.desc}
               modified={formatModified(item.modifiedAt)}
@@ -538,11 +549,19 @@ function ExplorerView({ items, loading, kind, onOpen, onDownload }) {
               isFolder={item.isFolder}
               onOpen={() => onOpen(item)}
               onDownload={() => onDownload(item)}
-              delay={Math.min(index * 0.03, 0.16)}
+              delay={Math.min(index * 0.02, 0.12)}
             />
           ))}
         </div>
       )}
+      {!loading && items.length > 0 ? (
+        <p className="central-explorer-foot">
+          Contagem {items.length}
+          {kind === "all"
+            ? ` · ${folders} ${folders === 1 ? "pasta" : "pastas"} · ${files} ${files === 1 ? "arquivo" : "arquivos"}`
+            : null}
+        </p>
+      ) : null}
     </section>
   );
 }

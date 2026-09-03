@@ -42,7 +42,7 @@ export default function ResourceItem({
         isGrid
           ? "flex flex-col gap-3 p-4 sm:p-5"
           : isExplorer
-            ? "central-explorer-row"
+            ? "central-explorer-row border-0 shadow-none rounded-none bg-transparent"
             : "flex items-center gap-3.5 p-3.5 sm:p-4"
       } ${tone.hover}`}
     >

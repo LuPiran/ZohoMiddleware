@@ -135,7 +135,7 @@ function sharePointDefaults() {
       "sites/EstruturadePastas-TegraPharma",
     driveName:
       ENV.GRAPH_SHAREPOINT_DRIVE_NAME || "Documentos Compartilhados",
-    rootPath: normalizeFolderPath(ENV.GRAPH_SHAREPOINT_ROOT_PATH || ""),
+    rootPath: "",
     siteId:
       ENV.GRAPH_SHAREPOINT_SITE_ID || ENV.SHAREPOINT_SITE_ID || "",
     driveId:
@@ -408,20 +408,32 @@ function notFound() {
   throw err;
 }
 
+function withRootContext(resolved, item) {
+  return {
+    item,
+    driveId: resolved.driveId,
+    root: resolved.root,
+    configuredRootPath: resolved.configuredRootPath,
+    hostname: resolved.hostname,
+    sitePath: resolved.sitePath,
+    siteId: resolved.siteId,
+  };
+}
+
 async function loadAllowedItem(itemId) {
-  const { driveId, root, configuredRootPath } = await getSharePointRoot();
-  if (itemId === root.id) return { item: root, driveId, root, configuredRootPath };
+  const resolved = await getSharePointRoot();
+  const { driveId, root, configuredRootPath } = resolved;
+  if (itemId === root.id) return withRootContext(resolved, root);
 
   const response = await graphRequest(
     "GET",
     `/drives/${driveId}/items/${encodeURIComponent(itemId)}`,
-    { params: { $select: SELECT } },
   );
   const item = response.data;
   if (!isItemUnderRoot(item, root, configuredRootPath)) {
     notFound();
   }
-  return { item, driveId, root, configuredRootPath };
+  return withRootContext(resolved, item);
 }
 
 async function collectPages(firstUrl, params) {
@@ -443,6 +455,75 @@ async function collectPages(firstUrl, params) {
   return items;
 }
 
+async function listChildrenTrying(urls) {
+  let lastError = null;
+  for (const url of urls.filter(Boolean)) {
+    try {
+      const rows = await collectPages(url, { $top: 200 });
+      logSharePoint("tentativa de lista", {
+        url: String(url).slice(0, 140),
+        itens: rows.length,
+        nomes: rows.slice(0, 8).map((row) => row.name),
+      });
+      if (rows.length > 0) return rows;
+    } catch (error) {
+      lastError = error;
+      logSharePoint("tentativa de lista falhou", {
+        ok: false,
+        url: String(url).slice(0, 140),
+        message: error.message,
+        code: error.code || null,
+      });
+    }
+  }
+  if (lastError && urls.filter(Boolean).length === 1) throw lastError;
+  return [];
+}
+
+async function listViaSharePointList(siteId) {
+  if (!siteId) return [];
+  try {
+    const response = await graphRequest("GET", `/sites/${siteId}/lists`, {
+      params: { $select: "id,name,displayName,list" },
+    });
+    const lists = Array.isArray(response.data?.value) ? response.data.value : [];
+    const library =
+      lists.find((row) => isDefaultDocumentLibraryName(row.displayName || row.name)) ||
+      lists.find((row) => row.list?.template === "documentLibrary" && !isSecondaryLibraryName(row.displayName || row.name));
+    if (!library?.id) {
+      logSharePoint("nenhuma lista de documentos", {
+        listas: lists.map((row) => row.displayName || row.name),
+      });
+      return [];
+    }
+
+    const rows = await collectPages(`/sites/${siteId}/lists/${library.id}/items`, {
+      $top: 200,
+      $expand: "driveItem,fields",
+    });
+    const driveItems = rows
+      .map((row) => row.driveItem)
+      .filter(Boolean);
+    const rootOnly = driveItems.filter((item) => {
+      const path = String(item.parentReference?.path || "");
+      return /\/root:?$/.test(path) || path.endsWith("/root:");
+    });
+    const picked = rootOnly.length > 0 ? rootOnly : driveItems;
+    logSharePoint("lista via SharePoint list", {
+      lista: library.displayName || library.name,
+      brutos: rows.length,
+      raiz: picked.length,
+    });
+    return picked;
+  } catch (error) {
+    logSharePoint("lista via SharePoint list falhou", {
+      ok: false,
+      message: error.message,
+    });
+    return [];
+  }
+}
+
 export async function listFolder(itemId) {
   const cacheKey = `${getGraphSubject()}:${itemId || "ROOT"}`;
   const cached = listCache.get(cacheKey);
@@ -452,15 +533,9 @@ export async function listFolder(itemId) {
 
   const ctx = itemId
     ? await loadAllowedItem(itemId)
-    : await getSharePointRoot().then((resolved) => ({
-        item: resolved.root,
-        driveId: resolved.driveId,
-        root: resolved.root,
-        configuredRootPath: resolved.configuredRootPath,
-        hostname: resolved.hostname,
-        sitePath: resolved.sitePath,
-      }));
-  const { item, driveId, root, configuredRootPath } = ctx;
+    : await getSharePointRoot().then((resolved) => withRootContext(resolved, resolved.root));
+  const { item, driveId, root, configuredRootPath, siteId } = ctx;
+  const defaults = sharePointDefaults();
 
   if (!item.folder && itemId && item.id !== root.id) {
     return {
@@ -470,35 +545,21 @@ export async function listFolder(itemId) {
   }
 
   const atLibraryRoot = !configuredRootPath && item.id === root.id;
-  const childrenUrl = atLibraryRoot
-    ? siteDriveChildrenUrl({
-        hostname: ctx.hostname || sharePointDefaults().hostname,
-        sitePath: ctx.sitePath || sharePointDefaults().sitePath,
-      })
-    : `/drives/${driveId}/items/${item.id}/children`;
+  const urls = atLibraryRoot
+    ? [
+        siteDriveChildrenUrl({
+          hostname: ctx.hostname || defaults.hostname,
+          sitePath: ctx.sitePath || defaults.sitePath,
+        }),
+        siteId ? `/sites/${siteId}/drive/root/children` : null,
+        `/drives/${driveId}/root/children`,
+        `/drives/${driveId}/items/${item.id}/children`,
+      ]
+    : [`/drives/${driveId}/items/${item.id}/children`];
 
-  let raw = [];
-  try {
-    raw = await collectPages(childrenUrl, {
-      $select: SELECT,
-      $top: 200,
-    });
-  } catch (error) {
-    if (!atLibraryRoot) throw error;
-    logSharePoint("lista via site:/drive falhou; tentando /drives/root/children", {
-      ok: false,
-      message: error.message,
-    });
-  }
-
+  let raw = await listChildrenTrying(urls);
   if (raw.length === 0 && atLibraryRoot) {
-    logSharePoint("lista da biblioteca padrão vazia; tentando /drives/root/children", {
-      url: childrenUrl,
-    });
-    raw = await collectPages(`/drives/${driveId}/root/children`, {
-      $select: SELECT,
-      $top: 200,
-    });
+    raw = await listViaSharePointList(siteId);
   }
 
   const children = raw
@@ -515,7 +576,9 @@ export async function listFolder(itemId) {
     }),
     items: children,
   };
-  listCache.set(cacheKey, { payload, expiresAt: Date.now() + LIST_TTL_MS });
+  if (children.length > 0) {
+    listCache.set(cacheKey, { payload, expiresAt: Date.now() + LIST_TTL_MS });
+  }
   logSharePoint("pasta listada", {
     pasta: payload.folder?.name,
     id: String(payload.folder?.id || cacheKey).slice(0, 16),
