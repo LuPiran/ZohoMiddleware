@@ -159,24 +159,79 @@ async function resolveSiteId(defaults) {
   return response.data?.id;
 }
 
+function foldName(value) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+}
+
+function isDefaultDocumentLibraryName(name) {
+  const folded = foldName(name);
+  return (
+    folded === "documentos compartilhados" ||
+    folded === "shared documents" ||
+    folded === "documents" ||
+    folded === "documentos" ||
+    folded.includes("documentos compartilhado") ||
+    folded.includes("shared document")
+  );
+}
+
+function isSecondaryLibraryName(name) {
+  return /style|estilo|asset|form template|site pages|paginas do site/i.test(
+    String(name || ""),
+  );
+}
+
+function siteDriveChildrenUrl(defaults) {
+  const sitePath = String(defaults.sitePath || "")
+    .replace(/^\/+|\/+$/g, "");
+  const encoded = encodeURIComponent(sitePath).replace(/%2F/gi, "/");
+  return `/sites/${defaults.hostname}:/${encoded}:/drive/root/children`;
+}
+
 async function resolveDriveId(siteId, defaults) {
   if (defaults.driveId) return defaults.driveId;
+
+  try {
+    const def = await graphRequest("GET", `/sites/${siteId}/drive`, {
+      params: { $select: "id,name,driveType" },
+    });
+    if (def.data?.id) {
+      logSharePoint("biblioteca padrão do site", {
+        nome: def.data.name,
+        id: String(def.data.id).slice(0, 20),
+      });
+      return def.data.id;
+    }
+  } catch (error) {
+    logSharePoint("biblioteca padrão indisponível, listando drives", {
+      ok: false,
+      message: error.message,
+    });
+  }
+
   const response = await graphRequest("GET", `/sites/${siteId}/drives`, {
     params: { $select: "id,name,driveType" },
   });
   const drives = Array.isArray(response.data?.value) ? response.data.value : [];
-  const wanted = String(defaults.driveName || "")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
+  const wanted = foldName(defaults.driveName);
   const match =
-    drives.find((drive) => {
-      const name = String(drive.name || "")
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "");
-      return name === wanted;
-    }) || drives.find((drive) => drive.driveType === "documentLibrary");
+    drives.find((drive) => foldName(drive.name) === wanted) ||
+    drives.find((drive) => isDefaultDocumentLibraryName(drive.name)) ||
+    drives.find(
+      (drive) =>
+        drive.driveType === "documentLibrary" &&
+        !isSecondaryLibraryName(drive.name),
+    ) ||
+    drives.find((drive) => drive.driveType === "documentLibrary");
+
+  logSharePoint("drives do site", {
+    nomes: drives.map((drive) => `${drive.name}:${drive.driveType}`),
+    escolhida: match?.name || null,
+  });
   return match?.id || null;
 }
 
@@ -217,12 +272,12 @@ export async function getSharePointRoot({ force = false } = {}) {
 
   const defaults = sharePointDefaults();
   const stored = force ? null : await getStoredLocation();
-  const siteIdHint = stored?.siteId || defaults.siteId;
-  const driveIdHint = stored?.driveId || defaults.driveId;
   const libraryRoot = !defaults.rootPath;
-  const rootItemHint = libraryRoot
-    ? defaults.rootItemId
-    : stored?.rootFolderId || defaults.rootItemId;
+  const siteIdHint = stored?.siteId || defaults.siteId;
+  const driveIdHint =
+    defaults.driveId || (!libraryRoot ? stored?.driveId : "") || "";
+  const rootItemHint =
+    defaults.rootItemId || (!libraryRoot ? stored?.rootFolderId : "") || "";
 
   let siteId = siteIdHint;
   let driveId = driveIdHint;
@@ -282,7 +337,8 @@ export async function getSharePointRoot({ force = false } = {}) {
     driveId: String(driveId).slice(0, 20),
     rootId: String(root.id).slice(0, 16),
     rootName: root.name,
-    via: stored?.rootFolderId ? "ids" : "caminho",
+    childCount: root.folder?.childCount ?? null,
+    via: libraryRoot ? "biblioteca" : "subpasta",
   });
 
   rootCache = {
@@ -290,6 +346,8 @@ export async function getSharePointRoot({ force = false } = {}) {
     driveId,
     root,
     configuredRootPath: defaults.rootPath,
+    hostname: defaults.hostname,
+    sitePath: defaults.sitePath,
     expiresAt: Date.now() + 10 * 60 * 1000,
   };
   return rootCache;
@@ -324,7 +382,7 @@ export function classifyPreview(item) {
 }
 
 export function publicItem(item) {
-  const isFolder = Boolean(item?.folder);
+  const isFolder = Boolean(item?.folder) || (!item?.file && Boolean(item?.id));
   const preview = classifyPreview(item);
   const size = Number(item?.size || 0);
   return {
@@ -392,14 +450,17 @@ export async function listFolder(itemId) {
     return cached.payload;
   }
 
-  const { item, driveId, root, configuredRootPath } = itemId
+  const ctx = itemId
     ? await loadAllowedItem(itemId)
-    : await getSharePointRoot().then((ctx) => ({
-        item: ctx.root,
-        driveId: ctx.driveId,
-        root: ctx.root,
-        configuredRootPath: ctx.configuredRootPath,
+    : await getSharePointRoot().then((resolved) => ({
+        item: resolved.root,
+        driveId: resolved.driveId,
+        root: resolved.root,
+        configuredRootPath: resolved.configuredRootPath,
+        hostname: resolved.hostname,
+        sitePath: resolved.sitePath,
       }));
+  const { item, driveId, root, configuredRootPath } = ctx;
 
   if (!item.folder && itemId && item.id !== root.id) {
     return {
@@ -408,13 +469,39 @@ export async function listFolder(itemId) {
     };
   }
 
-  const raw = await collectPages(
-    `/drives/${driveId}/items/${item.id}/children`,
-    { $select: SELECT, $top: 200 },
-  );
+  const atLibraryRoot = !configuredRootPath && item.id === root.id;
+  const childrenUrl = atLibraryRoot
+    ? siteDriveChildrenUrl({
+        hostname: ctx.hostname || sharePointDefaults().hostname,
+        sitePath: ctx.sitePath || sharePointDefaults().sitePath,
+      })
+    : `/drives/${driveId}/items/${item.id}/children`;
+
+  let raw = [];
+  try {
+    raw = await collectPages(childrenUrl, {
+      $select: SELECT,
+      $top: 200,
+    });
+  } catch (error) {
+    if (!atLibraryRoot) throw error;
+    logSharePoint("lista via site:/drive falhou; tentando /drives/root/children", {
+      ok: false,
+      message: error.message,
+    });
+  }
+
+  if (raw.length === 0 && atLibraryRoot) {
+    logSharePoint("lista da biblioteca padrão vazia; tentando /drives/root/children", {
+      url: childrenUrl,
+    });
+    raw = await collectPages(`/drives/${driveId}/root/children`, {
+      $select: SELECT,
+      $top: 200,
+    });
+  }
 
   const children = raw
-    .filter((child) => isItemUnderRoot(child, root, configuredRootPath) || child.parentReference?.id === item.id)
     .map(publicItem)
     .sort((a, b) => {
       if (a.isFolder !== b.isFolder) return a.isFolder ? -1 : 1;
@@ -432,9 +519,11 @@ export async function listFolder(itemId) {
   logSharePoint("pasta listada", {
     pasta: payload.folder?.name,
     id: String(payload.folder?.id || cacheKey).slice(0, 16),
+    brutos: raw.length,
     itens: children.length,
     pastas: children.filter((row) => row.isFolder).length,
     arquivos: children.filter((row) => !row.isFolder).length,
+    nomes: children.slice(0, 12).map((row) => row.name),
   });
   return payload;
 }
