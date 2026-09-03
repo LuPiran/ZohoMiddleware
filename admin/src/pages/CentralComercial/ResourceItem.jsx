@@ -38,13 +38,15 @@ export default function ResourceItem({
       transition={{ ...itemTransition, delay: reduceMotion ? 0 : delay }}
       whileHover={reduceMotion ? undefined : { y: isExplorer ? 0 : -2 }}
       whileTap={reduceMotion ? undefined : { scale: 0.99 }}
-      className={`group relative text-left rounded-xl bg-white shadow-sm transition-shadow hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-tegra-blue-light/40 ${tone.border} ${
-        isGrid
-          ? "flex flex-col gap-3 p-4 sm:p-5"
-          : isExplorer
-            ? "central-explorer-row border-0 shadow-none rounded-none bg-transparent"
-            : "flex items-center gap-3.5 p-3.5 sm:p-4"
-      } ${tone.hover}`}
+      className={`group relative text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#3da2b8] ${
+        isExplorer
+          ? "central-explorer-row"
+          : `rounded-xl bg-white shadow-sm transition-shadow hover:shadow-md ${tone.border} ${tone.hover} ${
+              isGrid
+                ? "flex flex-col gap-3 p-4 sm:p-5"
+                : "flex items-center gap-3.5 p-3.5 sm:p-4"
+            }`
+      }`}
     >
       {isExplorer ? (
         <span className="flex min-w-0 items-center gap-3">

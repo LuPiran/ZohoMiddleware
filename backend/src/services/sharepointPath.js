@@ -44,6 +44,9 @@ export function isItemUnderRoot(item, root, configuredRootPath = "") {
   if (!configured) {
     if (rootDriveId && itemDriveId && rootDriveId === itemDriveId) return true;
     if (itemPath.includes("/root:") || /\/root$/.test(itemPath)) return true;
+    if (!rootDriveId || !itemDriveId) {
+      return Boolean(item.parentReference?.id || itemPath);
+    }
     return false;
   }
 

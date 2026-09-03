@@ -15,10 +15,11 @@ import {
 } from "../middleware/delegatedGraph.js";
 
 const router = express.Router();
+const GRAPH_ITEM_ID = /^[A-Za-z0-9!._=%+-]{8,512}$/;
 
 function graphIdGuard(req, res, next) {
   const value = String(req.params.itemId || "").trim();
-  if (!/^[A-Za-z0-9!._=-]{8,512}$/.test(value)) {
+  if (!GRAPH_ITEM_ID.test(value)) {
     return res.status(400).json({
       success: false,
       error: "Identificador de material inválido",
@@ -126,7 +127,7 @@ router.get("/browse", async (req, res) => {
       throw err;
     }
     const parentId = String(req.query.parentId || "").trim();
-    if (parentId && !/^[A-Za-z0-9!._=-]{8,512}$/.test(parentId)) {
+    if (parentId && !GRAPH_ITEM_ID.test(parentId)) {
       console.warn("[CENTRAL] browse recusado", {
         parentId,
         motivo: "id curto ou inválido (não é Graph)",
@@ -160,7 +161,7 @@ router.get("/search", async (req, res) => {
     }
     const folderId = String(req.query.folderId || "").trim();
     const scoped =
-      folderId && /^[A-Za-z0-9!._=-]{8,512}$/.test(folderId)
+      folderId && GRAPH_ITEM_ID.test(folderId)
         ? folderId
         : null;
     const payload = await searchCentral(req.query.q, { folderId: scoped });

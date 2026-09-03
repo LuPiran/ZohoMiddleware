@@ -185,11 +185,42 @@ function isSecondaryLibraryName(name) {
   );
 }
 
-function siteDriveChildrenUrl(defaults) {
-  const sitePath = String(defaults.sitePath || "")
-    .replace(/^\/+|\/+$/g, "");
+function siteDriveRootUrl(defaults) {
+  const sitePath = String(defaults.sitePath || "").replace(/^\/+|\/+$/g, "");
   const encoded = encodeURIComponent(sitePath).replace(/%2F/gi, "/");
-  return `/sites/${defaults.hostname}:/${encoded}:/drive/root/children`;
+  return `/sites/${defaults.hostname}:/${encoded}:/drive/root`;
+}
+
+function siteDriveChildrenUrl(defaults) {
+  return `${siteDriveRootUrl(defaults)}/children`;
+}
+
+function encodeDrivePath(relativePath) {
+  return normalizeFolderPath(relativePath)
+    .split("/")
+    .filter(Boolean)
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+}
+
+function folderRelativePath(item, root) {
+  if (!item?.id || !root?.id || item.id === root.id) return "";
+  const parent = String(item.parentReference?.path || "");
+  const marker = "/root:";
+  const index = parent.indexOf(marker);
+  const dir =
+    index >= 0 ? parent.slice(index + marker.length).replace(/^\/+/, "") : "";
+  const name = String(item.name || "").trim();
+  if (!name) return normalizeFolderPath(dir);
+  return normalizeFolderPath(dir ? `${dir}/${name}` : name);
+}
+
+function parentRelativePath(item) {
+  const parent = String(item?.parentReference?.path || "");
+  const marker = "/root:";
+  const index = parent.indexOf(marker);
+  if (index < 0) return "";
+  return normalizeFolderPath(parent.slice(index + marker.length).replace(/^\/+/, ""));
 }
 
 async function resolveDriveId(siteId, defaults) {
@@ -382,7 +413,9 @@ export function classifyPreview(item) {
 }
 
 export function publicItem(item) {
-  const isFolder = Boolean(item?.folder) || (!item?.file && Boolean(item?.id));
+  const isFolder = Boolean(
+    item?.folder || item?.remoteItem?.folder || (!item?.file && !item?.package),
+  );
   const preview = classifyPreview(item);
   const size = Number(item?.size || 0);
   return {
@@ -430,7 +463,7 @@ async function loadAllowedItem(itemId) {
     `/drives/${driveId}/items/${encodeURIComponent(itemId)}`,
   );
   const item = response.data;
-  if (!isItemUnderRoot(item, root, configuredRootPath)) {
+  if (!isItemUnderRoot(item, { ...root, driveId }, configuredRootPath)) {
     notFound();
   }
   return withRootContext(resolved, item);
@@ -480,7 +513,7 @@ async function listChildrenTrying(urls) {
   return [];
 }
 
-async function listViaSharePointList(siteId) {
+async function listViaSharePointList(siteId, relativePath = "") {
   if (!siteId) return [];
   try {
     const response = await graphRequest("GET", `/sites/${siteId}/lists`, {
@@ -501,18 +534,14 @@ async function listViaSharePointList(siteId) {
       $top: 200,
       $expand: "driveItem,fields",
     });
-    const driveItems = rows
-      .map((row) => row.driveItem)
-      .filter(Boolean);
-    const rootOnly = driveItems.filter((item) => {
-      const path = String(item.parentReference?.path || "");
-      return /\/root:?$/.test(path) || path.endsWith("/root:");
-    });
-    const picked = rootOnly.length > 0 ? rootOnly : driveItems;
+    const wanted = normalizeFolderPath(relativePath);
+    const driveItems = rows.map((row) => row.driveItem).filter(Boolean);
+    const picked = driveItems.filter((item) => parentRelativePath(item) === wanted);
     logSharePoint("lista via SharePoint list", {
       lista: library.displayName || library.name,
+      pasta: wanted || "ROOT",
       brutos: rows.length,
-      raiz: picked.length,
+      itens: picked.length,
     });
     return picked;
   } catch (error) {
@@ -537,29 +566,37 @@ export async function listFolder(itemId) {
   const { item, driveId, root, configuredRootPath, siteId } = ctx;
   const defaults = sharePointDefaults();
 
-  if (!item.folder && itemId && item.id !== root.id) {
+  if (item.file && !item.folder) {
     return {
       folder: publicItem(item),
       items: [],
     };
   }
 
-  const atLibraryRoot = !configuredRootPath && item.id === root.id;
+  const siteDefaults = {
+    hostname: ctx.hostname || defaults.hostname,
+    sitePath: ctx.sitePath || defaults.sitePath,
+  };
+  const relative = folderRelativePath(item, root);
+  const encodedRel = encodeDrivePath(relative);
+  const atLibraryRoot = !relative;
+
   const urls = atLibraryRoot
     ? [
-        siteDriveChildrenUrl({
-          hostname: ctx.hostname || defaults.hostname,
-          sitePath: ctx.sitePath || defaults.sitePath,
-        }),
+        siteDriveChildrenUrl(siteDefaults),
         siteId ? `/sites/${siteId}/drive/root/children` : null,
         `/drives/${driveId}/root/children`,
-        `/drives/${driveId}/items/${item.id}/children`,
+        `/drives/${driveId}/items/${encodeURIComponent(item.id)}/children`,
       ]
-    : [`/drives/${driveId}/items/${item.id}/children`];
+    : [
+        `/drives/${driveId}/items/${encodeURIComponent(item.id)}/children`,
+        `/drives/${driveId}/root:/${encodedRel}:/children`,
+        `${siteDriveRootUrl(siteDefaults)}:/${encodedRel}:/children`,
+      ];
 
   let raw = await listChildrenTrying(urls);
-  if (raw.length === 0 && atLibraryRoot) {
-    raw = await listViaSharePointList(siteId);
+  if (raw.length === 0) {
+    raw = await listViaSharePointList(siteId, relative);
   }
 
   const children = raw
@@ -581,6 +618,7 @@ export async function listFolder(itemId) {
   }
   logSharePoint("pasta listada", {
     pasta: payload.folder?.name,
+    caminho: relative || "ROOT",
     id: String(payload.folder?.id || cacheKey).slice(0, 16),
     brutos: raw.length,
     itens: children.length,
@@ -624,8 +662,17 @@ export async function searchCentral(query, { folderId } = {}) {
     );
   }
 
+  const scopeRel = folderRelativePath(scope, root);
   const items = raw
-    .filter((item) => isItemUnderRoot(item, scope, configuredRootPath))
+    .filter((item) => {
+      if (!folderId) {
+        return isItemUnderRoot(item, { ...root, driveId }, configuredRootPath);
+      }
+      if (item.id === scope.id) return false;
+      if (item.parentReference?.id === scope.id) return true;
+      const parentRel = parentRelativePath(item);
+      return Boolean(scopeRel) && (parentRel === scopeRel || parentRel.startsWith(`${scopeRel}/`));
+    })
     .map(publicItem)
     .slice(0, 40);
 

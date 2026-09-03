@@ -79,6 +79,24 @@ describe("isItemUnderRoot", () => {
     ).toBe(false);
   });
 
+  it("na raiz da biblioteca aceita neto sem driveId no item", () => {
+    const libraryRoot = {
+      id: "LIBROOT",
+      name: "root",
+      parentReference: { driveId: "DRIVE", path: "/drives/DRIVE/root:" },
+    };
+    expect(
+      isItemUnderRoot(
+        {
+          id: "NETO",
+          parentReference: { id: "CHILD" },
+        },
+        libraryRoot,
+        "",
+      ),
+    ).toBe(true);
+  });
+
   it("na raiz da biblioteca aceita qualquer item do mesmo drive", () => {
     const libraryRoot = {
       id: "LIBROOT",
