@@ -80,16 +80,30 @@ function formatRegiao(lead) {
   return null;
 }
 
+// TEMPORÁRIO — enquanto a gerência de Lucas e Samuel não está 100%
+// configurada no Zoho, os e-mails de gestão desses dois também vão pra cá.
+// Remover quando a gerência real desses consultores estiver correta.
+const GERENCIA_EMAIL_EXTRA = "samuel.bispon01@gmail.com";
+const GERENCIA_EMAIL_EXTRA_CONSULTORES = ["lucas", "samuel"];
+
 /**
  * E-mail(s) do gerente responsável pela gerência do lead — não existe perfil
  * Gestão para esse fim, só Gerente e Consultor.
  */
 async function getGerenteEmails(lead) {
+  let emails = [];
   try {
-    return await findGerenteEmailsByGerencia(lead?.gerencia);
+    emails = await findGerenteEmailsByGerencia(lead?.gerencia);
   } catch {
-    return [];
+    emails = [];
   }
+
+  const consultorNome = String(lead?.consultor || "").toLowerCase();
+  if (GERENCIA_EMAIL_EXTRA_CONSULTORES.some((nome) => consultorNome.includes(nome))) {
+    emails = [...emails, GERENCIA_EMAIL_EXTRA];
+  }
+
+  return [...new Set(emails.filter(Boolean))];
 }
 
 async function sendEmailToMany(emails, payload) {
