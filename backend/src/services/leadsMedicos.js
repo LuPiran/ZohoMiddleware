@@ -3,8 +3,10 @@ import {
   notifyLeadAceito,
   notifyLeadConvertido,
   notifyLeadSemTratativa,
+  notifyQuartaTentativaSolicitada,
   notifyStatusChange,
   notifyTentativa,
+  notifyTentativaVencida,
 } from "./emailService.js";
 import {
   GetCommand,
@@ -46,6 +48,7 @@ import {
 import {
   ATTEMPT_ROUNDS,
   agendamentoUpdates,
+  attemptDeadlineAt,
   buildAttemptView,
   buildLeadTimeline,
   currentOpenAttemptRound,
@@ -1755,7 +1758,16 @@ async function applyAttemptTimeout(raw, round) {
     observacao,
     leadTerminal,
   });
-  if (leadTerminal) void notifyLeadSemTratativa(updated);
+  if (leadTerminal) {
+    void notifyLeadSemTratativa(updated);
+  } else {
+    const nextDeadline = attemptDeadlineAt(updated, n + 1);
+    void notifyTentativaVencida(
+      updated,
+      n,
+      nextDeadline ? nextDeadline.toISOString() : null,
+    );
+  }
   return updated;
 }
 
@@ -1979,6 +1991,7 @@ export async function requestFourthAttempt(
     dataQuartaTentativa: updates.dataQuartaTentativa,
     motivo: note,
   });
+  void notifyQuartaTentativaSolicitada(updated);
   return toLeadDetail(updated);
 }
 
