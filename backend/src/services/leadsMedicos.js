@@ -8,15 +8,7 @@ import {
   notifyTentativa,
   notifyTentativaVencida,
 } from "./emailService.js";
-import {
-  GetCommand,
-  PutCommand,
-  QueryCommand,
-  ScanCommand,
-  UpdateCommand,
-} from "@aws-sdk/lib-dynamodb";
-import { dynamoDocClient } from "../config/dynamodb.js";
-import { ENV } from "../config/env.js";
+import * as leadsRepo from "../db/leadsRepo.js";
 import {
   decrementCargaAceita,
   findConsultorByEmail,
@@ -68,7 +60,6 @@ import {
 } from "../domain/leadProtocol.js";
 import { persistLeadEvidencias } from "./leadEvidencias.js";
 import { downloadWorkDriveFile, workDrivePreviewUrl } from "./workdrive.js";
-import { buildDynamoUpdateParts } from "../utils/dynamoUpdate.js";
 import { geocodeAddress } from "./geocoding.js";
 
 // Mapa UF → Região (fallback quando Zoho não envia Dist_Regiao)
@@ -107,8 +98,6 @@ function resolveRegiaoFromUF(uf) {
   const sigla = NOME_ESTADO_PARA_UF[normalized];
   return sigla ? UF_REGIAO[sigla] : null;
 }
-
-const TABLE = () => ENV.DYNAMODB_LEADS_TABLE;
 
 /**
  * Normaliza chaves do payload (PT/EN, espaços, acentos) para lookup flexível.
@@ -224,12 +213,12 @@ function extractZohoStatusUpdateFields(source) {
 }
 
 /**
- * Mapeia o payload do Zoho para o item DynamoDB (portal_leads_medicos).
+ * Mapeia o payload do Zoho para o item de lead (portal_leads_medicos).
  *
- * Chaves alinhadas aos GSIs:
- * - gsi_zoho → idZoho
- * - gsi_consultor → consultorId (PK) + entradaEm (SK)
- * - gsi_sla → slaStatus (PK) + slaDeadline (SK)
+ * Chaves alinhadas aos índices MySQL:
+ * - id_zoho → idZoho
+ * - consultor_id + entrada_em → consultorId + entradaEm
+ * - sla_status + sla_deadline → slaStatus + slaDeadline
  */
 export function mapZohoPayloadToLead(payload) {
   const source = payload?.data && typeof payload.data === "object" ? payload.data : payload;
@@ -606,107 +595,17 @@ async function enrichLeadWithPortalConsultor(lead, payload) {
 }
 
 async function findLeadByZohoId(idZoho) {
-  const indexName = ENV.DYNAMODB_LEADS_ZOHO_ID_INDEX || "gsi_zoho";
-  const zohoAttr = ENV.DYNAMODB_LEADS_ZOHO_ID_ATTR || "idZoho";
-
-  try {
-    const byGsi = await dynamoDocClient.send(
-      new QueryCommand({
-        TableName: TABLE(),
-        IndexName: indexName,
-        KeyConditionExpression: "#zohoAttr = :idZoho",
-        ExpressionAttributeNames: { "#zohoAttr": zohoAttr },
-        ExpressionAttributeValues: { ":idZoho": idZoho },
-        Limit: 1,
-      }),
-    );
-    if (byGsi.Items?.length) return byGsi.Items[0];
-    return null;
-  } catch (error) {
-    if (
-      error.name === "ValidationException" ||
-      error.name === "ResourceNotFoundException"
-    ) {
-      const err = new Error(
-        `Índice "${indexName}" indisponível ou partition key diferente de "${zohoAttr}". Confira o GSI gsi_zoho no Dynamo.`,
-      );
-      err.status = 503;
-      err.code = "DYNAMO_GSI_MISSING";
-      throw err;
-    }
-    throw error;
-  }
+  return leadsRepo.findByZohoId(idZoho);
 }
 
 async function findLeadByRegistroUf(numeroRegistro, ufCrm) {
-  const reg = String(numeroRegistro || "").trim();
-  const uf = String(ufCrm || "").trim().toUpperCase();
-  if (!reg || !uf) return null;
-
-  let lastKey;
-  do {
-    const page = await dynamoDocClient.send(
-      new ScanCommand({
-        TableName: TABLE(),
-        FilterExpression: "#nr = :nr AND #uf = :uf",
-        ExpressionAttributeNames: { "#nr": "numeroRegistro", "#uf": "ufCrm" },
-        ExpressionAttributeValues: { ":nr": reg, ":uf": uf },
-        ExclusiveStartKey: lastKey,
-      }),
-    );
-    if (page.Items?.length) return page.Items[0];
-    lastKey = page.LastEvaluatedKey;
-  } while (lastKey);
-
-  return null;
+  return leadsRepo.findByRegistroUf(numeroRegistro, ufCrm);
 }
 
 async function findLeadByProtocolo(protocolo) {
   const code = normalizeProtocolo(protocolo);
   if (!code) return null;
-
-  const indexName = ENV.DYNAMODB_LEADS_PROTOCOLO_INDEX || "gsi_protocolo";
-  const attr = ENV.DYNAMODB_LEADS_PROTOCOLO_ATTR || "protocolo";
-
-  try {
-    const byGsi = await dynamoDocClient.send(
-      new QueryCommand({
-        TableName: TABLE(),
-        IndexName: indexName,
-        KeyConditionExpression: "#pk = :pk",
-        ExpressionAttributeNames: { "#pk": attr },
-        ExpressionAttributeValues: { ":pk": code },
-        Limit: 1,
-      }),
-    );
-    if (byGsi.Items?.length) return byGsi.Items[0];
-    return null;
-  } catch (error) {
-    if (
-      error.name !== "ValidationException" &&
-      error.name !== "ResourceNotFoundException"
-    ) {
-      throw error;
-    }
-  }
-
-  let lastKey;
-  do {
-    const page = await dynamoDocClient.send(
-      new ScanCommand({
-        TableName: TABLE(),
-        FilterExpression: "#pk = :pk",
-        ExpressionAttributeNames: { "#pk": attr },
-        ExpressionAttributeValues: { ":pk": code },
-        ExclusiveStartKey: lastKey,
-        Limit: 1,
-      }),
-    );
-    if (page.Items?.length) return page.Items[0];
-    lastKey = page.LastEvaluatedKey;
-  } while (lastKey);
-
-  return null;
+  return leadsRepo.findByProtocolo(code);
 }
 
 async function assignUniqueProtocolo(preferred) {
@@ -729,8 +628,8 @@ async function assignUniqueProtocolo(preferred) {
 }
 
 /**
- * Cria lead médico no DynamoDB a partir do payload Zoho.
- * Idempotente por idZoho (GSI gsi_zoho). id da tabela = UUID próprio.
+ * Cria lead médico no MySQL a partir do payload Zoho.
+ * Idempotente por idZoho. id da tabela = UUID próprio.
  *
  * Com região: fila 24h (consultores, gerência por último).
  * Sem região: fila da Gestão.
@@ -943,25 +842,16 @@ export async function createLeadFromZoho(payload) {
   }
 
   try {
-    await dynamoDocClient.send(
-      new PutCommand({
-        TableName: TABLE(),
-        Item: lead,
-        ConditionExpression: "attribute_not_exists(id)",
-      }),
-    );
+    await leadsRepo.putIfNotExists(lead);
   } catch (error) {
     if (error.name === "ConditionalCheckFailedException") {
-      const current = await dynamoDocClient.send(
-        new GetCommand({
-          TableName: TABLE(),
-          Key: { id: lead.id },
-        }),
-      );
+      const current =
+        (await leadsRepo.getById(lead.id)) ||
+        (await leadsRepo.findByZohoId(lead.idZoho));
       return {
         created: false,
         alreadyExists: true,
-        lead: current.Item || lead,
+        lead: current || lead,
       };
     }
     throw error;
@@ -978,63 +868,11 @@ export async function createLeadFromZoho(payload) {
 }
 
 async function scanAllLeads() {
-  const items = [];
-  let ExclusiveStartKey;
-
-  do {
-    const page = await dynamoDocClient.send(
-      new ScanCommand({
-        TableName: TABLE(),
-        ExclusiveStartKey,
-      }),
-    );
-    items.push(...(page.Items || []));
-    ExclusiveStartKey = page.LastEvaluatedKey;
-  } while (ExclusiveStartKey);
-
-  return items;
+  return leadsRepo.listAll();
 }
 
 async function queryLeadsByConsultorId(consultorId) {
-  if (!consultorId) return [];
-
-  const indexName = ENV.DYNAMODB_LEADS_CONSULTOR_INDEX || "gsi_consultor";
-  const pkAttr = ENV.DYNAMODB_LEADS_CONSULTOR_ATTR || "consultorId";
-  const items = [];
-  let ExclusiveStartKey;
-
-  try {
-    do {
-      const page = await dynamoDocClient.send(
-        new QueryCommand({
-          TableName: TABLE(),
-          IndexName: indexName,
-          KeyConditionExpression: "#pk = :pk",
-          ExpressionAttributeNames: { "#pk": pkAttr },
-          ExpressionAttributeValues: { ":pk": String(consultorId) },
-          ScanIndexForward: false,
-          ExclusiveStartKey,
-        }),
-      );
-      items.push(...(page.Items || []));
-      ExclusiveStartKey = page.LastEvaluatedKey;
-    } while (ExclusiveStartKey);
-  } catch (error) {
-    if (
-      error.name === "ValidationException" ||
-      error.name === "ResourceNotFoundException"
-    ) {
-      const err = new Error(
-        `Índice "${indexName}" indisponível ou partition key diferente de "${pkAttr}".`,
-      );
-      err.status = 503;
-      err.code = "DYNAMO_GSI_MISSING";
-      throw err;
-    }
-    throw error;
-  }
-
-  return items;
+  return leadsRepo.listByConsultorId(consultorId);
 }
 
 function leadMatchesConsultor(lead, viewer) {
@@ -1495,21 +1333,16 @@ export async function getLeadForUser(leadId, user = {}) {
   }
 
   const { role, viewer } = await resolveViewerContext(user);
-  const result = await dynamoDocClient.send(
-    new GetCommand({
-      TableName: TABLE(),
-      Key: { id },
-    }),
-  );
+  const item = await leadsRepo.getById(id);
 
-  if (!result.Item) {
+  if (!item) {
     const err = new Error("Lead não encontrado");
     err.status = 404;
     err.code = "NOT_FOUND";
     throw err;
   }
 
-  if (!userCanAccessLead(result.Item, role, viewer)) {
+  if (!userCanAccessLead(item, role, viewer)) {
     const err = new Error("Você não tem permissão para ver este lead");
     err.status = 403;
     err.code = "FORBIDDEN";
@@ -1524,32 +1357,27 @@ export async function getLeadForUser(leadId, user = {}) {
       nome: viewer.nome || null,
       gerencia: viewer.gerencia || null,
     },
-    lead: toLeadDetail(result.Item),
+    lead: toLeadDetail(item),
   };
 }
 
 export async function getEvidenceFileForUser(leadId, evidenciaId, user = {}) {
   const { role, viewer } = await resolveViewerContext(user);
-  const result = await dynamoDocClient.send(
-    new GetCommand({
-      TableName: TABLE(),
-      Key: { id: String(leadId || "").trim() },
-    }),
-  );
-  if (!result.Item) {
+  const item = await leadsRepo.getById(String(leadId || "").trim());
+  if (!item) {
     const err = new Error("Lead não encontrado");
     err.status = 404;
     err.code = "NOT_FOUND";
     throw err;
   }
-  if (!userCanAccessLead(result.Item, role, viewer)) {
+  if (!userCanAccessLead(item, role, viewer)) {
     const err = new Error("Você não tem permissão para ver este lead");
     err.status = 403;
     err.code = "FORBIDDEN";
     throw err;
   }
 
-  const evidencia = (result.Item.evidencias || []).find(
+  const evidencia = (item.evidencias || []).find(
     (item) => String(item.id) === String(evidenciaId),
   );
   if (!evidencia?.workdriveFileId) {
@@ -1568,28 +1396,8 @@ export async function getEvidenceFileForUser(leadId, evidenciaId, user = {}) {
 }
 
 async function updateLeadItem(leadId, updates, condition) {
-  const built = buildDynamoUpdateParts(updates);
-  const names = { ...built.names, ...(condition?.names || {}) };
-  const values = { ...built.values, ...(condition?.values || {}) };
-
-  const exists = "attribute_exists(id)";
-  const conditionExpression = condition?.expression
-    ? `${exists} AND ${condition.expression}`
-    : exists;
-
   try {
-    const result = await dynamoDocClient.send(
-      new UpdateCommand({
-        TableName: TABLE(),
-        Key: { id: leadId },
-        UpdateExpression: built.updateExpression,
-        ExpressionAttributeNames: names,
-        ExpressionAttributeValues: Object.keys(values).length ? values : undefined,
-        ConditionExpression: conditionExpression,
-        ReturnValues: "ALL_NEW",
-      }),
-    );
-    return result.Attributes;
+    return await leadsRepo.update(leadId, updates, condition);
   } catch (error) {
     if (error.name === "ConditionalCheckFailedException") {
       const err = new Error("Esta oferta não está mais disponível.");
@@ -1613,10 +1421,8 @@ export async function registerContactAttempt(
   await getLeadForUser(leadId, user);
   const now = new Date().toISOString();
   const raw = (
-    await dynamoDocClient.send(
-      new GetCommand({ TableName: TABLE(), Key: { id: leadId } }),
-    )
-  ).Item;
+    await leadsRepo.getById(leadId)
+  );
 
   const isMkt = destino === "mkt";
   const { n, note, updates } = treatedAttemptUpdates(raw, round, {
@@ -1775,23 +1581,10 @@ async function applyAttemptTimeout(raw, round) {
  * Varre leads aceitos cujo prazo da tentativa aberta já venceu.
  */
 export async function expireOverdueAttempts() {
-  const items = [];
-  for (const status of ["aceito", "confirmado"]) {
-    let lastKey;
-    do {
-      const page = await dynamoDocClient.send(
-        new ScanCommand({
-          TableName: TABLE(),
-          FilterExpression: "#ss = :status",
-          ExpressionAttributeNames: { "#ss": "slaStatus" },
-          ExpressionAttributeValues: { ":status": status },
-          ExclusiveStartKey: lastKey,
-        }),
-      );
-      items.push(...(page.Items || []));
-      lastKey = page.LastEvaluatedKey;
-    } while (lastKey);
-  }
+  const items = [
+    ...(await leadsRepo.listBySlaStatus("aceito")),
+    ...(await leadsRepo.listBySlaStatus("confirmado")),
+  ];
 
   let expired = 0;
   for (const lead of items) {
@@ -1819,10 +1612,8 @@ export async function markLeadSemInteresse(leadId, user, { observacao, files } =
   await getLeadForUser(leadId, user);
   const now = new Date().toISOString();
   const raw = (
-    await dynamoDocClient.send(
-      new GetCommand({ TableName: TABLE(), Key: { id: leadId } }),
-    )
-  ).Item;
+    await leadsRepo.getById(leadId)
+  );
 
   const { note, round, updates } = semInteresseUpdates(raw, {
     observacao,
@@ -1874,10 +1665,8 @@ export async function markLeadSemContato(leadId, user, { files } = {}) {
   await getLeadForUser(leadId, user);
   const now = new Date().toISOString();
   const raw = (
-    await dynamoDocClient.send(
-      new GetCommand({ TableName: TABLE(), Key: { id: leadId } }),
-    )
-  ).Item;
+    await leadsRepo.getById(leadId)
+  );
 
   const { updates } = semContatoUpdates(raw, { at: now });
   const evidence = await persistLeadEvidencias(raw, files, {
@@ -1925,10 +1714,8 @@ export async function requestFourthAttempt(
   await getLeadForUser(leadId, user);
   const now = new Date().toISOString();
   const raw = (
-    await dynamoDocClient.send(
-      new GetCommand({ TableName: TABLE(), Key: { id: leadId } }),
-    )
-  ).Item;
+    await leadsRepo.getById(leadId)
+  );
 
   const { note, updates } = requestFourthAttemptUpdates(raw, {
     dataQuartaTentativa,
@@ -2005,10 +1792,8 @@ export async function scheduleAgendamento(leadId, user, { data } = {}) {
   await getLeadForUser(leadId, user);
   const now = new Date().toISOString();
   const raw = (
-    await dynamoDocClient.send(
-      new GetCommand({ TableName: TABLE(), Key: { id: leadId } }),
-    )
-  ).Item;
+    await leadsRepo.getById(leadId)
+  );
 
   const { n, entry, updates } = agendamentoUpdates(raw, { data, at: now });
   const dataFormatada = new Date(entry.data).toLocaleDateString("pt-BR");
@@ -2074,11 +1859,7 @@ export async function checkinLead(leadId, user) {
   const now = new Date().toISOString();
 
   if (lead.slaDeadline && new Date(lead.slaDeadline) < new Date()) {
-    const raw = (
-      await dynamoDocClient.send(
-        new GetCommand({ TableName: TABLE(), Key: { id: leadId } }),
-      )
-    ).Item;
+    const raw = await leadsRepo.getById(leadId);
 
     if (raw && isSlaOffered(raw)) {
       await rejectLeadOffer(raw, {
@@ -2096,10 +1877,8 @@ export async function checkinLead(leadId, user) {
   }
 
   const raw = (
-    await dynamoDocClient.send(
-      new GetCommand({ TableName: TABLE(), Key: { id: leadId } }),
-    )
-  ).Item;
+    await leadsRepo.getById(leadId)
+  );
 
   if (!raw || !isSlaOffered(raw)) {
     const err = new Error("Esta oferta não está mais disponível.");
@@ -2162,10 +1941,8 @@ export async function recusarLead(leadId, user) {
   }
 
   const raw = (
-    await dynamoDocClient.send(
-      new GetCommand({ TableName: TABLE(), Key: { id: leadId } }),
-    )
-  ).Item;
+    await leadsRepo.getById(leadId)
+  );
 
   if (!raw || !isSlaOffered(raw)) {
     const err = new Error("Esta oferta não está mais disponível.");

@@ -4,7 +4,7 @@
 - **Frontend**: React 19 + Vite 7 + Tailwind CSS v4 (admin/)
 - **Backend**: Node.js ESM + Express (backend/)
 - **Infra**: Docker Compose → EC2 Ubuntu (`3.136.76.164`) + Cloudflare
-- **Database**: AWS DynamoDB (`us-east-2`)
+- **Database**: MySQL 8 (Docker `zoho-mysql`, localhost:3306)
 
 ## Deploy
 ```bash

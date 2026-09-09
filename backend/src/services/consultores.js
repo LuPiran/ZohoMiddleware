@@ -1,9 +1,5 @@
-import { PutCommand, QueryCommand, ScanCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { geocodeAddress } from "./geocoding.js";
-import { dynamoDocClient } from "../config/dynamodb.js";
-import { ENV } from "../config/env.js";
-
-const TABLE = () => ENV.DYNAMODB_CONSULTORES_TABLE;
+import * as consultoresRepo from "../db/consultoresRepo.js";
 
 function asString(value) {
   if (value === undefined || value === null) return undefined;
@@ -62,60 +58,20 @@ export function isPerfilConsultorFila(consultor) {
 }
 
 /**
- * Busca consultor em portal_consultores pelo e-mail (GSI gsi_email).
+ * Busca consultor em portal_consultores pelo e-mail.
  */
 export async function findConsultorByEmail(email) {
   const normalized = normalizeEmail(email);
   if (!normalized) return null;
 
-  const indexName = ENV.DYNAMODB_CONSULTORES_EMAIL_INDEX || "gsi_email";
-  const emailAttr = ENV.DYNAMODB_CONSULTORES_EMAIL_ATTR || "email";
+  const byNormalized = await consultoresRepo.findByEmail(normalized);
+  if (byNormalized) return byNormalized;
 
-  try {
-    const result = await dynamoDocClient.send(
-      new QueryCommand({
-        TableName: TABLE(),
-        IndexName: indexName,
-        KeyConditionExpression: "#emailAttr = :email",
-        ExpressionAttributeNames: { "#emailAttr": emailAttr },
-        ExpressionAttributeValues: { ":email": normalized },
-        Limit: 1,
-      }),
-    );
-
-    if (result.Items?.length) return result.Items[0];
-
-    // Alguns cadastros podem ter e-mail com caixa original
-    const raw = asString(email);
-    if (raw && raw !== normalized) {
-      const retry = await dynamoDocClient.send(
-        new QueryCommand({
-          TableName: TABLE(),
-          IndexName: indexName,
-          KeyConditionExpression: "#emailAttr = :email",
-          ExpressionAttributeNames: { "#emailAttr": emailAttr },
-          ExpressionAttributeValues: { ":email": raw },
-          Limit: 1,
-        }),
-      );
-      if (retry.Items?.length) return retry.Items[0];
-    }
-
-    return null;
-  } catch (error) {
-    if (
-      error.name === "ValidationException" ||
-      error.name === "ResourceNotFoundException"
-    ) {
-      const err = new Error(
-        `Índice "${indexName}" indisponível em ${TABLE()}. Confira gsi_email / atributo "${emailAttr}".`,
-      );
-      err.status = 503;
-      err.code = "DYNAMO_CONSULTOR_GSI_MISSING";
-      throw err;
-    }
-    throw error;
+  const raw = asString(email);
+  if (raw && raw !== normalized) {
+    return consultoresRepo.findByEmail(raw);
   }
+  return null;
 }
 
 export function getConsultorDisplayName(consultor) {
@@ -130,91 +86,22 @@ export function getConsultorDisplayName(consultor) {
 }
 
 /**
- * Consultores ativos (Scan). Usado pela fila SLA.
+ * Consultores ativos. Usado pela fila SLA.
  */
 export async function listActiveConsultores() {
-  const items = [];
-  let lastKey;
-
-  do {
-    const page = await dynamoDocClient.send(
-      new ScanCommand({
-        TableName: TABLE(),
-        FilterExpression: "#ativo = :ativo",
-        ExpressionAttributeNames: { "#ativo": "ativo" },
-        ExpressionAttributeValues: { ":ativo": true },
-        ExclusiveStartKey: lastKey,
-      }),
-    );
-    items.push(...(page.Items || []));
-    lastKey = page.LastEvaluatedKey;
-  } while (lastKey);
-
-  return items;
+  return consultoresRepo.listActive();
 }
 
 function normalizeRegiao(regiao) {
   return String(regiao || "").trim().toUpperCase();
 }
 
-function isMissingRegiaoIndex(error) {
-  return (
-    error?.name === "ValidationException" ||
-    error?.name === "ResourceNotFoundException"
-  );
-}
-
-async function queryConsultoresByRegiao(regiao) {
-  const indexName = ENV.DYNAMODB_CONSULTORES_REGIAO_INDEX || "gsi_regiao";
-  const regiaoAttr = ENV.DYNAMODB_CONSULTORES_REGIAO_ATTR || "regiao";
-  const target = normalizeRegiao(regiao);
-  const items = [];
-  let lastKey;
-
-  do {
-    const page = await dynamoDocClient.send(
-      new QueryCommand({
-        TableName: TABLE(),
-        IndexName: indexName,
-        KeyConditionExpression: "#regiao = :regiao",
-        FilterExpression: "#ativo = :ativo",
-        ExpressionAttributeNames: {
-          "#regiao": regiaoAttr,
-          "#ativo": "ativo",
-        },
-        ExpressionAttributeValues: {
-          ":regiao": target,
-          ":ativo": true,
-        },
-        ExclusiveStartKey: lastKey,
-      }),
-    );
-    items.push(...(page.Items || []));
-    lastKey = page.LastEvaluatedKey;
-  } while (lastKey);
-
-  return items;
-}
-
 /**
- * Busca consultores ativos por região (GSI gsi_regiao).
+ * Busca consultores ativos por região.
  */
 export async function findConsultoresByRegiao(regiao) {
   if (!regiao) return [];
-  const target = normalizeRegiao(regiao);
-
-  try {
-    return await queryConsultoresByRegiao(target);
-  } catch (error) {
-    if (!isMissingRegiaoIndex(error)) throw error;
-    console.warn(
-      "[CONSULTORES] gsi_regiao indisponível — fallback Scan + filtro em memória.",
-    );
-    const items = await listActiveConsultores();
-    return items.filter(
-      (consultor) => normalizeRegiao(consultor.regiao) === target,
-    );
-  }
+  return consultoresRepo.listActiveByRegiao(normalizeRegiao(regiao));
 }
 
 export async function findConsultoresGestao() {
@@ -292,14 +179,7 @@ export function getConsultorCargaAceita(consultor) {
 export async function incrementCargaAceita(consultorId) {
   if (!consultorId) return;
   try {
-    await dynamoDocClient.send(
-      new UpdateCommand({
-        TableName: TABLE(),
-        Key: { id: String(consultorId) },
-        UpdateExpression: "ADD cargaAceita :one",
-        ExpressionAttributeValues: { ":one": 1 },
-      }),
-    );
+    await consultoresRepo.incrementCargaAceita(consultorId);
   } catch (error) {
     console.warn("[CONSULTORES] Falha ao incrementar cargaAceita:", error.message);
   }
@@ -311,19 +191,9 @@ export async function incrementCargaAceita(consultorId) {
 export async function decrementCargaAceita(consultorId) {
   if (!consultorId) return;
   try {
-    await dynamoDocClient.send(
-      new UpdateCommand({
-        TableName: TABLE(),
-        Key: { id: String(consultorId) },
-        UpdateExpression: "ADD cargaAceita :minus",
-        ConditionExpression: "attribute_exists(cargaAceita) AND cargaAceita > :zero",
-        ExpressionAttributeValues: { ":minus": -1, ":zero": 0 },
-      }),
-    );
+    await consultoresRepo.decrementCargaAceita(consultorId);
   } catch (error) {
-    if (error.name !== "ConditionalCheckFailedException") {
-      console.warn("[CONSULTORES] Falha ao decrementar cargaAceita:", error.message);
-    }
+    console.warn("[CONSULTORES] Falha ao decrementar cargaAceita:", error.message);
   }
 }
 
@@ -331,14 +201,7 @@ export async function decrementCargaAceita(consultorId) {
  * Atualiza timestamp de última atribuição do consultor (ponteiro round-robin).
  */
 export async function updateConsultorUltimaAtribuicao(consultorId, isoDate) {
-  await dynamoDocClient.send(
-    new UpdateCommand({
-      TableName: ENV.DYNAMODB_CONSULTORES_TABLE,
-      Key: { id: String(consultorId) },
-      UpdateExpression: "SET ultimaAtribuicao = :d",
-      ExpressionAttributeValues: { ":d": isoDate },
-    }),
-  );
+  await consultoresRepo.update(String(consultorId), { ultimaAtribuicao: isoDate });
 }
 
 export function getConsultorGerencia(consultor) {
@@ -367,7 +230,7 @@ function zohoField(obj, ...candidates) {
 }
 
 /**
- * Sincroniza dados de perfil do Zoho → DynamoDB portal_consultores.
+ * Sincroniza dados de perfil do Zoho → MySQL portal_consultores.
  * Cria o registro se não existir; atualiza os campos de perfil se já existir.
  * Disparado no login do consultor — fire-and-forget, nunca bloqueia a resposta.
  */
@@ -417,26 +280,13 @@ export async function syncConsultorZohoPerfil(email, dadosZoho) {
 
       if (!fieldPairs.length) return;
 
-      const ExprAttrNames  = {};
-      const ExprAttrValues = {};
-      const setClauses     = fieldPairs.map(([key, val], i) => {
-        ExprAttrNames[`#f${i}`]  = key;
-        ExprAttrValues[`:v${i}`] = val;
-        return `#f${i} = :v${i}`;
-      });
-
-      await dynamoDocClient.send(new UpdateCommand({
-        TableName: TABLE(),
-        Key: { id: String(existing.id) },
-        UpdateExpression: `SET ${setClauses.join(", ")}`,
-        ExpressionAttributeNames:  ExprAttrNames,
-        ExpressionAttributeValues: ExprAttrValues,
-      }));
+      const updates = Object.fromEntries(fieldPairs);
+      await consultoresRepo.update(String(existing.id), updates);
 
       consultorId = String(existing.id);
-      console.log(`[SYNC PERFIL] ✓ ${normalizedEmail} atualizado no DynamoDB`);
+      console.log(`[SYNC PERFIL] ✓ ${normalizedEmail} atualizado no MySQL`);
     } else {
-      // Cria registro: usa o ID do Zoho como chave do DynamoDB
+      // Cria registro: usa o ID do Zoho como chave
       const newId = zohoId || String(Date.now());
       const item  = Object.fromEntries(
         [
@@ -459,15 +309,10 @@ export async function syncConsultorZohoPerfil(email, dadosZoho) {
         ].filter(([, v]) => v !== undefined),
       );
 
-      await dynamoDocClient.send(new PutCommand({
-        TableName: TABLE(),
-        Item: item,
-        // Não sobrescreve se outro processo já criou pelo lead routing
-        ConditionExpression: "attribute_not_exists(id)",
-      }));
+      await consultoresRepo.putIfNotExists(item);
 
       consultorId = newId;
-      console.log(`[SYNC PERFIL] ✓ ${normalizedEmail} criado no DynamoDB (id: ${newId})`);
+      console.log(`[SYNC PERFIL] ✓ ${normalizedEmail} criado no MySQL (id: ${newId})`);
     }
   } catch (error) {
     if (error.name === "ConditionalCheckFailedException") {
@@ -480,7 +325,7 @@ export async function syncConsultorZohoPerfil(email, dadosZoho) {
   }
 
   // ── Geocodificação do endereço do consultor (fire-and-forget) ──────────────
-  // Salva lat/lng no DynamoDB para o algoritmo de distribuição por proximidade.
+  // Salva lat/lng no MySQL para o algoritmo de distribuição por proximidade.
   // Só refaz se o endereço mudou (compara pelo endereçoChave) ou se nunca foi feito.
   if (consultorId && (cidade || cep)) {
     void (async () => {
@@ -491,16 +336,11 @@ export async function syncConsultorZohoPerfil(email, dadosZoho) {
         const coords = await geocodeAddress({ cidade, estado, cep, enderecoCompleto });
         if (!coords) return;
 
-        await dynamoDocClient.send(new UpdateCommand({
-          TableName: TABLE(),
-          Key: { id: consultorId },
-          UpdateExpression: "SET lat = :lat, lng = :lng, geoAtualizadoEm = :agora",
-          ExpressionAttributeValues: {
-            ":lat":   coords.lat,
-            ":lng":   coords.lng,
-            ":agora": new Date().toISOString(),
-          },
-        }));
+        await consultoresRepo.update(consultorId, {
+          lat: coords.lat,
+          lng: coords.lng,
+          geoAtualizadoEm: new Date().toISOString(),
+        });
 
         console.log(
           `[GEO] ✓ Consultor ${normalizedEmail} → lat=${coords.lat.toFixed(4)}, lng=${coords.lng.toFixed(4)}`,

@@ -16,6 +16,8 @@ import zohoRoutes from "./routes/zoho.route.js";
 import leadsMedicosRoutes from "./routes/leadsMedicos.route.js";
 import centralComercialRoutes from "./routes/centralComercial.route.js";
 import { startSlaSweeper } from "./services/slaSweeper.js";
+import { migrateSchema } from "./db/migrate.js";
+import { pingMysql } from "./db/mysql.js";
 import { authenticateToken } from "./services/jwtService.js";
 import { requireAdmin } from "./middleware/authz.js";
 import {
@@ -56,11 +58,20 @@ app.set("trust proxy", Number(process.env.TRUST_PROXY || 1));
 
 applySecurityMiddleware(app);
 
-app.get("/health", (req, res) => {
-  res.status(200).json({
-    success: true,
-    status: "ok",
-  });
+app.get("/health", async (req, res) => {
+  try {
+    await pingMysql();
+    res.status(200).json({
+      success: true,
+      status: "ok",
+      db: "mysql",
+    });
+  } catch {
+    res.status(503).json({
+      success: false,
+      status: "db_unavailable",
+    });
+  }
 });
 
 app.use(
@@ -210,59 +221,75 @@ app.use((req, res) => {
   });
 });
 
-app.listen(ENV.PORT, () => {
-  startSlaSweeper();
-  console.log("========================================");
-  console.log("🚀 Server está rodando na porta", ENV.PORT);
-  console.log("========================================");
-  console.log("[CONFIG] Verificando configurações da Zoho:");
-  console.log(
-    "[CONFIG] ZOHO_CLIENT_ID:",
-    ENV.ZOHO_CLIENT_ID ? "✓ Configurado" : "✗ Não configurado",
-  );
-  console.log(
-    "[CONFIG] ZOHO_CLIENT_SECRET:",
-    ENV.ZOHO_CLIENT_SECRET ? "✓ Configurado" : "✗ Não configurado",
-  );
-  console.log(
-    "[CONFIG] ZOHO_REFRESH_TOKEN:",
-    ENV.ZOHO_REFRESH_TOKEN ? "✓ Configurado" : "✗ Não configurado",
-  );
-  console.log(
-    "[CONFIG] ZOHO_API_BASE:",
-    ENV.ZOHO_API_BASE || "✗ Não configurado",
-  );
-  console.log(
-    "[CONFIG] ZOHO_ACCOUNTS_URL:",
-    ENV.ZOHO_ACCOUNTS_URL || "✗ Não configurado",
-  );
-  console.log("[CONFIG] DynamoDB / Leads:");
-  console.log("[CONFIG] AWS_REGION:", ENV.AWS_REGION);
-  console.log("[CONFIG] DYNAMODB_LEADS_TABLE:", ENV.DYNAMODB_LEADS_TABLE);
-  console.log(
-    "[CONFIG] AWS_ACCESS_KEY_ID:",
-    ENV.AWS_ACCESS_KEY_ID ? "✓ Configurado" : "○ IAM role / profile (sem key no .env)",
-  );
-  console.log(
-    "[CONFIG] ZOHO_LEADS_WEBHOOK_SECRET:",
-    ENV.ZOHO_LEADS_WEBHOOK_SECRET ? "✓ Configurado" : "✗ Não configurado",
-  );
-  console.log("[CONFIG] Graph / Central Comercial: modo delegado (token do consultor)");
-  console.log(
-    "[CONFIG] ENTRA_TENANT_ID / GRAPH_FILES_TENANT_ID:",
-    ENV.ENTRA_TENANT_ID || ENV.GRAPH_FILES_TENANT_ID ? "✓" : "✗",
-  );
-  console.log(
-    "[CONFIG] GRAPH_FILES_CLIENT_ID (OBO opcional):",
-    ENV.GRAPH_FILES_CLIENT_ID ? "✓ Configurado" : "○ só token Graph do SPA",
-  );
-  console.log(
-    "[CONFIG] GRAPH_FILES_CLIENT_SECRET (OBO opcional):",
-    ENV.GRAPH_FILES_CLIENT_SECRET ? "✓ Configurado" : "○ só token Graph do SPA",
-  );
-  console.log(
-    "[CONFIG] GRAPH_SHAREPOINT_SITE_ID:",
-    ENV.GRAPH_SHAREPOINT_SITE_ID ? "✓ Configurado" : "○ resolve pelo hostname",
-  );
-  console.log("========================================");
+async function start() {
+  await migrateSchema();
+  app.listen(ENV.PORT, () => {
+    startSlaSweeper();
+    console.log("========================================");
+    console.log("🚀 Server está rodando na porta", ENV.PORT);
+    console.log("========================================");
+    console.log("[CONFIG] Verificando configurações da Zoho:");
+    console.log(
+      "[CONFIG] ZOHO_CLIENT_ID:",
+      ENV.ZOHO_CLIENT_ID ? "✓ Configurado" : "✗ Não configurado",
+    );
+    console.log(
+      "[CONFIG] ZOHO_CLIENT_SECRET:",
+      ENV.ZOHO_CLIENT_SECRET ? "✓ Configurado" : "✗ Não configurado",
+    );
+    console.log(
+      "[CONFIG] ZOHO_REFRESH_TOKEN:",
+      ENV.ZOHO_REFRESH_TOKEN ? "✓ Configurado" : "✗ Não configurado",
+    );
+    console.log(
+      "[CONFIG] ZOHO_API_BASE:",
+      ENV.ZOHO_API_BASE || "✗ Não configurado",
+    );
+    console.log(
+      "[CONFIG] ZOHO_ACCOUNTS_URL:",
+      ENV.ZOHO_ACCOUNTS_URL || "✗ Não configurado",
+    );
+    console.log("[CONFIG] MySQL / Leads:");
+    console.log("[CONFIG] MYSQL_HOST:", ENV.MYSQL_HOST);
+    console.log("[CONFIG] MYSQL_DATABASE:", ENV.MYSQL_DATABASE);
+    console.log(
+      "[CONFIG] MYSQL_USER:",
+      ENV.MYSQL_USER ? "✓ Configurado" : "✗ Não configurado",
+    );
+    console.log(
+      "[CONFIG] MYSQL_PASSWORD:",
+      ENV.MYSQL_PASSWORD ? "✓ Configurado" : "✗ Não configurado",
+    );
+    console.log(
+      "[CONFIG] DATA_ENCRYPTION_KEY:",
+      ENV.DATA_ENCRYPTION_KEY ? "✓ Configurado" : "✗ Não configurado",
+    );
+    console.log(
+      "[CONFIG] ZOHO_LEADS_WEBHOOK_SECRET:",
+      ENV.ZOHO_LEADS_WEBHOOK_SECRET ? "✓ Configurado" : "✗ Não configurado",
+    );
+    console.log("[CONFIG] Graph / Central Comercial: modo delegado (token do consultor)");
+    console.log(
+      "[CONFIG] ENTRA_TENANT_ID / GRAPH_FILES_TENANT_ID:",
+      ENV.ENTRA_TENANT_ID || ENV.GRAPH_FILES_TENANT_ID ? "✓" : "✗",
+    );
+    console.log(
+      "[CONFIG] GRAPH_FILES_CLIENT_ID (OBO opcional):",
+      ENV.GRAPH_FILES_CLIENT_ID ? "✓ Configurado" : "○ só token Graph do SPA",
+    );
+    console.log(
+      "[CONFIG] GRAPH_FILES_CLIENT_SECRET (OBO opcional):",
+      ENV.GRAPH_FILES_CLIENT_SECRET ? "✓ Configurado" : "○ só token Graph do SPA",
+    );
+    console.log(
+      "[CONFIG] GRAPH_SHAREPOINT_SITE_ID:",
+      ENV.GRAPH_SHAREPOINT_SITE_ID ? "✓ Configurado" : "○ resolve pelo hostname",
+    );
+    console.log("========================================");
+  });
+}
+
+start().catch((error) => {
+  console.error("[SERVER] Falha ao iniciar:", error);
+  process.exit(1);
 });

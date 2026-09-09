@@ -351,7 +351,7 @@ export async function getSharePointRoot({ force = false } = {}) {
   }
 
   if (!stored || stored.rootFolderId !== root.id) {
-    logSharePoint("persistindo LOCATION no Dynamo", {
+    logSharePoint("persistindo LOCATION no MySQL", {
       motivo: stored ? "root mudou" : "primeira resolução",
       rootId: String(root.id).slice(0, 16),
     });
@@ -363,7 +363,7 @@ export async function getSharePointRoot({ force = false } = {}) {
   } else {
     logSharePoint("LOCATION já conhecida", {
       rootId: String(root.id).slice(0, 16),
-      origem: "dynamo-ou-memoria",
+      origem: "mysql-ou-memoria",
     });
   }
 

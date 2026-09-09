@@ -1,8 +1,8 @@
-import { GetCommand, PutCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
-import { dynamoDocClient } from "../config/dynamodb.js";
 import { ENV } from "../config/env.js";
+import { mysqlMeta } from "../db/mysql.js";
+import * as centralRepo from "../db/centralRepo.js";
 import { CENTRAL_CATEGORIES } from "../data/centralCategories.js";
-import { logCentralDynamo } from "../utils/graphLog.js";
+import { logCentralStore } from "../utils/graphLog.js";
 
 const PK_LOCATION = "LOCATION";
 const SK_ROOT = "ROOT";
@@ -21,41 +21,37 @@ let lastPersist = {
   lastError: null,
 };
 
-function tableName() {
-  return ENV.DYNAMODB_CENTRAL_TABLE || "portal_central_comercial";
-}
-
-function dynamoMeta() {
+function storeMeta() {
   return {
-    table: tableName(),
-    region: ENV.AWS_REGION || "us-east-1",
+    engine: "mysql",
+    table: "central_kv",
+    host: ENV.MYSQL_HOST,
+    database: ENV.MYSQL_DATABASE,
+    ...mysqlMeta(),
   };
 }
 
-function isMissingTable(error) {
-  const name = error?.name || error?.Code || "";
-  return (
-    name === "ResourceNotFoundException" ||
-    error?.message?.includes("Requested resource not found")
-  );
-}
-
-function dynamoFail(error) {
+function storeFail(error) {
   return {
     name: error?.name || null,
-    http: error?.$metadata?.httpStatusCode || null,
+    code: error?.code || null,
     message: error?.message || String(error),
-    missingTable: isMissingTable(error),
+    missingTable: error?.code === "ER_NO_SUCH_TABLE",
   };
 }
 
-export function getDynamoPersistStatus() {
+export function getStorePersistStatus() {
   return {
     ...lastPersist,
-    ...dynamoMeta(),
+    ...storeMeta(),
     locationInMemory: Boolean(memory.location),
     categoriesInMemory: memory.categories.size,
   };
+}
+
+/** Compatível com o contrato antigo da Central Comercial. */
+export function getDynamoPersistStatus() {
+  return getStorePersistStatus();
 }
 
 export async function getStoredLocation() {
@@ -63,13 +59,7 @@ export async function getStoredLocation() {
     return memory.location;
   }
   try {
-    const result = await dynamoDocClient.send(
-      new GetCommand({
-        TableName: tableName(),
-        Key: { pk: PK_LOCATION, sk: SK_ROOT },
-      }),
-    );
-    const item = result.Item;
+    const item = await centralRepo.getItem(PK_LOCATION, SK_ROOT);
     if (item?.siteId && item?.driveId && item?.rootFolderId) {
       memory.location = {
         siteId: item.siteId,
@@ -78,19 +68,19 @@ export async function getStoredLocation() {
       };
       lastPersist.locationSaved = true;
       lastPersist.lastError = null;
-      logCentralDynamo("leitura LOCATION ok", {
-        ...dynamoMeta(),
+      logCentralStore("leitura LOCATION ok", {
+        ...storeMeta(),
         rootFolderId: item.rootFolderId.slice(0, 12),
       });
       return memory.location;
     }
-    logCentralDynamo("leitura LOCATION vazia", dynamoMeta());
+    logCentralStore("leitura LOCATION vazia", storeMeta());
   } catch (error) {
-    lastPersist.lastError = dynamoFail(error);
-    logCentralDynamo("leitura LOCATION falhou", {
+    lastPersist.lastError = storeFail(error);
+    logCentralStore("leitura LOCATION falhou", {
       ok: false,
-      ...dynamoMeta(),
-      ...dynamoFail(error),
+      ...storeMeta(),
+      ...storeFail(error),
     });
   }
   return null;
@@ -104,33 +94,28 @@ export async function saveLocation(location) {
   };
   memory.location = payload;
   try {
-    await dynamoDocClient.send(
-      new PutCommand({
-        TableName: tableName(),
-        Item: {
-          pk: PK_LOCATION,
-          sk: SK_ROOT,
-          ...payload,
-          updatedAt: new Date().toISOString(),
-        },
-      }),
-    );
+    await centralRepo.putItem({
+      pk: PK_LOCATION,
+      sk: SK_ROOT,
+      ...payload,
+      updatedAt: new Date().toISOString(),
+    });
     lastPersist.locationSaved = true;
     lastPersist.lastError = null;
-    logCentralDynamo("GRAVOU LOCATION", {
+    logCentralStore("GRAVOU LOCATION", {
       ok: true,
-      ...dynamoMeta(),
+      ...storeMeta(),
       pk: PK_LOCATION,
       sk: SK_ROOT,
       rootFolderId: payload.rootFolderId?.slice(0, 16),
     });
   } catch (error) {
     lastPersist.locationSaved = false;
-    lastPersist.lastError = dynamoFail(error);
-    logCentralDynamo("NÃO gravou LOCATION", {
+    lastPersist.lastError = storeFail(error);
+    logCentralStore("NÃO gravou LOCATION", {
       ok: false,
-      ...dynamoMeta(),
-      ...dynamoFail(error),
+      ...storeMeta(),
+      ...storeFail(error),
     });
   }
   return payload;
@@ -142,14 +127,8 @@ export async function getStoredCategoryBindings() {
   }
   const bindings = new Map();
   try {
-    const result = await dynamoDocClient.send(
-      new QueryCommand({
-        TableName: tableName(),
-        KeyConditionExpression: "pk = :pk",
-        ExpressionAttributeValues: { ":pk": PK_CATEGORY },
-      }),
-    );
-    for (const item of result.Items || []) {
+    const items = await centralRepo.listByPk(PK_CATEGORY);
+    for (const item of items) {
       if (item.sk && item.sharepointFolderId) {
         bindings.set(item.sk, item.sharepointFolderId);
         memory.categories.set(item.sk, item.sharepointFolderId);
@@ -157,17 +136,17 @@ export async function getStoredCategoryBindings() {
     }
     lastPersist.categoriesSaved = bindings.size;
     lastPersist.lastError = null;
-    logCentralDynamo("leitura CATEGORY ok", {
-      ...dynamoMeta(),
+    logCentralStore("leitura CATEGORY ok", {
+      ...storeMeta(),
       quantidade: bindings.size,
       ids: [...bindings.keys()],
     });
   } catch (error) {
-    lastPersist.lastError = dynamoFail(error);
-    logCentralDynamo("leitura CATEGORY falhou", {
+    lastPersist.lastError = storeFail(error);
+    logCentralStore("leitura CATEGORY falhou", {
       ok: false,
-      ...dynamoMeta(),
-      ...dynamoFail(error),
+      ...storeMeta(),
+      ...storeFail(error),
     });
   }
   return bindings;
@@ -176,34 +155,29 @@ export async function getStoredCategoryBindings() {
 export async function saveCategoryBinding(categoryId, sharepointFolderId) {
   memory.categories.set(categoryId, sharepointFolderId);
   try {
-    await dynamoDocClient.send(
-      new PutCommand({
-        TableName: tableName(),
-        Item: {
-          pk: PK_CATEGORY,
-          sk: categoryId,
-          id: categoryId,
-          sharepointFolderId,
-          updatedAt: new Date().toISOString(),
-        },
-      }),
-    );
+    await centralRepo.putItem({
+      pk: PK_CATEGORY,
+      sk: categoryId,
+      id: categoryId,
+      sharepointFolderId,
+      updatedAt: new Date().toISOString(),
+    });
     lastPersist.categoriesSaved = memory.categories.size;
     lastPersist.lastError = null;
-    logCentralDynamo("GRAVOU CATEGORY", {
+    logCentralStore("GRAVOU CATEGORY", {
       ok: true,
-      ...dynamoMeta(),
+      ...storeMeta(),
       pk: PK_CATEGORY,
       sk: categoryId,
       sharepointFolderId: String(sharepointFolderId).slice(0, 16),
     });
   } catch (error) {
-    lastPersist.lastError = dynamoFail(error);
-    logCentralDynamo("NÃO gravou CATEGORY", {
+    lastPersist.lastError = storeFail(error);
+    logCentralStore("NÃO gravou CATEGORY", {
       ok: false,
-      ...dynamoMeta(),
+      ...storeMeta(),
       sk: categoryId,
-      ...dynamoFail(error),
+      ...storeFail(error),
     });
   }
 }

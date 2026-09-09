@@ -199,7 +199,7 @@ function distGeoMetodoLabel(geoMetodo) {
 
 /**
  * Sincroniza campos Dist_* imediatamente após a distribuição do lead no portal.
- * Chamado em createLeadFromZoho logo após gravar no DynamoDB.
+ * Chamado em createLeadFromZoho logo após gravar no MySQL.
  * Fire-and-forget — não bloqueia o fluxo de criação.
  */
 export function syncZohoLeadDistribuicao(lead) {

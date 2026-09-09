@@ -1,0 +1,17 @@
+[mysqld]
+character-set-server = utf8mb4
+collation-server = utf8mb4_unicode_ci
+bind-address = 0.0.0.0
+mysqlx = 0
+skip-name-resolve
+local-infile = 0
+sql-mode = STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION
+max-connections = 50
+max-allowed-packet = 16M
+connect-timeout = 10
+wait-timeout = 600
+interactive-timeout = 600
+max-connect-errors = 20
+general-log = 0
+slow-query-log = 0
+explicit_defaults_for_timestamp = 1

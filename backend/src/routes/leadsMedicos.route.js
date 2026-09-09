@@ -25,7 +25,7 @@ import { evidenceUploadMiddleware } from "../middleware/leadEvidenceUpload.js";
 
 const router = express.Router();
 
-function dynamoErrorResponse(res, error) {
+function storageErrorResponse(res, error) {
   if (error.status === 400 || error.code === "VALIDATION_ERROR") {
     return res.status(400).json({
       success: false,
@@ -70,38 +70,16 @@ function dynamoErrorResponse(res, error) {
   }
 
   if (
-    error.code === "DYNAMO_GSI_MISSING" ||
-    error.code === "DYNAMO_CONSULTOR_GSI_MISSING" ||
+    error.code === "MYSQL_NOT_CONFIGURED" ||
+    error.code === "MYSQL_UNAVAILABLE" ||
+    error.code === "ECONNREFUSED" ||
+    error.code === "PROTOCOL_CONNECTION_LOST" ||
+    error.code === "ER_ACCESS_DENIED_ERROR" ||
     error.status === 503
   ) {
     return res.status(503).json({
       success: false,
-      error: error.message,
-    });
-  }
-
-  if (
-    error.name === "ResourceNotFoundException" ||
-    error.message?.includes("Requested resource not found")
-  ) {
-    return res.status(503).json({
-      success: false,
-      error:
-        "Tabela DynamoDB não encontrada. Verifique DYNAMODB_LEADS_TABLE e a região AWS.",
-    });
-  }
-
-  if (
-    error.name === "UnrecognizedClientException" ||
-    error.name === "InvalidSignatureException" ||
-    error.name === "CredentialsProviderError" ||
-    error.message?.includes("Could not load credentials") ||
-    error.name === "AccessDeniedException"
-  ) {
-    return res.status(503).json({
-      success: false,
-      error:
-        "Credenciais AWS inválidas ou ausentes. Configure AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY ou IAM role.",
+      error: error.message || "Banco MySQL indisponível.",
     });
   }
 
@@ -125,7 +103,7 @@ router.get("/", authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error("[LEADS] Erro ao listar leads:", error);
-    const handled = dynamoErrorResponse(res, error);
+    const handled = storageErrorResponse(res, error);
     if (handled) return handled;
 
     return res.status(500).json({
@@ -146,7 +124,7 @@ router.get("/equipe/kpis", authenticateToken, async (req, res) => {
     return res.json({ success: true, data: kpis });
   } catch (error) {
     console.error("[LEADS] Erro ao montar KPIs da equipe:", error);
-    const handled = dynamoErrorResponse(res, error);
+    const handled = storageErrorResponse(res, error);
     if (handled) return handled;
 
     return res.status(500).json({
@@ -172,7 +150,7 @@ router.get("/ofertas-pendentes", authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error("[LEADS] Erro ao listar ofertas:", error);
-    const handled = dynamoErrorResponse(res, error);
+    const handled = storageErrorResponse(res, error);
     if (handled) return handled;
 
     return res.status(500).json({
@@ -183,7 +161,7 @@ router.get("/ofertas-pendentes", authenticateToken, async (req, res) => {
 });
 
 /**
- * Cria lead médico no DynamoDB a partir do Zoho CRM.
+ * Cria lead médico no MySQL a partir do Zoho CRM.
  * POST /v1/leads-medicos/from-zoho
  */
 router.post("/from-zoho", authenticateLeadsWebhook, writeRateLimiter, async (req, res) => {
@@ -200,7 +178,7 @@ router.post("/from-zoho", authenticateLeadsWebhook, writeRateLimiter, async (req
     });
   } catch (error) {
     console.error("[LEADS] Erro ao criar lead:", error);
-    const handled = dynamoErrorResponse(res, error);
+    const handled = storageErrorResponse(res, error);
     if (handled) return handled;
 
     return res.status(500).json({
@@ -225,7 +203,7 @@ router.post("/convertido", authenticateLeadsWebhook, writeRateLimiter, async (re
     });
   } catch (error) {
     console.error("[LEADS] Erro ao converter lead:", error);
-    const handled = dynamoErrorResponse(res, error);
+    const handled = storageErrorResponse(res, error);
     if (handled) return handled;
 
     return res.status(500).json({
@@ -254,7 +232,7 @@ router.get(
       });
     } catch (error) {
       console.error("[LEADS] Erro ao buscar lead:", error);
-      const handled = dynamoErrorResponse(res, error);
+      const handled = storageErrorResponse(res, error);
       if (handled) return handled;
 
       return res.status(500).json({
@@ -289,7 +267,7 @@ router.get(
       return res.send(file.buffer);
     } catch (error) {
       console.error("[LEADS] Erro ao baixar evidência:", error);
-      const handled = dynamoErrorResponse(res, error);
+      const handled = storageErrorResponse(res, error);
       if (handled) return handled;
       return res.status(500).json({
         success: false,
@@ -318,7 +296,7 @@ router.post(
       return res.json({ success: true, data: lead });
     } catch (error) {
       console.error("[LEADS] Erro na 1ª tentativa:", error);
-      const handled = dynamoErrorResponse(res, error);
+      const handled = storageErrorResponse(res, error);
       if (handled) return handled;
 
       return res.status(500).json({
@@ -364,7 +342,7 @@ router.post(
       return res.json({ success: true, data: lead });
     } catch (error) {
       console.error("[LEADS] Erro na tentativa:", error);
-      const handled = dynamoErrorResponse(res, error);
+      const handled = storageErrorResponse(res, error);
       if (handled) return handled;
 
       return res.status(500).json({
@@ -396,7 +374,7 @@ router.post(
       return res.json({ success: true, data: lead });
     } catch (error) {
       console.error("[LEADS] Erro ao solicitar 4ª tentativa:", error);
-      const handled = dynamoErrorResponse(res, error);
+      const handled = storageErrorResponse(res, error);
       if (handled) return handled;
 
       return res.status(500).json({
@@ -425,7 +403,7 @@ router.post(
       return res.json({ success: true, data: lead });
     } catch (error) {
       console.error("[LEADS] Erro ao agendar contato:", error);
-      const handled = dynamoErrorResponse(res, error);
+      const handled = storageErrorResponse(res, error);
       if (handled) return handled;
 
       return res.status(500).json({
@@ -450,7 +428,7 @@ router.post(
       await markAttemptSemRetorno();
       return res.json({ success: true });
     } catch (error) {
-      const handled = dynamoErrorResponse(res, error);
+      const handled = storageErrorResponse(res, error);
       if (handled) return handled;
       return res.status(500).json({
         success: false,
@@ -479,7 +457,7 @@ router.post(
       return res.json({ success: true, data: lead });
     } catch (error) {
       console.error("[LEADS] Erro sem interesse:", error);
-      const handled = dynamoErrorResponse(res, error);
+      const handled = storageErrorResponse(res, error);
       if (handled) return handled;
 
       return res.status(500).json({
@@ -508,7 +486,7 @@ router.post(
       return res.json({ success: true, data: lead });
     } catch (error) {
       console.error("[LEADS] Erro sem contato:", error);
-      const handled = dynamoErrorResponse(res, error);
+      const handled = storageErrorResponse(res, error);
       if (handled) return handled;
 
       return res.status(500).json({
@@ -534,7 +512,7 @@ router.post(
       return res.json({ success: true, data: lead });
     } catch (error) {
       console.error("[LEADS] Erro no check-in:", error);
-      const handled = dynamoErrorResponse(res, error);
+      const handled = storageErrorResponse(res, error);
       if (handled) return handled;
 
       return res.status(500).json({
@@ -560,7 +538,7 @@ router.post(
       return res.json({ success: true, data: lead });
     } catch (error) {
       console.error("[LEADS] Erro ao aceitar oferta:", error);
-      const handled = dynamoErrorResponse(res, error);
+      const handled = storageErrorResponse(res, error);
       if (handled) return handled;
 
       return res.status(500).json({
@@ -586,7 +564,7 @@ router.post(
       return res.json({ success: true, data: lead });
     } catch (error) {
       console.error("[LEADS] Erro ao recusar oferta:", error);
-      const handled = dynamoErrorResponse(res, error);
+      const handled = storageErrorResponse(res, error);
       if (handled) return handled;
 
       return res.status(500).json({

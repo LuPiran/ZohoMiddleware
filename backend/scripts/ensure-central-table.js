@@ -1,41 +1,16 @@
-import { CreateTableCommand, DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { ENV } from "../src/config/env.js";
-
-const table = ENV.DYNAMODB_CENTRAL_TABLE || "portal_central_comercial";
-
-const client = new DynamoDBClient({
-  region: ENV.AWS_REGION,
-  ...(ENV.AWS_ACCESS_KEY_ID && ENV.AWS_SECRET_ACCESS_KEY
-    ? {
-        credentials: {
-          accessKeyId: ENV.AWS_ACCESS_KEY_ID,
-          secretAccessKey: ENV.AWS_SECRET_ACCESS_KEY,
-        },
-      }
-    : {}),
-});
-
-const command = new CreateTableCommand({
-  TableName: table,
-  AttributeDefinitions: [
-    { AttributeName: "pk", AttributeType: "S" },
-    { AttributeName: "sk", AttributeType: "S" },
-  ],
-  KeySchema: [
-    { AttributeName: "pk", KeyType: "HASH" },
-    { AttributeName: "sk", KeyType: "RANGE" },
-  ],
-  BillingMode: "PAY_PER_REQUEST",
-});
+/**
+ * Garante o schema MySQL (leads, consultores, central_kv).
+ * Uso: node scripts/ensure-central-table.js
+ */
+import { migrateSchema } from "../src/db/migrate.js";
+import { closeMysql } from "../src/db/mysql.js";
 
 try {
-  await client.send(command);
-  console.log(`Tabela criada: ${table}`);
+  await migrateSchema();
+  console.log("Schema MySQL ok.");
 } catch (error) {
-  if (error.name === "ResourceInUseException") {
-    console.log(`Tabela já existe: ${table}`);
-  } else {
-    console.error(error);
-    process.exit(1);
-  }
+  console.error(error);
+  process.exitCode = 1;
+} finally {
+  await closeMysql();
 }

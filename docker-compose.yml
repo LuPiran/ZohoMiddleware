@@ -1,4 +1,49 @@
 services:
+  zoho-mysql:
+    image: mysql:8.4
+    container_name: zoho-mysql
+    environment:
+      MYSQL_DATABASE: tegrapharma
+      MYSQL_USER: tegrapharma
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    ports:
+      - "127.0.0.1:3306:3306"
+    volumes:
+      - zoho_mysql:/var/lib/mysql
+      - ./backend/mysql/conf.d:/etc/mysql/conf.d:ro
+      - ./backend/mysql/init:/docker-entrypoint-initdb.d:ro
+    restart: unless-stopped
+    networks:
+      - zoho-network
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+      - DAC_OVERRIDE
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mysqladmin ping -h 127.0.0.1 -u$$MYSQL_USER -p$$MYSQL_PASSWORD --silent",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 25s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   zoho-backend:
     build:
       context: ./backend
@@ -14,12 +59,21 @@ services:
       FRONTEND_URL: ${FRONTEND_URL:-https://portal.autofullall.com}
       JSON_BODY_LIMIT: 2mb
       UPLOAD_BODY_LIMIT: 25mb
+      MYSQL_HOST: zoho-mysql
+      MYSQL_PORT: "3306"
+      MYSQL_DATABASE: tegrapharma
+      MYSQL_USER: tegrapharma
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      DATA_ENCRYPTION_KEY: ${DATA_ENCRYPTION_KEY}
     volumes:
       - zoho_uploads:/app/uploads
       - zoho_logs:/app/logs
     # Backend só na rede interna — acesso externo via nginx do admin
     expose:
       - "3000"
+    depends_on:
+      zoho-mysql:
+        condition: service_healthy
     restart: unless-stopped
     networks:
       - zoho-network
@@ -41,7 +95,7 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 25s
+      start_period: 40s
     logging:
       driver: json-file
       options:
@@ -100,3 +154,4 @@ networks:
 volumes:
   zoho_uploads:
   zoho_logs:
+  zoho_mysql:

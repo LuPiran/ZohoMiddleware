@@ -36,38 +36,16 @@ export const ENV = {
       ? `https://login.microsoftonline.com/${process.env.ENTRA_TENANT_ID}/v2.0`
       : undefined),
 
-  // AWS / DynamoDB — Leads Médicos
-  AWS_REGION: process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || "us-east-1",
-  AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID,
-  AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY,
-  DYNAMODB_LEADS_TABLE:
-    process.env.DYNAMODB_LEADS_TABLE || "portal_leads_medicos",
-  DYNAMODB_LEADS_ZOHO_ID_INDEX:
-    process.env.DYNAMODB_LEADS_ZOHO_ID_INDEX || "gsi_zoho",
-  DYNAMODB_LEADS_ZOHO_ID_ATTR:
-    process.env.DYNAMODB_LEADS_ZOHO_ID_ATTR || "idZoho",
-  DYNAMODB_LEADS_CONSULTOR_INDEX:
-    process.env.DYNAMODB_LEADS_CONSULTOR_INDEX || "gsi_consultor",
-  DYNAMODB_LEADS_CONSULTOR_ATTR:
-    process.env.DYNAMODB_LEADS_CONSULTOR_ATTR || "consultorId",
-  DYNAMODB_LEADS_CONSULTOR_SK_ATTR:
-    process.env.DYNAMODB_LEADS_CONSULTOR_SK_ATTR || "entradaEm",
-  DYNAMODB_LEADS_SLA_INDEX:
-    process.env.DYNAMODB_LEADS_SLA_INDEX || "gsi_sla",
-  DYNAMODB_LEADS_SLA_STATUS_ATTR:
-    process.env.DYNAMODB_LEADS_SLA_STATUS_ATTR || "slaStatus",
-  DYNAMODB_LEADS_SLA_DEADLINE_ATTR:
-    process.env.DYNAMODB_LEADS_SLA_DEADLINE_ATTR || "slaDeadline",
-  DYNAMODB_CONSULTORES_TABLE:
-    process.env.DYNAMODB_CONSULTORES_TABLE || "portal_consultores",
-  DYNAMODB_CONSULTORES_EMAIL_INDEX:
-    process.env.DYNAMODB_CONSULTORES_EMAIL_INDEX || "gsi_email",
-  DYNAMODB_CONSULTORES_EMAIL_ATTR:
-    process.env.DYNAMODB_CONSULTORES_EMAIL_ATTR || "email",
-  DYNAMODB_CONSULTORES_REGIAO_INDEX:
-    process.env.DYNAMODB_CONSULTORES_REGIAO_INDEX || "gsi_regiao",
-  DYNAMODB_CONSULTORES_REGIAO_ATTR:
-    process.env.DYNAMODB_CONSULTORES_REGIAO_ATTR || "regiao",
+  // MySQL — Leads Médicos, consultores e Central Comercial
+  MYSQL_HOST: process.env.MYSQL_HOST || "127.0.0.1",
+  MYSQL_PORT: process.env.MYSQL_PORT || "3306",
+  MYSQL_USER: process.env.MYSQL_USER || "tegrapharma",
+  MYSQL_PASSWORD: process.env.MYSQL_PASSWORD,
+  MYSQL_DATABASE: process.env.MYSQL_DATABASE || "tegrapharma",
+  MYSQL_POOL_SIZE: process.env.MYSQL_POOL_SIZE || "10",
+  MYSQL_SSL: process.env.MYSQL_SSL || "false",
+  MYSQL_ROOT_PASSWORD: process.env.MYSQL_ROOT_PASSWORD,
+  DATA_ENCRYPTION_KEY: process.env.DATA_ENCRYPTION_KEY,
   ZOHO_LEADS_WEBHOOK_SECRET: process.env.ZOHO_LEADS_WEBHOOK_SECRET,
 
   SLA_OFFER_MINUTES: Number(process.env.SLA_OFFER_MINUTES || 10),
@@ -171,11 +149,6 @@ export const ENV = {
   ZOHO_LEAD_NOME_EVENTO_FIELD:
     process.env.ZOHO_LEAD_NOME_EVENTO_FIELD || "Nome_evento",
 
-  DYNAMODB_LEADS_PROTOCOLO_INDEX:
-    process.env.DYNAMODB_LEADS_PROTOCOLO_INDEX || "gsi_protocolo",
-  DYNAMODB_LEADS_PROTOCOLO_ATTR:
-    process.env.DYNAMODB_LEADS_PROTOCOLO_ATTR || "protocolo",
-
   ZOHO_WORKDRIVE_CLIENT_ID: process.env.ZOHO_WORKDRIVE_CLIENT_ID,
   ZOHO_WORKDRIVE_CLIENT_SECRET: process.env.ZOHO_WORKDRIVE_CLIENT_SECRET,
   ZOHO_WORKDRIVE_REFRESH_TOKEN: process.env.ZOHO_WORKDRIVE_REFRESH_TOKEN,
@@ -246,6 +219,4 @@ export const ENV = {
     process.env.GRAPH_SHAREPOINT_ROOT_ITEM_ID ||
     "",
   GRAPH_PREVIEW_MAX_BYTES: process.env.GRAPH_PREVIEW_MAX_BYTES,
-  DYNAMODB_CENTRAL_TABLE:
-    process.env.DYNAMODB_CENTRAL_TABLE || "portal_central_comercial",
 };

@@ -1,7 +1,6 @@
 import { randomUUID } from "crypto";
-import { UpdateCommand } from "@aws-sdk/lib-dynamodb";
-import { dynamoDocClient } from "../config/dynamodb.js";
 import { ENV } from "../config/env.js";
+import * as leadsRepo from "../db/leadsRepo.js";
 import {
   findConsultoresByRegiao,
   findConsultoresGestao,
@@ -17,7 +16,6 @@ import {
 import { notifyLeadOffer, notifyLeadRecusado } from "./emailService.js";
 import { ZOHO_LEAD_STATUS } from "../domain/leadStatus.js";
 import { syncZohoLeadRejected } from "./zohoLeadSync.js";
-import { buildDynamoUpdateParts } from "../utils/dynamoUpdate.js";
 import { haversineDistance } from "./geocoding.js";
 
 /**
@@ -26,8 +24,6 @@ import { haversineDistance } from "./geocoding.js";
  * Evita que 1 km de diferença sempre favoreça o mesmo consultor.
  */
 const GEO_TIE_BUFFER_KM = 30;
-
-const TABLE = () => ENV.DYNAMODB_LEADS_TABLE;
 
 /** Ciclos completos (consultores + gerência) antes de escalar à Gestão. */
 export const SLA_REGIONAL_CYCLES = 2;
@@ -470,27 +466,8 @@ async function persistOfferSwitch(lead, extraUpdates, historicoEntries, conditio
     updatedAt: now,
   };
 
-  const built = buildDynamoUpdateParts(updates);
-  const names = { ...built.names, ...(condition?.names || {}) };
-  const values = { ...built.values, ...(condition?.values || {}) };
-
-  if (!built.updateExpression) {
-    return null;
-  }
-
   try {
-    const result = await dynamoDocClient.send(
-      new UpdateCommand({
-        TableName: TABLE(),
-        Key: { id: lead.id },
-        UpdateExpression: built.updateExpression,
-        ExpressionAttributeNames: names,
-        ExpressionAttributeValues: Object.keys(values).length ? values : undefined,
-        ConditionExpression: condition?.expression,
-        ReturnValues: "ALL_NEW",
-      }),
-    );
-    return result.Attributes;
+    return await leadsRepo.update(lead.id, updates, condition);
   } catch (error) {
     if (error.name === "ConditionalCheckFailedException") return null;
     throw error;

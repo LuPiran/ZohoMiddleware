@@ -54,30 +54,30 @@ function isDelegatedAuthError(error) {
   );
 }
 
-function persistHint(dynamo) {
-  if (!dynamo) return null;
-  if (dynamo.locationSaved) {
+function persistHint(store) {
+  if (!store) return null;
+  if (store.locationSaved) {
     return {
       tone: "ok",
-      text: `IDs da pasta gravados no DynamoDB (${dynamo.table}).`,
+      text: `IDs da pasta gravados no MySQL (${store.database || store.table}).`,
     };
   }
-  if (dynamo.lastError?.missingTable) {
+  if (store.lastError?.missingTable) {
     return {
       tone: "warn",
-      text: `Tabela ${dynamo.table} ainda não existe. A pasta abre, mas o ID some no restart.`,
+      text: `Tabela ${store.table} ainda não existe. A pasta abre, mas o ID some no restart.`,
     };
   }
-  if (dynamo.lastError) {
+  if (store.lastError) {
     return {
       tone: "warn",
-      text: `Dynamo não gravou: ${dynamo.lastError.message}. Confira os logs [CENTRAL][DYNAMO].`,
+      text: `MySQL não gravou: ${store.lastError.message}. Confira os logs [CENTRAL][MYSQL].`,
     };
   }
-  if (dynamo.locationInMemory) {
+  if (store.locationInMemory) {
     return {
       tone: "warn",
-      text: "Pasta resolvida só em memória. Ainda não confirmamos gravação no Dynamo.",
+      text: "Pasta resolvida só em memória. Ainda não confirmamos gravação no MySQL.",
     };
   }
   return null;
@@ -101,11 +101,11 @@ export default function CentralComercial() {
   const [graphReady, setGraphReady] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [viewer, setViewer] = useState(null);
-  const [dynamo, setDynamo] = useState(null);
+  const [store, setStore] = useState(null);
 
   const current = stack[stack.length - 1] || null;
   const isSearch = query.trim().length >= 2;
-  const hint = persistHint(dynamo);
+  const hint = persistHint(store);
 
   const viewKey = isSearch
     ? `search:${query}:${current?.id || "root"}`
@@ -120,9 +120,9 @@ export default function CentralComercial() {
   const loadRootStatus = useCallback(async () => {
     try {
       const status = await getCentralStatus();
-      setDynamo(status.dynamo || null);
+      setStore(status.mysql || status.dynamo || null);
     } catch {
-      setDynamo(null);
+      setStore(null);
     }
   }, []);
 

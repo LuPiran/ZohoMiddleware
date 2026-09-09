@@ -532,7 +532,7 @@ export default function LeadsMedicos() {
                 Carregando leads…
               </p>
               <p className="mt-1 text-sm text-tegra-text-secondary">
-                Buscando no Dynamo conforme seu perfil.
+                Buscando no banco conforme seu perfil.
               </p>
             </div>
           ) : loadError ? (

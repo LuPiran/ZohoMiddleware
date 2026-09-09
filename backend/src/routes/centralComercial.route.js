@@ -7,7 +7,7 @@ import {
   streamCentralContent,
   isSharePointConfigured,
 } from "../services/sharepointCentral.js";
-import { getDynamoPersistStatus } from "../services/centralCatalogStore.js";
+import { getStorePersistStatus } from "../services/centralCatalogStore.js";
 import { getPublicCatalog } from "../services/centralCatalog.js";
 import {
   delegatedGraphMiddleware,
@@ -49,40 +49,42 @@ function sendServiceError(res, error) {
 router.get("/status", optionalDelegatedGraph, async (req, res) => {
   try {
     if (!isSharePointConfigured()) {
-      const dynamo = getDynamoPersistStatus();
-      console.info("[CENTRAL] status", { configured: false, dynamo });
+      const mysql = getStorePersistStatus();
+      console.info("[CENTRAL] status", { configured: false, mysql });
       return res.json({
         success: true,
         configured: false,
         auth: "delegated",
         connected: false,
-        dynamo,
+        mysql,
+        dynamo: mysql,
       });
     }
     if (!req.graphDelegated) {
-      const dynamo = getDynamoPersistStatus();
+      const mysql = getStorePersistStatus();
       console.info("[CENTRAL] status", {
         configured: true,
         connected: false,
         motivo: "sem token delegado",
-        dynamo,
+        mysql,
       });
       return res.json({
         success: true,
         configured: true,
         auth: "delegated",
         connected: false,
-        dynamo,
+        mysql,
+        dynamo: mysql,
       });
     }
     const { root } = await getSharePointRoot();
-    const dynamo = getDynamoPersistStatus();
+    const mysql = getStorePersistStatus();
     console.info("[CENTRAL] status", {
       configured: true,
       connected: true,
       root: root.name,
       oid: req.graphUserOid,
-      dynamo,
+      mysql,
     });
     return res.json({
       success: true,
@@ -90,7 +92,8 @@ router.get("/status", optionalDelegatedGraph, async (req, res) => {
       auth: "delegated",
       connected: true,
       root: { id: root.id, name: root.name },
-      dynamo,
+      mysql,
+      dynamo: mysql,
     });
   } catch (error) {
     return sendServiceError(res, error);

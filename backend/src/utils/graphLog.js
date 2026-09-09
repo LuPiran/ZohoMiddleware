@@ -45,9 +45,13 @@ export function logSharePoint(step, extra = {}) {
   else console.info("[SHAREPOINT]", step, extra);
 }
 
-export function logCentralDynamo(step, extra = {}) {
+export function logCentralStore(step, extra = {}) {
   const failed = Boolean(extra.ok === false || extra.failed);
-  const line = ["[CENTRAL][DYNAMO]", step, extra];
+  const line = ["[CENTRAL][MYSQL]", step, extra];
   if (failed) console.error(...line);
   else console.info(...line);
+}
+
+export function logCentralDynamo(step, extra = {}) {
+  return logCentralStore(step, extra);
 }
