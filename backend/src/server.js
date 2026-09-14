@@ -13,6 +13,7 @@ import salesOrderRoutes from "./routes/salesOrder.route.js";
 import propostaRoutes from "./routes/proposta.route.js";
 import savedFormsRoutes from "./routes/savedForms.route.js";
 import zohoRoutes from "./routes/zoho.route.js";
+import raioxRoutes from "./routes/raiox.route.js";
 import leadsMedicosRoutes from "./routes/leadsMedicos.route.js";
 import centralComercialRoutes from "./routes/centralComercial.route.js";
 import { startSlaSweeper } from "./services/slaSweeper.js";
@@ -117,6 +118,7 @@ app.use(
 app.use("/v1/products", authenticateToken, productsRoutes);
 app.use("/v1/cep", authenticateToken, cepRoutes);
 app.use("/v1/zoho", authenticateToken, requireAdmin, zohoRoutes);
+app.use("/v1/raiox", authenticateToken, requireAdmin, raioxRoutes);
 app.use("/v1/leads-medicos", leadsMedicosRoutes);
 app.use("/v1/central-comercial", authenticateToken, centralComercialRoutes);
 app.use("/v1/saved-forms", savedFormsRoutes);

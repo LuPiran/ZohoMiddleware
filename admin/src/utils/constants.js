@@ -19,6 +19,7 @@ export const ROUTES = {
   AGRADECIMENTO: "/agradecimento",
   SAVED_FORMS: "/formularios-salvos",
   CENTRAL_COMERCIAL: "/central-comercial",
+  RAIO_X: "/raio-x",
 };
 
 export const EXTERNAL_LINKS = {
@@ -37,6 +38,9 @@ export const API_ENDPOINTS = {
   USERS: {
     LIST: "/v1/users",
     TOGGLE_STATUS: "/v1/users/:id/toggle-status",
+  },
+  RAIOX: {
+    GET: "/v1/raiox",
   },
   COMPRA: {
     CRIAR: "/v1/compra",
