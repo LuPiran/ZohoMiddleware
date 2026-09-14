@@ -26,6 +26,7 @@ import {
   podeVerProposta,
   podeVerRecompra,
   podeVerTrackingPedido,
+  podeVerCentralComercial,
 } from "../../utils/constants";
 import { hasAdminPanelPermission } from "../../utils/permissions";
 import { useMenu } from "../../contexts/MenuContext";
@@ -49,6 +50,7 @@ export default function Navbar() {
   const mostrarProposta = podeVerProposta(user);
   const mostrarOcorrencia = podeVerOcorrencia(user);
   const mostrarTrackingPedido = podeVerTrackingPedido(user);
+  const mostrarCentralComercial = podeVerCentralComercial(user);
 
   // Fecha o drawer quando a rota muda
   useEffect(() => {
@@ -107,7 +109,7 @@ export default function Navbar() {
           path: ROUTES.CENTRAL_COMERCIAL,
           label: "Central Comercial",
           Icon: MdLanguage,
-          show: true,
+          show: mostrarCentralComercial,
         },
         {
           path: EXTERNAL_LINKS.TRACKING_PEDIDO,

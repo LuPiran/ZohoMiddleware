@@ -25,6 +25,7 @@ import {
   podeVerProposta,
   podeVerRecompra,
   podeVerTrackingPedido,
+  podeVerCentralComercial,
 } from "../../utils/constants";
 import { hasAdminPanelPermission } from "../../utils/permissions";
 import { authService } from "../../services/auth";
@@ -43,6 +44,7 @@ export default function Sidebar() {
   const mostrarProposta = podeVerProposta(user);
   const mostrarOcorrencia = podeVerOcorrencia(user);
   const mostrarTrackingPedido = podeVerTrackingPedido(user);
+  const mostrarCentralComercial = podeVerCentralComercial(user);
 
   const [showSplash, setShowSplash] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -125,7 +127,7 @@ export default function Sidebar() {
           path: ROUTES.CENTRAL_COMERCIAL,
           label: "Central Comercial",
           Icon: MdLanguage,
-          show: true,
+          show: mostrarCentralComercial,
         },
         {
           path: EXTERNAL_LINKS.TRACKING_PEDIDO,

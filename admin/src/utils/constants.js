@@ -106,6 +106,7 @@ export const FORMULARIOS_OPCIONAIS = {
   PROPOSTA: "proposta",
   TRACKING_PEDIDO: "tracking_pedido",
   OCORRENCIA: "ocorrencia",
+  CENTRAL_COMERCIAL: "central_comercial",
 };
 
 function getCampoUsuarioPorChaves(user, chavesPreferenciais = []) {
@@ -227,6 +228,7 @@ function normalizarPermissaoFormulario(valor) {
   if (texto.includes("ocorr")) return FORMULARIOS_OPCIONAIS.OCORRENCIA;
   if (texto.includes("recomp")) return FORMULARIOS_OPCIONAIS.RECOMPRA;
   if (texto.includes("propost")) return FORMULARIOS_OPCIONAIS.PROPOSTA;
+  if (texto.includes("central")) return FORMULARIOS_OPCIONAIS.CENTRAL_COMERCIAL;
   if (texto.includes("compra")) return FORMULARIOS_OPCIONAIS.COMPRA;
 
   return "";
@@ -312,6 +314,13 @@ export function podeVerTrackingPedido(user) {
   return podeAcessarFormularioOpcional(
     user,
     FORMULARIOS_OPCIONAIS.TRACKING_PEDIDO,
+  );
+}
+
+export function podeVerCentralComercial(user) {
+  return podeAcessarFormularioOpcional(
+    user,
+    FORMULARIOS_OPCIONAIS.CENTRAL_COMERCIAL,
   );
 }
 

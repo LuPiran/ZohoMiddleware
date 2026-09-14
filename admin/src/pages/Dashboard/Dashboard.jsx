@@ -30,6 +30,7 @@ import {
   podeVerProposta,
   podeVerRecompra,
   podeVerTrackingPedido,
+  podeVerCentralComercial,
 } from "../../utils/constants";
 
 /* ── Helpers ── */
@@ -138,6 +139,7 @@ export default function Dashboard() {
   const mostrarProposta = podeVerProposta(user);
   const mostrarOcorrencia = podeVerOcorrencia(user);
   const mostrarTrackingPedido = podeVerTrackingPedido(user);
+  const mostrarCentralComercial = podeVerCentralComercial(user);
 
   useEffect(() => {
     if (!authService.isAuthenticated()) {
@@ -273,12 +275,14 @@ export default function Dashboard() {
               />
             )}
 
-            <ActionCard
-              icon={MdLanguage}
-              label="Central Comercial"
-              description="Materiais, lâminas e recursos técnicos"
-              onClick={() => goTo(ROUTES.CENTRAL_COMERCIAL)}
-            />
+            {mostrarCentralComercial && (
+              <ActionCard
+                icon={MdLanguage}
+                label="Central Comercial"
+                description="Materiais, lâminas e recursos técnicos"
+                onClick={() => goTo(ROUTES.CENTRAL_COMERCIAL)}
+              />
+            )}
             {mostrarTrackingPedido && (
               <ActionCard
                 icon={MdLocalShipping}

@@ -26,6 +26,7 @@ import {
   podeVerOcorrencia,
   podeVerProposta,
   podeVerRecompra,
+  podeVerCentralComercial,
 } from "../utils/constants";
 
 /**
@@ -193,9 +194,9 @@ export default function AppRoutes() {
       <Route
         path={ROUTES.CENTRAL_COMERCIAL}
         element={
-          <ProtectedRoute>
+          <OptionalFormRoute permissionCheck={podeVerCentralComercial}>
             <CentralComercial />
-          </ProtectedRoute>
+          </OptionalFormRoute>
         }
       />
       {/* Redireciona qualquer rota não encontrada para login */}
