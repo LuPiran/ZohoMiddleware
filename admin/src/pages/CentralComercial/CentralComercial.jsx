@@ -6,7 +6,6 @@ import {
   MdArrowBack,
   MdClose,
   MdHome,
-  MdInfoOutline,
   MdSearch,
 } from "react-icons/md";
 import MainLayout from "../../components/layout/MainLayout";
@@ -301,19 +300,6 @@ export default function CentralComercial() {
 function HomeView({ onOpenFolder }) {
   return (
     <div className="space-y-7">
-      <div className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5">
-        <h2 className="text-base sm:text-lg font-semibold text-tegra-text-primary mb-3 sm:mb-4">
-          Como usar
-        </h2>
-        <p className="flex gap-3 text-sm sm:text-base text-tegra-text-secondary leading-relaxed">
-          <MdInfoOutline className="mt-0.5 shrink-0 text-lg text-tegra-blue-dark" aria-hidden />
-          <span>
-            Navegue pelas pastas. Os arquivos ficam no SharePoint — é preciso
-            estar logado na conta TegraPharma para abrir os materiais.
-          </span>
-        </p>
-      </div>
-
       {HOME_SECTIONS.map((section) => (
         <section key={section.label} className="bg-tegra-bg-primary rounded-lg shadow-md p-4 sm:p-5 md:p-6">
           <h2 className="text-base sm:text-lg font-semibold text-tegra-text-primary mb-3 sm:mb-4">
