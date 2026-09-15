@@ -1,45 +1,31 @@
-import api from "./api";
-import { API_ENDPOINTS } from "../utils/constants";
+import { PRODUCTS } from "../data/products";
 
 /**
- * Serviço para gerenciar produtos do Zoho
+ * Serviço para gerenciar produtos.
+ *
+ * Servido a partir do catálogo estático em `data/products.js` em vez de
+ * chamar `/v1/products` no backend a cada montagem de tela — reduz o volume
+ * de requisições geradas pelas telas de Compra/Recompra/Proposta/Ocorrência.
+ * Veja o comentário em `data/products.js` para saber como atualizar o catálogo.
  */
 export const productsService = {
   /**
-   * Busca lista de produtos ativos do Zoho
+   * Retorna a lista de produtos ativos
    * @returns {Promise<Object>}
    */
   async getProducts() {
-    try {
-      const response = await api.get(API_ENDPOINTS.PRODUCTS.LIST);
-      return response.data;
-    } catch (error) {
-      const errorData = {
-        error: error.response?.data?.error || error.message,
-        message: error.message,
-        response: error.response,
-        status: error.response?.status,
-      };
-      throw errorData;
-    }
+    const data = PRODUCTS.filter((produto) => produto.active).map(
+      ({ id, nome, active }) => ({ id, nome, active }),
+    );
+    return { success: true, data, total: data.length, hasMore: false };
   },
 
   /**
-   * Busca lista de TODOS os produtos do Zoho (sem filtrar por ativo)
+   * Retorna TODOS os produtos (sem filtrar por ativo)
    * @returns {Promise<Object>}
    */
   async getAllProducts() {
-    try {
-      const response = await api.get(API_ENDPOINTS.PRODUCTS.LIST_ALL);
-      return response.data;
-    } catch (error) {
-      const errorData = {
-        error: error.response?.data?.error || error.message,
-        message: error.message,
-        response: error.response,
-        status: error.response?.status,
-      };
-      throw errorData;
-    }
+    const data = PRODUCTS;
+    return { success: true, data, total: data.length, hasMore: false };
   },
 };

@@ -72,7 +72,8 @@ console.log("[CORS] Origens permitidas:", allowedOrigins);
 app.use(express.json({ limit: "50mb" }));
 
 // Trust proxy para obter IP real do cliente (importante para rate limiting)
-app.set("trust proxy", 1);
+// 2 hops em produção: Nginx da VPS -> Nginx do container admin -> este app
+app.set("trust proxy", 2);
 
 // Aplica rate limiting geral na API (exceto rotas específicas que têm seu próprio limiter)
 app.use("/v1", apiRateLimiter);
