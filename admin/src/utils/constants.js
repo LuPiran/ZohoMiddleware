@@ -18,7 +18,7 @@ export const ROUTES = {
 };
 
 export const EXTERNAL_LINKS = {
-  TRACKING_PEDIDO: "https://rastreamentodepedido.tegrapharma.com/login",
+  TRACKING_PEDIDO: "https://rastreamentodepedido.tegrapharma.com/",
   CENTRAL_CONSULTOR: "https://central.tegrapharma.com/",
 };
 
