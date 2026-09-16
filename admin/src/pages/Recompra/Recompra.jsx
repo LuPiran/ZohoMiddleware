@@ -973,7 +973,6 @@ export default function Recompra() {
     setParceiroSelecionado("");
     setProdutos([{ id: 1, nome: "", produtoId: "", quantidade: "1" }]);
     setTipoSolicitacao("Recompra"); // Reseta para o valor padrão
-    setTipoBuscaCliente("nome");
     setNomeBusca("");
     setCpfBusca("");
     setClientesEncontrados([]);
