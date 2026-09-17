@@ -23,7 +23,7 @@ export default function RequestFourthAttemptModal({ open, onClose, onConfirm, su
     const min = new Date();
     min.setDate(min.getDate() + 1);
     const max = new Date();
-    max.setMonth(max.getMonth() + 1);
+    max.setDate(max.getDate() + 30);
     return { minDate: toDateOnly(min), maxDate: toDateOnly(max) };
   }, []);
 
@@ -108,7 +108,7 @@ export default function RequestFourthAttemptModal({ open, onClose, onConfirm, su
             disabled={submitting}
           />
           <p className="-mt-2 text-xs text-tegra-text-secondary">
-            Até 1 mês a partir de hoje.
+            Até 30 dias a partir de hoje.
           </p>
 
           <Textarea

@@ -4,7 +4,7 @@ import {
 } from "./leadStatus.js";
 
 export const MIN_OBSERVACAO = 10;
-export const ATTEMPT_WINDOW_MONTHS = 1;
+export const ATTEMPT_WINDOW_DAYS = 30;
 export const TIMEOUT_OBSERVACAO =
   "Essa tentativa não foi tratada pelo consultor";
 
@@ -114,18 +114,18 @@ export function qualificationStartIso(lead) {
   return lead?.dataQualificado || lead?.slaCheckinAt || null;
 }
 
-export function addCalendarMonths(iso, months) {
+export function addDays(iso, days) {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return null;
   const result = new Date(date.getTime());
-  result.setMonth(result.getMonth() + months);
+  result.setDate(result.getDate() + days);
   return result;
 }
 
 export function attemptDeadlineAt(lead, round) {
   const n = Number(round);
   if (!n) return null;
-  // A 4ª tentativa não segue "qualificação + N meses": o prazo é a data
+  // A 4ª tentativa não segue "qualificação + N janelas": o prazo é a data
   // exata que o próprio consultor escolheu ao solicitá-la.
   if (n === 4) {
     if (!lead?.dataQuartaTentativa) return null;
@@ -134,7 +134,9 @@ export function attemptDeadlineAt(lead, round) {
   }
   const start = qualificationStartIso(lead);
   if (!start) return null;
-  return addCalendarMonths(start, n * ATTEMPT_WINDOW_MONTHS);
+  // Dias corridos fixos (não "1 mês de calendário" — isso variava 28-31
+  // dias dependendo do mês, dando prazo a mais ou a menos por acidente).
+  return addDays(start, n * ATTEMPT_WINDOW_DAYS);
 }
 
 export function daysUntil(iso) {
@@ -244,7 +246,7 @@ export function assertCanRegisterAttempt(lead, round) {
 
   if (!isAttemptWindowOpen(lead, n)) {
     throw validationError(
-      "O prazo de 1 mês desta tentativa já encerrou. Sem retorno será aplicado automaticamente.",
+      "O prazo de 30 dias desta tentativa já encerrou. Sem retorno será aplicado automaticamente.",
     );
   }
 
@@ -382,9 +384,9 @@ export function requestFourthAttemptUpdates(lead, { dataQuartaTentativa, motivo,
   if (target.getTime() <= new Date(at).getTime()) {
     throw validationError("A data da 4ª tentativa deve ser no futuro.");
   }
-  const maxDate = addCalendarMonths(at, ATTEMPT_WINDOW_MONTHS);
+  const maxDate = addDays(at, ATTEMPT_WINDOW_DAYS);
   if (maxDate && target.getTime() > maxDate.getTime()) {
-    throw validationError("A data da 4ª tentativa deve ser em até 1 mês.");
+    throw validationError("A data da 4ª tentativa deve ser em até 30 dias.");
   }
 
   return {
@@ -643,7 +645,7 @@ export function buildAttemptView(lead) {
   );
   const treatedOnTime = isTreatedOnTime(lead);
   const windowLabels = {
-    1: "1ª tentativa — 1 mês a partir da qualificação",
+    1: "1ª tentativa — 30 dias a partir da qualificação",
     2: "2ª tentativa — aberta porque a 1ª não foi feita no prazo",
     3: "3ª tentativa — aberta porque a 2ª não foi feita no prazo",
     4: "4ª tentativa — solicitada pelo consultor",

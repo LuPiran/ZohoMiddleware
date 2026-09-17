@@ -393,8 +393,8 @@ export default function LeadFirstAttemptCard({
           Tentativas de contato
         </h2>
         <p className="mt-1 text-sm text-tegra-text-secondary">
-          Aceite o lead para registrar as tentativas. O prazo de 1 mês começa na
-          qualificação.
+          Aceite o lead para registrar as tentativas. O prazo de 30 dias começa
+          na qualificação.
         </p>
       </section>
     );

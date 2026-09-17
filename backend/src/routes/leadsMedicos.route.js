@@ -355,7 +355,7 @@ router.post(
 
 /**
  * Consultor solicita a 4ª tentativa durante a janela da 3ª — sem aprovação.
- * Exige data-alvo (até 1 mês), motivo e ao menos 1 imagem de evidência.
+ * Exige data-alvo (até 30 dias), motivo e ao menos 1 imagem de evidência.
  * POST /v1/leads-medicos/:id/tentativas/4/solicitar
  */
 router.post(

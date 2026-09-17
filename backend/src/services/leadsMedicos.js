@@ -1526,12 +1526,12 @@ export async function registerFirstAttempt(leadId, user, payload = {}) {
 }
 
 /**
- * Sem retorno é automático ao vencer o prazo de 1 mês.
+ * Sem retorno é automático ao vencer o prazo de 30 dias.
  * Consultores não disparam esta ação.
  */
 export async function markAttemptSemRetorno() {
   const err = new Error(
-    "Sem retorno é aplicado automaticamente quando o prazo de 1 mês da tentativa vence.",
+    "Sem retorno é aplicado automaticamente quando o prazo de 30 dias da tentativa vence.",
   );
   err.status = 400;
   err.code = "VALIDATION_ERROR";
@@ -1704,7 +1704,7 @@ export async function markLeadSemContato(leadId, user, { files } = {}) {
 
 /**
  * Consultor solicita a 4ª tentativa durante a janela da 3ª — sem aprovação
- * de gerência. Exige data-alvo (até 1 mês), motivo e ao menos 1 evidência.
+ * de gerência. Exige data-alvo (até 30 dias), motivo e ao menos 1 evidência.
  */
 export async function requestFourthAttempt(
   leadId,
