@@ -8,7 +8,6 @@ export const ROUTES = {
   LEADS_MEDICOS: "/leads-medicos",
   LEADS_MEDICOS_DETAIL: "/leads-medicos/:id",
   LEADS_MEDICOS_EQUIPE: "/leads-medicos-equipe",
-  PLATFORM_UPDATES: "/atualizacoes-plataforma",
   USUARIOS: "/usuarios",
   RECOMPRA: "/recompra",
   COMPRA: "/compra",
@@ -94,10 +93,7 @@ export const STORAGE_KEYS = {
   LOGOUT_SUCCESS: "logoutSuccess",
   ACCOUNT_INACTIVE: "accountInactive",
   LOGIN_SUCCESS: "loginSuccess",
-  PLATFORM_UPDATE_SEEN: "platformUpdateSeen",
 };
-
-export const PLATFORM_UPDATE_VERSION = "2026-08-07.1";
 
 export const FORMULARIOS_OPCIONAIS = {
   LEADS_MEDICOS: "leads_medicos",
@@ -322,23 +318,6 @@ export function podeVerCentralComercial(user) {
     user,
     FORMULARIOS_OPCIONAIS.CENTRAL_COMERCIAL,
   );
-}
-
-export function getPlatformUpdateStorageKey(user) {
-  const rawIdentifier =
-    user?.email ||
-    user?.Email ||
-    user?.id ||
-    user?.ID ||
-    getNomeUsuario(user) ||
-    "global";
-
-  const normalizedIdentifier = String(rawIdentifier)
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, " ");
-
-  return `${STORAGE_KEYS.PLATFORM_UPDATE_SEEN}:${PLATFORM_UPDATE_VERSION}:${normalizedIdentifier}`;
 }
 
 /**

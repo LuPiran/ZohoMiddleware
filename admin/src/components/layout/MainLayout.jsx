@@ -1,9 +1,6 @@
-import { useEffect, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { MdHelpOutline } from "react-icons/md";
-import { PlatformUpdatePopup } from "../feedback/auth";
-import { getPlatformUpdateStorageKey, ROUTES } from "../../utils/constants";
-import { authService } from "../../services/auth";
+import { ROUTES } from "../../utils/constants";
 import Header from "./Header";
 import Navbar from "./Navbar";
 import Sidebar from "./Sidebar";
@@ -19,25 +16,7 @@ import NotificationBell from "./NotificationBell";
  */
 export default function MainLayout({ children }) {
   const location = useLocation();
-  const [showPlatformUpdate, setShowPlatformUpdate] = useState(false);
-  const isDashboardRoute = location.pathname === ROUTES.DASHBOARD;
   const isFaqRoute = location.pathname === ROUTES.FAQ;
-  const user = authService.getUser();
-  const updateStorageKey = getPlatformUpdateStorageKey(user);
-
-  useEffect(() => {
-    if (!isDashboardRoute || !user) {
-      setShowPlatformUpdate(false);
-      return;
-    }
-    const hasSeenUpdate = localStorage.getItem(updateStorageKey) === "true";
-    setShowPlatformUpdate(!hasSeenUpdate);
-  }, [isDashboardRoute, updateStorageKey, user]);
-
-  function handleContinue() {
-    localStorage.setItem(updateStorageKey, "true");
-    setShowPlatformUpdate(false);
-  }
 
   return (
     <SlaOfferProvider>
@@ -72,10 +51,6 @@ export default function MainLayout({ children }) {
           </NavLink>
         )}
 
-        <PlatformUpdatePopup
-          isOpen={showPlatformUpdate && isDashboardRoute}
-          onContinue={handleContinue}
-        />
         <SlaOfferModal />
       </div>
     </SlaOfferProvider>

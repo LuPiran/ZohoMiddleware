@@ -4,7 +4,6 @@ import Dashboard from "../pages/Dashboard/Dashboard";
 import LeadsMedicos from "../pages/LeadsMedicos/LeadsMedicos";
 import LeadDetail from "../pages/LeadsMedicos/LeadDetail";
 import EquipeKpis from "../pages/LeadsMedicos/EquipeKpis";
-import PlatformUpdates from "../pages/PlatformUpdates/PlatformUpdates";
 import Users from "../pages/Users/Users";
 import RaioX from "../pages/RaioX/RaioX";
 import Recompra from "../pages/Recompra/Recompra";
@@ -106,10 +105,6 @@ export default function AppRoutes() {
             <EquipeKpis />
           </OptionalFormRoute>
         }
-      />
-      <Route
-        path={ROUTES.PLATFORM_UPDATES}
-        element={<PlatformUpdates />}
       />
       <Route
         path={ROUTES.USUARIOS}
