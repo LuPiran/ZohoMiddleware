@@ -13,6 +13,10 @@ node_modules/
 # Chaves, certificados e material criptográfico
 *.pem
 *.key
+
+# Override de Docker Compose local (dev na máquina, nunca produção)
+docker-compose.override.yml
+admin/nginx.local.conf
 *.p12
 *.pfx
 *.crt
