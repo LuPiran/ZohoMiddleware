@@ -287,7 +287,7 @@
     <li><code>shouldServeFrontend</code> só é <code>true</code> em produção com <code>SERVE_FRONTEND="true"</code> — no docker-compose real essa var é fixada como <code>"false"</code> (quem serve o SPA é o Nginx do container <code>zoho-admin</code>).</li>
     <li><code>app.set("trust proxy", 1)</code> — necessário porque a app roda atrás do Nginx; sem isso <code>req.ip</code> e os rate limiters ficariam errados.</li>
     <li><code>GET /health</code> é registrado <strong>antes</strong> do CORS — responde mesmo sem Origin/preflight. É o endpoint testado pelo healthcheck do Docker.</li>
-    <li>Dois parsers de JSON com limites diferentes: <code>/v1/upload</code> usa <code>UPLOAD_BODY_LIMIT</code> (25mb); todo o resto usa <code>JSON_BODY_LIMIT</code> (2mb).</li>
+    <li>Dois parsers de JSON, mesmo limite hoje: <code>/v1/upload</code> usa <code>UPLOAD_BODY_LIMIT</code> (25mb); todo o resto usa <code>JSON_BODY_LIMIT</code> (25mb, alinhado em 17/09 <span class="pill good">novo</span> — antes era 2mb e travava com 413 qualquer Compra/Recompra/Proposta/Ocorrência com anexos base64 acima de ~1,5MB, já que esses formulários postam pra <code>/v1/compra</code> e afins, não pra <code>/v1/upload</code>).</li>
     <li><code>apiRateLimiter</code> (200 req/15min por IP) aplicado a <strong>todo</strong> prefixo <code>/v1</code>, antes de qualquer autenticação.</li>
   </ul>
 
@@ -2456,7 +2456,7 @@ ZOHO_ATTEMPT_STATUS = { TRATADO: "Tratado Pelo Consultor", SEM_RETORNO: "Sem Ret
         <tr><td><code>PORT</code></td><td>—</td><td>Porta do Express</td></tr>
         <tr><td><code>FRONTEND_URL</code></td><td>—</td><td>Origem adicionada à allowlist de CORS</td></tr>
         <tr><td><code>SERVE_FRONTEND</code></td><td>—</td><td>Se <code>"true"</code> + produção, backend também serve o SPA</td></tr>
-        <tr><td><code>JSON_BODY_LIMIT</code> / <code>UPLOAD_BODY_LIMIT</code></td><td>2mb / 25mb</td><td>Limite de body por parser</td></tr>
+        <tr><td><code>JSON_BODY_LIMIT</code> / <code>UPLOAD_BODY_LIMIT</code></td><td>25mb / 25mb</td><td>Limite de body por parser <span class="fmeta">— iguais desde 17/09, ver seção "server.js"</span></td></tr>
         <tr><td><code>TRUST_PROXY</code></td><td>1</td><td>Confia no proxy Nginx (req.ip correto)</td></tr>
       </tbody>
     </table>

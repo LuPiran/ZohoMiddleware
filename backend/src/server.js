@@ -96,7 +96,7 @@ app.use(
 console.log("[CORS] Configuração CORS aplicada");
 console.log("[CORS] Origens permitidas:", allowedOrigins);
 
-const jsonBodyLimit = process.env.JSON_BODY_LIMIT || "2mb";
+const jsonBodyLimit = process.env.JSON_BODY_LIMIT || "25mb";
 const uploadBodyLimit = process.env.UPLOAD_BODY_LIMIT || "25mb";
 
 app.use("/v1/upload", express.json({ limit: uploadBodyLimit }));

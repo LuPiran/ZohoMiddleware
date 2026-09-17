@@ -57,7 +57,7 @@ services:
       SERVE_FRONTEND: "false"
       TRUST_PROXY: "1"
       FRONTEND_URL: ${FRONTEND_URL:-https://portal.autofullall.com}
-      JSON_BODY_LIMIT: 2mb
+      JSON_BODY_LIMIT: 25mb
       UPLOAD_BODY_LIMIT: 25mb
       MYSQL_HOST: zoho-mysql
       MYSQL_PORT: "3306"
