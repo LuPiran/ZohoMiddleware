@@ -66,7 +66,7 @@ export default function EvidenceUploader({
     <div>
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm font-semibold text-tegra-blue-dark">
-          Evidências fotográficas
+          Fotos de evidência
         </p>
         <span className="text-[11px] font-semibold tabular-nums text-tegra-text-secondary">
           {files.length}/{MAX_FILES}

@@ -64,19 +64,19 @@ const faqData = [
       },
       {
         pergunta: "Como registro uma tentativa de contato com o médico?",
-        resposta: "Após aceitar o lead, na seção <strong>'Primeira tentativa'</strong> (ou Segunda / Terceira), preencha: <strong>1.</strong> A <strong>Observação do contato</strong> — descreva brevemente o que aconteceu na ligação ou mensagem (mínimo 10 caracteres). <strong>2.</strong> As <strong>Evidências fotográficas</strong> — envie ao menos 1 imagem comprovando a tentativa (print de ligação, conversa de WhatsApp, etc.). <strong>3.</strong> Clique em <strong>'Continuar para compra'</strong> para registrar a tentativa e abrir o modal de compra.",
+        resposta: "Após aceitar o lead, na seção <strong>'Primeira tentativa'</strong> (ou Segunda / Terceira), preencha: <strong>1.</strong> A <strong>Observação do contato</strong> — descreva brevemente o que aconteceu na ligação ou mensagem (mínimo 10 caracteres). <strong>2.</strong> As <strong>Fotos de evidência</strong> — envie ao menos 1 imagem comprovando a tentativa (print de ligação, conversa de WhatsApp, etc.). <strong>3.</strong> Clique em <strong>'Continuar para compra'</strong> para registrar a tentativa e abrir o modal de compra.",
       },
       {
         pergunta: "Quantas tentativas posso registrar por lead?",
         resposta: "O sistema permite até <strong>3 tentativas</strong> de contato por lead. Cada tentativa tem uma janela de tempo a partir da qualificação. O contador de dias restantes fica visível no card de tentativas — quando próximo de zero, aparece em vermelho indicando urgência.",
       },
       {
-        pergunta: "O que são as evidências fotográficas e por que são obrigatórias?",
-        resposta: "Evidências são <strong>imagens que comprovam</strong> que o contato com o médico foi tentado (ex.: print da chamada no celular, conversa de WhatsApp, e-mail). São obrigatórias em cada tentativa para garantir rastreabilidade e transparência. Formatos aceitos: <strong>JPG, PNG, WEBP e GIF</strong> — tamanho máximo <strong>5 MB por imagem</strong>. Você pode enviar de 1 a 5 imagens: arraste e solte os arquivos na área tracejada, ou clique no botão para selecionar. Miniaturas aparecem com opção de remover antes de enviar. Se não enviar ao menos 1 imagem, o botão de envio fica bloqueado.",
+        pergunta: "O que são as fotos de evidência e por que são obrigatórias?",
+        resposta: "Fotos de evidência são <strong>imagens que comprovam</strong> que o contato com o médico foi tentado (ex.: print da chamada no celular, conversa de WhatsApp, e-mail). São obrigatórias em cada tentativa para garantir rastreabilidade e transparência. Formatos aceitos: <strong>JPG, PNG, WEBP e GIF</strong> — tamanho máximo <strong>5 MB por imagem</strong>. Você pode enviar de 1 a 5 imagens: arraste e solte os arquivos na área tracejada, ou clique no botão para selecionar. Miniaturas aparecem com opção de remover antes de enviar. Se não enviar ao menos 1 imagem, o botão de envio fica bloqueado.",
       },
       {
         pergunta: "O que acontece quando clico em 'Lead sem contato'?",
-        resposta: "Esta ação registra que <strong>não foi possível estabelecer nenhum contato</strong> com o médico naquela janela de tentativa. O status do lead muda para <strong>Lead Sem Contato</strong>. Uma confirmação aparecerá na tela antes de efetivar a ação. Evidências fotográficas também são necessárias para registrar o sem contato.",
+        resposta: "Esta ação registra que <strong>não foi possível estabelecer nenhum contato</strong> com o médico naquela janela de tentativa. O status do lead muda para <strong>Lead Sem Contato</strong>. Uma confirmação aparecerá na tela antes de efetivar a ação. Fotos de evidência também são necessárias para registrar o sem contato.",
       },
       {
         pergunta: "O que acontece quando clico em 'Lead sem interesse'?",
