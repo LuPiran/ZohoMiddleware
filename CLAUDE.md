@@ -37,8 +37,8 @@ docker compose logs -f zoho-backend
 ### Identidade visual
 - Marca: TegraPharma — saúde integrativa, consultores comerciais BR
 - Tom: Profissional-médico + calor brasileiro
-- **Assinatura visual**: margem lateral gradiente azul→rosa nas seções de formulário
 - **Elemento distintivo**: cards glassmorphic sobre background image desfocada
+> A antiga barra lateral gradiente nos títulos de seção foi removida (17/09) — achada feia, tirada de todos os formulários.
 
 ### Padrão de card de formulário
 ```jsx
@@ -53,7 +53,7 @@ docker compose logs -f zoho-backend
 
 ### Tipografia
 - Fonte: **Inter** (Google Fonts, adicionada no `index.html`)
-- Títulos de seção: `uppercase`, `letter-spacing: 0.08em`, com margem lateral gradiente via CSS
+- Títulos de seção: `uppercase`, `letter-spacing: 0.08em`, sem barra lateral (removida)
 
 ### Páginas de formulário (Compra / Recompra)
 - Background: imagem `/painel_consultor_compra.png` desfocada + overlay branco semitransparente
@@ -77,6 +77,5 @@ docker compose logs -f zoho-backend
 Aplicar o skill `frontend-design` (disponível em `.claude/plugins/`):
 - O portal deve refletir **precisão clínica + calor profissional brasileiro**
 - Não usar padrões genéricos de SaaS enterprise
-- O **elemento distintivo** é a margem lateral gradiente `#8FA9C1 → #E5989B` nas seções
 - Tipografia: pequena + uppercase + bold para labels, legível para corpo
 - Glass cards com background image criam profundidade sem distração

@@ -944,16 +944,8 @@ body {
     0 1px 4px rgba(0, 0, 0, 0.05) !important;
 }
 
-/* 3 ── SECTION HEADERS — assinatura visual da marca ─────────────────── */
-/*
-  Elemento distintivo do portal TegraPharma:
-  Cada seção de formulário exibe um label uppercase compacto com uma
-  barra lateral em gradiente #8FA9C1 (azul-ardósia) → #E5989B (rosa-mauve),
-  criando um ritmo visual imediato e profissional ao rolar o formulário.
-*/
+/* 3 ── SECTION HEADERS ────────────────────────────────────────────────── */
 div.bg-tegra-bg-primary > h2 {
-  position: relative !important;
-  padding-left: 14px !important;
   font-size: 0.72rem !important;
   font-weight: 800 !important;
   letter-spacing: 0.09em !important;
@@ -961,18 +953,6 @@ div.bg-tegra-bg-primary > h2 {
   color: #1a2f5b !important;
   margin-bottom: 1.125rem !important;
   line-height: 1.5 !important;
-}
-
-/* Barra lateral gradiente — a assinatura */
-div.bg-tegra-bg-primary > h2::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 2px;
-  bottom: 2px;
-  width: 3px;
-  border-radius: 2px;
-  background: linear-gradient(180deg, #8FA9C1 0%, #E5989B 100%);
 }
 
 /* Garantir que spans e ícones dentro do h2 herdem o estilo */
