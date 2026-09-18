@@ -23,7 +23,7 @@ import { haversineDistance } from "./geocoding.js";
  * entre si concorrem por menor carga em vez de distância absoluta.
  * Evita que 1 km de diferença sempre favoreça o mesmo consultor.
  */
-const GEO_TIE_BUFFER_KM = 30;
+const GEO_TIE_BUFFER_KM = 15;
 
 /** Ciclos completos (consultores + gerência) antes de escalar à Gestão. */
 export const SLA_REGIONAL_CYCLES = 2;
