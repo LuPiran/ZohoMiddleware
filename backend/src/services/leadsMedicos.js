@@ -173,8 +173,12 @@ function asIsoDate(value) {
   // dd/mm/yyyy ou dd-mm-yyyy
   const br = raw.match(/^(\d{2})[\/-](\d{2})[\/-](\d{4})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?$/);
   if (br) {
-    const [, dd, mm, yyyy, hh = "00", min = "00", ss = "00"] = br;
-    const iso = `${yyyy}-${mm}-${dd}T${hh}:${min}:${ss}.000Z`;
+    const [, dd, mm, yyyy, hh, min, ss] = br;
+    // Sem hora explícita, o Zoho está informando uma data (não um instante) no
+    // horário do Brasil — meia-noite BR (UTC-3, sem DST desde 2019), não UTC.
+    // Tratar como "Z" fazia a data exibida no navegador recuar 1 dia.
+    const offset = hh ? "Z" : "-03:00";
+    const iso = `${yyyy}-${mm}-${dd}T${hh || "00"}:${min || "00"}:${ss || "00"}.000${offset}`;
     const parsed = new Date(iso);
     return Number.isNaN(parsed.getTime()) ? raw : parsed.toISOString();
   }
