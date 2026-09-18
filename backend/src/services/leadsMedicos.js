@@ -1434,6 +1434,7 @@ export async function registerContactAttempt(
     acao: "tentativa",
     round: n,
     user,
+    requireEvidence: false,
   });
   const meta = ATTEMPT_ROUNDS[n];
   const actor = user.email || user.id || "usuario";

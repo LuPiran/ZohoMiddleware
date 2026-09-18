@@ -26,22 +26,22 @@ const ROUND_COPY = {
   1: {
     title: "Primeira tentativa",
     send: "Continuar para compra",
-    hint: "Observação, evidência e compra são obrigatórias.",
+    hint: "Observação e evidência são opcionais.",
   },
   2: {
     title: "Segunda tentativa",
     send: "Continuar para compra",
-    hint: "Observação, evidência e compra são obrigatórias.",
+    hint: "Observação e evidência são opcionais.",
   },
   3: {
     title: "Terceira tentativa",
     send: "Continuar para compra",
-    hint: "Observação, evidência e compra são obrigatórias.",
+    hint: "Observação e evidência são opcionais.",
   },
   4: {
     title: "Quarta tentativa",
     send: "Continuar para compra",
-    hint: "Observação, evidência e compra são obrigatórias.",
+    hint: "Observação e evidência são opcionais.",
   },
 };
 
@@ -206,26 +206,6 @@ export default function LeadFirstAttemptCard({
   const days =
     typeof attempt.daysRemaining === "number" ? attempt.daysRemaining : null;
 
-  const validateObservacao = () => {
-    const note = observacao.trim();
-    if (!note) {
-      const message =
-        "Para enviar uma tentativa ou lead sem interesse, adicione uma observação";
-      setError(message);
-      showToast(message, "error", 3500);
-      return null;
-    }
-    if (note.length < MIN_OBSERVACAO) {
-      const message =
-        "Observação da tentativa deve ter pelo menos 10 caracteres";
-      setError(message);
-      showToast(message, "warning", 3500);
-      return null;
-    }
-    setError("");
-    return note;
-  };
-
   const validateEvidencias = () => {
     if (!files.length) {
       const message = "Envie pelo menos 1 imagem de evidência (máximo 5).";
@@ -243,11 +223,19 @@ export default function LeadFirstAttemptCard({
     setFileError("");
   };
 
-  // "Continuar para compra" abre a escolha antes de decidir o destino —
-  // valida aqui pra não abrir o modal só pra barrar em seguida.
+  // "Continuar para compra" abre a escolha antes de decidir o destino.
+  // Observação e evidência são opcionais aqui — só valida o tamanho
+  // mínimo da observação quando o consultor de fato escreve algo.
   const handleAttempt = () => {
-    const note = validateObservacao();
-    if (!note || !validateEvidencias()) return;
+    const note = observacao.trim();
+    if (note && note.length < MIN_OBSERVACAO) {
+      const message = "Observação da tentativa deve ter pelo menos 10 caracteres";
+      setError(message);
+      showToast(message, "warning", 3500);
+      return;
+    }
+    setError("");
+    setFileError("");
     setContinuarModalOpen(true);
   };
 
@@ -493,7 +481,6 @@ export default function LeadFirstAttemptCard({
               onChange={(e) => setObservacao(e.target.value)}
               placeholder="Ex.: Ligação realizada, médico solicitou retorno na próxima semana..."
               rows={4}
-              required
               error={error}
               disabled={submitting}
             />

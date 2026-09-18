@@ -271,14 +271,22 @@ export function assertCanMarkSemInteresse(lead) {
  */
 export function treatedAttemptUpdates(lead, round, { observacao, at, destino = "venda" }) {
   const { n, meta } = assertCanRegisterAttempt(lead, round);
-  const note = requireObservacao(observacao);
+  // Observação é opcional aqui — só valida o tamanho mínimo quando o
+  // consultor de fato escreve algo (mesmo padrão de semInteresseUpdates).
+  const note =
+    observacao === undefined || observacao === null
+      ? ""
+      : String(observacao).trim();
+  if (note && note.length < MIN_OBSERVACAO) {
+    throw validationError("Observação da tentativa deve ter pelo menos 10 caracteres");
+  }
   const isMkt = destino === "mkt";
   return {
     n,
     note,
     isMkt,
     updates: {
-      [meta.desc]: note,
+      ...(note ? { [meta.desc]: note } : {}),
       [meta.date]: at,
       [meta.status]: ZOHO_ATTEMPT_STATUS.TRATADO,
       status: isMkt ? ZOHO_LEAD_STATUS.ENCAMINHADO_MKT : ZOHO_LEAD_STATUS.COM_INTERESSE,
