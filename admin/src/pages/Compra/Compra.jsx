@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { MdMedicalServices } from "react-icons/md";
 import { authService } from "../../services/auth";
 import { leadsMedicosService } from "../../services/leadsMedicos";
 import { takePendingLeadAttemptFiles } from "../../services/leadAttemptTransfer";
@@ -1031,14 +1032,26 @@ export default function Compra({
     return (
       <>
         {!embedded && leadAttemptCtx && (
-          <div className="mb-4 sm:mb-6 rounded-xl border border-tegra-teal/30 bg-tegra-teal/5 px-4 py-3 sm:px-5 sm:py-4">
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-tegra-teal">
-              Pedido a partir de Lead Médico · {leadAttemptCtx.roundLabel || "Tentativa"}
-            </p>
-            <h1 className="mt-1 text-lg sm:text-xl font-bold text-tegra-blue-dark">
-              {leadAttemptCtx.leadPrefill?.nomeMedico || "Médico"}
-            </h1>
-            <p className="mt-0.5 text-xs sm:text-sm text-tegra-text-secondary">
+          <div className="mb-4 sm:mb-6 rounded-xl border border-tegra-teal/25 bg-gradient-to-br from-tegra-teal/10 via-white to-tegra-blue/10 px-4 py-4 sm:px-5 sm:py-5 shadow-sm">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-tegra-blue to-tegra-teal text-white shadow-sm">
+                <MdMedicalServices className="text-lg" aria-hidden />
+              </span>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-tegra-teal">
+                    Pedido a partir de Lead Médico
+                  </span>
+                  <span className="inline-flex items-center rounded-full bg-tegra-blue/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.1em] text-tegra-blue-dark">
+                    {leadAttemptCtx.roundLabel || "Tentativa"}
+                  </span>
+                </div>
+                <h1 className="mt-0.5 truncate text-lg sm:text-xl font-bold text-tegra-blue-dark">
+                  {leadAttemptCtx.leadPrefill?.nomeMedico || "Médico"}
+                </h1>
+              </div>
+            </div>
+            <p className="mt-3 text-xs sm:text-sm text-tegra-text-secondary">
               Preencha o pedido abaixo — ao enviar, a tentativa é registrada automaticamente.
             </p>
           </div>
