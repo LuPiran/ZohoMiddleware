@@ -6,7 +6,7 @@ import {
 export const MIN_OBSERVACAO = 10;
 export const ATTEMPT_WINDOW_DAYS = 30;
 export const TIMEOUT_OBSERVACAO =
-  "Essa tentativa não foi tratada pelo consultor";
+  "Prazo de 30 dias encerrado sem retorno registrado.";
 
 export const ATTEMPT_ROUNDS = {
   1: {
@@ -45,7 +45,7 @@ export const ATTEMPT_ROUNDS = {
  */
 export function timeoutSemTratativaObservacao(consultorNome) {
   const nome = String(consultorNome || "").trim() || "responsável";
-  return `Lead não foi tratado pelo consultor ${nome}`;
+  return `Prazo da tentativa sob responsabilidade de ${nome} encerrado sem registro.`;
 }
 
 function validationError(message) {
