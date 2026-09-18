@@ -160,12 +160,15 @@ export default function SlaOfferModal() {
     refuseOffer,
     submittingId,
     offers,
+    refreshOffers,
   } = useSlaOffers();
 
   const { remaining, total: slaTotal } = useCountdown(offer?.slaDeadline);
   const urgentThreshold = Math.min(2 * 60 * 1000, slaTotal * 0.05);
   const isUrgent = remaining <= urgentThreshold;
+  const expired = remaining <= 0;
   const overlayRef = useRef(null);
+  const expiredCheckedRef = useRef(null);
 
   useEffect(() => {
     if (!offer) return undefined;
@@ -175,6 +178,16 @@ export default function SlaOfferModal() {
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [offer, closeOffer]);
+
+  // Assim que o contador local zera, força uma checagem imediata no servidor
+  // em vez de esperar o próximo poll (até 30s) — evita o card ficar preso em
+  // "00:00" com os botões de Aceitar/Recusar ainda ativos.
+  useEffect(() => {
+    if (!offer || !expired) return;
+    if (expiredCheckedRef.current === offer.id) return;
+    expiredCheckedRef.current = offer.id;
+    refreshOffers();
+  }, [offer, expired, refreshOffers]);
 
   if (!offer) return null;
 
@@ -247,19 +260,21 @@ export default function SlaOfferModal() {
 
           {/* Timer + status */}
           <div className={`flex items-center gap-4 rounded-xl border px-4 py-3 transition-colors ${
-            isUrgent
-              ? "border-red-200 bg-red-50"
-              : remaining <= Math.min(5 * 60 * 1000, slaTotal * 0.20)
-                ? "border-amber-200 bg-amber-50"
-                : "border-teal-100 bg-teal-50"
+            expired
+              ? "border-slate-200 bg-slate-50"
+              : isUrgent
+                ? "border-red-200 bg-red-50"
+                : remaining <= Math.min(5 * 60 * 1000, slaTotal * 0.20)
+                  ? "border-amber-200 bg-amber-50"
+                  : "border-teal-100 bg-teal-50"
           }`}>
             <TimerRing remaining={remaining} total={slaTotal} />
             <div className="min-w-0">
               <p className="text-sm font-semibold text-slate-700">
-                {isUrgent ? "⚠️ Tempo quase esgotado!" : "Tempo para aceitar"}
+                {expired ? "Oferta expirada" : isUrgent ? "⚠️ Tempo quase esgotado!" : "Tempo para aceitar"}
               </p>
               <p className="mt-0.5 text-xs text-slate-500 leading-snug">
-                Se expirar, o lead vai para o próximo consultor
+                {expired ? "Confirmando com o servidor…" : "Se expirar, o lead vai para o próximo consultor"}
               </p>
             </div>
           </div>
@@ -299,7 +314,7 @@ export default function SlaOfferModal() {
           <div className="flex gap-2 pt-1">
             <button
               type="button"
-              disabled={submitting}
+              disabled={submitting || expired}
               onClick={() => refuseOffer(offer)}
               className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -307,11 +322,11 @@ export default function SlaOfferModal() {
             </button>
             <button
               type="button"
-              disabled={submitting}
+              disabled={submitting || expired}
               onClick={() => acceptOffer(offer)}
               className="flex-[2] rounded-xl bg-teal-600 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {submitting ? "Salvando…" : "✓ Aceitar lead"}
+              {expired ? "Expirada…" : submitting ? "Salvando…" : "✓ Aceitar lead"}
             </button>
           </div>
 
