@@ -1032,17 +1032,17 @@ export default function Compra({
     return (
       <>
         {!embedded && leadAttemptCtx && (
-          <div className="mb-4 sm:mb-6 rounded-xl border border-tegra-teal/25 bg-gradient-to-br from-tegra-teal/10 via-white to-tegra-blue/10 px-4 py-4 sm:px-5 sm:py-5 shadow-sm">
+          <div className="mb-4 sm:mb-6 rounded-xl border border-tegra-gray-medium bg-tegra-gray-light px-4 py-4 sm:px-5 sm:py-5 shadow-sm">
             <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-tegra-blue to-tegra-teal text-white shadow-sm">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-tegra-blue-dark text-white">
                 <MdMedicalServices className="text-lg" aria-hidden />
               </span>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-tegra-teal">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-tegra-text-secondary">
                     Pedido a partir de Lead Médico
                   </span>
-                  <span className="inline-flex items-center rounded-full bg-tegra-blue/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.1em] text-tegra-blue-dark">
+                  <span className="inline-flex items-center rounded-full bg-tegra-gray-medium px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.1em] text-tegra-blue-dark">
                     {leadAttemptCtx.roundLabel || "Tentativa"}
                   </span>
                 </div>
