@@ -4,7 +4,7 @@ import { leadsMedicosService } from "../services/leadsMedicos";
 import { ROUTES } from "../utils/constants";
 import { useToast } from "../components/feedback/auth/ToastContainer";
 
-const POLL_MS = 20_000;
+const POLL_MS = 30_000;
 
 const SlaOfferContext = createContext(null);
 
