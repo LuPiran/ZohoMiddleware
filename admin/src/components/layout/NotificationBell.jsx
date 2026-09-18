@@ -11,8 +11,13 @@ import { useSlaOffers } from "../../contexts/SlaOfferContext";
 
 function formatCountdown(ms) {
   const totalSecs = Math.max(0, Math.floor(ms / 1000));
-  const mins = Math.floor(totalSecs / 60);
+  const hours = Math.floor(totalSecs / 3600);
+  const mins = Math.floor((totalSecs % 3600) / 60);
   const secs = totalSecs % 60;
+  if (hours >= 1) {
+    // Ex: "47h 49m" — evita mostrar minutos de 3-4 dígitos (ex.: "2880:00")
+    return `${hours}h ${String(mins).padStart(2, "0")}m`;
+  }
   return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
 }
 
