@@ -106,6 +106,9 @@ const STATUS_COLORS = {
   "Lead Rejeitado":        { bg: "#fee2e2", text: "#7f1d1d", dot: "#dc2626" },
   "Lead Sem Tratativa":    { bg: "#f3f4f6", text: "#374151", dot: "#9ca3af" },
   "Novo Lead":             { bg: "#eff6ff", text: "#1e3a8a", dot: "#1a2f5b" },
+  "Lead Direcionado ao Marketing": { bg: "#ede9fe", text: "#5b21b6", dot: "#8b5cf6" },
+  // Nome antigo do status, antes do rename — leads já encaminhados antes
+  // da troca continuam com o badge certo nos e-mails.
   "Lead Encaminhado ao Marketing": { bg: "#ede9fe", text: "#5b21b6", dot: "#8b5cf6" },
 };
 

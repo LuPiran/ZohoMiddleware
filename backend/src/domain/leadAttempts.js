@@ -594,7 +594,7 @@ export function buildLeadTimeline(lead) {
     } else if (encaminhadoMkt) {
       stages.push({
         id: "encaminhadoMkt",
-        label: "Encaminhado ao Marketing",
+        label: "Direcionado ao Marketing",
         date: lead.dataEncaminhadoMkt,
       });
     } else if (treatedRound || interesseDate) {

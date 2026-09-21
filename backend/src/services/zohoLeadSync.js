@@ -27,6 +27,11 @@ const STATUS_ALIASES = {
   rejeitado: ZOHO_LEAD_STATUS.REJEITADO,
   "lead sem tratativa": ZOHO_LEAD_STATUS.SEM_TRATATIVA,
   "sem tratativa": ZOHO_LEAD_STATUS.SEM_TRATATIVA,
+  "lead direcionado ao marketing": ZOHO_LEAD_STATUS.ENCAMINHADO_MKT,
+  "direcionado ao marketing": ZOHO_LEAD_STATUS.ENCAMINHADO_MKT,
+  "direcionado marketing": ZOHO_LEAD_STATUS.ENCAMINHADO_MKT,
+  // Nome antigo do picklist, antes do rename — leads já encaminhados
+  // continuam reconhecidos.
   "lead encaminhado ao marketing": ZOHO_LEAD_STATUS.ENCAMINHADO_MKT,
   "encaminhado ao marketing": ZOHO_LEAD_STATUS.ENCAMINHADO_MKT,
   "encaminhado marketing": ZOHO_LEAD_STATUS.ENCAMINHADO_MKT,

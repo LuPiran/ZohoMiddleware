@@ -259,7 +259,7 @@ export default function EquipeKpis() {
                   <th scope="col" className="px-4 py-3 font-semibold text-right whitespace-nowrap" title="Consultor clicou em Recusar">Recusas</th>
                   <th scope="col" className="px-4 py-3 font-semibold text-right whitespace-nowrap" title="Prazo de aceite venceu sem resposta">Timeout</th>
                   <th scope="col" className="px-4 py-3 font-semibold text-right whitespace-nowrap">Sem tratativa</th>
-                  <th scope="col" className="px-4 py-3 font-semibold text-right whitespace-nowrap" title="Encaminhado ao Marketing, sem compra">Enc. MKT</th>
+                  <th scope="col" className="px-4 py-3 font-semibold text-right whitespace-nowrap" title="Direcionado ao Marketing, sem compra">Enc. MKT</th>
                   <th scope="col" className="px-4 py-3 font-semibold text-right whitespace-nowrap">Tentativas</th>
                   <th scope="col" className="px-4 py-3 font-semibold text-right whitespace-nowrap">Agendamentos</th>
                   <th scope="col" className="px-4 py-3 font-semibold text-right whitespace-nowrap">Compras</th>

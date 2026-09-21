@@ -11,7 +11,7 @@ export const LEAD_STATUS = {
   SEM_CONTATO: "Lead Sem Contato",
   REJEITADO: "Lead Rejeitado",
   SEM_TRATATIVA: "Lead Sem Tratativa",
-  ENCAMINHADO_MKT: "Lead Encaminhado ao Marketing",
+  ENCAMINHADO_MKT: "Lead Direcionado ao Marketing",
 };
 
 export const LEAD_STATUSES = [
@@ -83,6 +83,10 @@ const STATUS_ALIASES = {
   rejeitado: LEAD_STATUS.REJEITADO,
   "lead sem tratativa": LEAD_STATUS.SEM_TRATATIVA,
   "sem tratativa": LEAD_STATUS.SEM_TRATATIVA,
+  "lead direcionado ao marketing": LEAD_STATUS.ENCAMINHADO_MKT,
+  "direcionado ao marketing": LEAD_STATUS.ENCAMINHADO_MKT,
+  "direcionado marketing": LEAD_STATUS.ENCAMINHADO_MKT,
+  // Nome antigo do status, antes do rename.
   "lead encaminhado ao marketing": LEAD_STATUS.ENCAMINHADO_MKT,
   "encaminhado marketing": LEAD_STATUS.ENCAMINHADO_MKT,
 };
