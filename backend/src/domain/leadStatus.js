@@ -1,5 +1,6 @@
 export const ZOHO_LEAD_STATUS = {
   NOVO: "Novo Lead",
+  EM_OFERTA: "Lead Em Oferta",
   QUALIFICACAO: "Lead Em Qualificação",
   COM_INTERESSE: "Lead Com Interesse",
   SEM_CONTATO: "Lead Sem Contato",

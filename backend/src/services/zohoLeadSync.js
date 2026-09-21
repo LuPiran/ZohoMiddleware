@@ -11,6 +11,8 @@ export { ZOHO_ATTEMPT_STATUS, ZOHO_LEAD_STATUS };
 const STATUS_ALIASES = {
   "novo lead": ZOHO_LEAD_STATUS.NOVO,
   novo: ZOHO_LEAD_STATUS.NOVO,
+  "lead em oferta": ZOHO_LEAD_STATUS.EM_OFERTA,
+  "em oferta": ZOHO_LEAD_STATUS.EM_OFERTA,
   "lead em qualificação": ZOHO_LEAD_STATUS.QUALIFICACAO,
   "lead em qualificacao": ZOHO_LEAD_STATUS.QUALIFICACAO,
   qualificado: ZOHO_LEAD_STATUS.QUALIFICACAO,
@@ -219,6 +221,9 @@ export function syncZohoLeadDistribuicao(lead) {
     ...field(ENV.ZOHO_LEAD_NOME_EVENTO_FIELD, lead.evento),
     ...field(ENV.ZOHO_LEAD_DIST_FILA_FIELD, fila),
     ...field(ENV.ZOHO_LEAD_DIST_STATUS_FIELD, "Oferecido"),
+    // Campo principal "Status" — antes ficava em "Novo Lead" durante toda a
+    // janela de oferta, indistinguível de um lead que acabou de chegar.
+    ...field(ENV.ZOHO_LEAD_STATUS_FIELD, lead.status),
     ...(lead.slaOfertaRound != null
       ? field(ENV.ZOHO_LEAD_DIST_RODADAS_FIELD, Number(lead.slaOfertaRound))
       : {}),

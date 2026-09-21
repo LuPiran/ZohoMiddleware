@@ -350,6 +350,7 @@ export function applyOfferToLead(lead, consultor, { reason } = {}) {
   lead.emailConsultor = consultor.email || lead.emailConsultor;
   lead.gerencia = lead.gerencia || getConsultorGerencia(consultor);
   lead.slaStatus = "ofertado";
+  lead.status = ZOHO_LEAD_STATUS.EM_OFERTA;
   lead.slaDeadline = offerDeadlineIso();
   // Marco fixo do 1º oferecimento — nunca sobrescrito depois de setado,
   // diferente de slaDeadline (que muda a cada nova oferta). Usado pra
