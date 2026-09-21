@@ -48,7 +48,8 @@ export const ENV = {
   DATA_ENCRYPTION_KEY: process.env.DATA_ENCRYPTION_KEY,
   ZOHO_LEADS_WEBHOOK_SECRET: process.env.ZOHO_LEADS_WEBHOOK_SECRET,
 
-  SLA_OFFER_MINUTES: Number(process.env.SLA_OFFER_MINUTES || 10),
+  // Regra de negócio: 48h para aceitar a oferta = 2880 minutos.
+  SLA_OFFER_MINUTES: Number(process.env.SLA_OFFER_MINUTES || 2880),
 
   // Módulo CRM dos leads médicos (não confundir com ZOHO_MODULE_NAME dos usuários)
   ZOHO_LEADS_MODULE: process.env.ZOHO_LEADS_MODULE || "Leads_M_dicos",
