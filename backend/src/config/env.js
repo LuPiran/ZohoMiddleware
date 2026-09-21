@@ -139,6 +139,9 @@ export const ENV = {
     process.env.ZOHO_LEAD_DIST_RODADAS_FIELD || "Dist_Rodadas",
   ZOHO_LEAD_DIST_GEO_METODO_FIELD:
     process.env.ZOHO_LEAD_DIST_GEO_METODO_FIELD || "Dist_Geo_Metodo",
+  // Apesar do nome legado ("erro de sync"), hoje é um log geral e legível
+  // da jornada do lead no Portal — resumo do histórico interno (historico),
+  // não só erros. Ver buildZohoLogText em zohoLeadSync.js.
   ZOHO_LEAD_DIST_ERRO_SYNC_FIELD:
     process.env.ZOHO_LEAD_DIST_ERRO_SYNC_FIELD || "Dist_Erro_Sync",
   // Guarda se a rejeição mais recente foi recusa explícita do consultor

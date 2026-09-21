@@ -48,6 +48,33 @@ function field(name, value) {
   return { [name]: value };
 }
 
+/**
+ * Renderiza lead.historico (a mesma timeline "Histórico de ações" que o
+ * Portal mostra na tela do lead) num texto multi-linhas legível, pra quem
+ * só olha o Zoho acompanhar a "obra completa" sem precisar abrir o Portal.
+ * Mais recente primeiro — mesma ordem da tela. Reescreve o campo inteiro a
+ * cada sync (não faz append incremental): como o historico já vem completo
+ * em memória em todo ponto de sincronização, é mais simples e robusto do
+ * que buscar o valor atual no Zoho só pra concatenar.
+ */
+function buildZohoLogText(lead) {
+  const historico = Array.isArray(lead?.historico) ? lead.historico : [];
+  if (!historico.length) return "Sem eventos registrados ainda.";
+  return historico
+    .map((entry) => {
+      const quando = entry?.at
+        ? new Date(entry.at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })
+        : "—";
+      const titulo = entry?.label || entry?.action || "Evento";
+      return entry?.detail ? `[${quando}] ${titulo} — ${entry.detail}` : `[${quando}] ${titulo}`;
+    })
+    .join("\n");
+}
+
+function logField(lead) {
+  return field(ENV.ZOHO_LEAD_DIST_ERRO_SYNC_FIELD, buildZohoLogText(lead));
+}
+
 function consultorLookup(lead) {
   const name = String(lead?.consultor || "").trim();
   if (!name) return undefined;
@@ -218,7 +245,7 @@ export function syncZohoLeadDistribuicao(lead) {
     ...field(ENV.ZOHO_LEAD_DIST_DATA_ATRIBUICAO_FIELD, toZohoDateTime(lead.entradaEm)),
     ...field(ENV.ZOHO_LEAD_DIST_REGIAO_FIELD, distRegiaoLabel(lead.regiao)),
     ...field(ENV.ZOHO_LEAD_DIST_GEO_METODO_FIELD, distGeoMetodoLabel(lead.geoMetodo)),
-    ...field(ENV.ZOHO_LEAD_DIST_ERRO_SYNC_FIELD, lead.erroSync),
+    ...logField(lead),
     // Confirma no próprio registro que o lead passou pelo Portal, e de qual
     // evento ele veio (além das evidências indiretas dos campos Dist_*).
     ...field(ENV.ZOHO_LEAD_EVENTO_TRATADO_FIELD, true),
@@ -245,6 +272,7 @@ export function syncZohoLeadAccepted(lead) {
     ...field(ENV.ZOHO_LEAD_DATA_QUALIFICADO_FIELD, qualificationDate),
     ...field(ENV.ZOHO_LEAD_DIST_DATA_CHECKIN_FIELD, toZohoDateTime(now)),
     ...field(ENV.ZOHO_LEAD_DIST_STATUS_FIELD, "Aceito"),
+    ...logField(lead),
   });
 
   const consultor = consultorLookup(lead);
@@ -280,6 +308,7 @@ export function buildZohoAttemptTreatedFields(lead, round, { observacao, at, des
     ...field(fields.date, toZohoDate(at)),
     ...field(fields.obs, observacao),
     ...field(fields.status, ZOHO_ATTEMPT_STATUS.TRATADO),
+    ...logField(lead),
   };
 }
 
@@ -291,7 +320,7 @@ export function syncZohoLeadAttemptNoReturn(lead, round, { at, observacao, leadT
 }
 
 export function buildZohoAttemptNoReturnFields(
-  _lead,
+  lead,
   round,
   { at, observacao, leadTerminal } = {},
 ) {
@@ -310,6 +339,7 @@ export function buildZohoAttemptNoReturnFields(
           ...field(ENV.ZOHO_LEAD_DATA_SEM_TRATATIVA_FIELD, toZohoDate(at)),
         }
       : {}),
+    ...logField(lead),
   };
 }
 
@@ -325,13 +355,14 @@ export function syncZohoLeadFourthAttemptRequested(lead, { at, dataQuartaTentati
 }
 
 export function buildZohoFourthAttemptRequestedFields(
-  _lead,
+  lead,
   { dataQuartaTentativa, motivo } = {},
 ) {
   return {
     ...field(ENV.ZOHO_LEAD_ADD_4A_FIELD, true),
     ...field(ENV.ZOHO_LEAD_DATA_4A_FIELD, toZohoDate(dataQuartaTentativa)),
     ...field(ENV.ZOHO_LEAD_MOTIVO_4A_FIELD, motivo),
+    ...logField(lead),
   };
 }
 
@@ -347,13 +378,15 @@ const AGENDAMENTO_FIELDS = {
  * de próximo contato previsto (até 4 por lead), sem mexer em status/rodada.
  */
 export function syncZohoLeadAgendamento(lead, { n, data } = {}) {
-  syncZohoLead(lead.idZoho, buildZohoAgendamentoFields({ n, data }));
+  syncZohoLead(lead.idZoho, buildZohoAgendamentoFields(lead, { n, data }));
 }
 
-export function buildZohoAgendamentoFields({ n, data } = {}) {
+export function buildZohoAgendamentoFields(lead, { n, data } = {}) {
   const fieldName = AGENDAMENTO_FIELDS[n]?.();
-  if (!fieldName) return {};
-  return { ...field(fieldName, toZohoDate(data)) };
+  return {
+    ...(fieldName ? field(fieldName, toZohoDate(data)) : {}),
+    ...logField(lead),
+  };
 }
 
 /**
@@ -377,6 +410,7 @@ export function buildZohoRejectedFields(lead, { at } = {}) {
     ...field(ENV.ZOHO_LEAD_EMAIL_CONSULTOR_FIELD, lead.emailConsultor),
     ...field(ENV.ZOHO_LEAD_DIST_STATUS_FIELD, "Rejeitado"),
     ...field(ENV.ZOHO_LEAD_DIST_MOTIVO_REJEICAO_FIELD, motivoLabel),
+    ...logField(lead),
   };
 }
 
@@ -384,10 +418,11 @@ export function syncZohoLeadSemContato(lead, { at } = {}) {
   syncZohoLead(lead.idZoho, buildZohoSemContatoFields(lead, { at }));
 }
 
-export function buildZohoSemContatoFields(_lead, { at } = {}) {
+export function buildZohoSemContatoFields(lead, { at } = {}) {
   return {
     ...field(ENV.ZOHO_LEAD_STATUS_FIELD, ZOHO_LEAD_STATUS.SEM_CONTATO),
     ...field(ENV.ZOHO_LEAD_DATA_SEM_CONTATO_FIELD, toZohoDate(at)),
+    ...logField(lead),
   };
 }
 
@@ -395,7 +430,7 @@ export function syncZohoLeadSemInteresse(lead, { at, observacao, round } = {}) {
   syncZohoLead(lead.idZoho, buildZohoSemInteresseFields(lead, { at, observacao, round }));
 }
 
-export function buildZohoSemInteresseFields(_lead, { at, observacao, round } = {}) {
+export function buildZohoSemInteresseFields(lead, { at, observacao, round } = {}) {
   const n = Number(round);
   const attemptFields = [1, 2, 3, 4].includes(n) ? attemptFieldMap(n) : null;
 
@@ -409,5 +444,6 @@ export function buildZohoSemInteresseFields(_lead, { at, observacao, round } = {
           ...field(attemptFields.status, ZOHO_ATTEMPT_STATUS.TRATADO),
         }
       : {}),
+    ...logField(lead),
   };
 }

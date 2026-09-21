@@ -429,9 +429,6 @@ export async function offerLeadOnCreate(lead) {
       detail,
       by: "sistema",
     });
-    // Acumula no mesmo log que a geocodificação já pode ter preenchido
-    // (ver leadsMedicos.js) — sincronizado pro Zoho em Dist_Erro_Sync.
-    lead.erroSync = [lead.erroSync, detail].filter(Boolean).join(" | ");
     console.warn(
       `[SLA] Sem destinatário para oferta (${lead.regiao || "sem região"})`,
     );

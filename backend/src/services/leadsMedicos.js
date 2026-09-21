@@ -835,12 +835,31 @@ export async function createLeadFromZoho(payload) {
         const cepDigits = String(lead.cep || "").replace(/\D/g, "");
         lead.geoMetodo = cepDigits.length === 8 ? "cep" : "google";
       } else {
-        lead.erroSync =
-          "Não foi possível geocodificar o endereço do lead (CEP/cidade não encontrados pelo Google Maps).";
+        lead.historico = [
+          {
+            id: randomUUID(),
+            at: new Date().toISOString(),
+            action: "geocodificacao_falha",
+            label: "Não foi possível localizar o endereço",
+            detail: "CEP/cidade não encontrados pelo Google Maps — distribuição por proximidade geográfica desativada para este lead.",
+            by: "sistema",
+          },
+          ...(lead.historico || []),
+        ];
       }
     } catch (geoErr) {
       console.warn("[LEADS] Geocoding do lead falhou:", geoErr.message);
-      lead.erroSync = `Erro na API de geocodificação: ${geoErr.message}`;
+      lead.historico = [
+        {
+          id: randomUUID(),
+          at: new Date().toISOString(),
+          action: "geocodificacao_falha",
+          label: "Erro ao localizar o endereço",
+          detail: `Erro na API de geocodificação: ${geoErr.message}`,
+          by: "sistema",
+        },
+        ...(lead.historico || []),
+      ];
     }
   }
   // Reflete no Zoho (Dist_Geo_Metodo) como o lead foi localizado geograficamente.
@@ -848,12 +867,7 @@ export async function createLeadFromZoho(payload) {
     lead.geoMetodo = lead.regiao ? "uf" : null;
   }
 
-  // offerLeadOnCreate pode complementar lead.erroSync (ex.: "sem destinatário
-  // para a oferta") — ver slaOffers.js.
   lead = await offerLeadOnCreate(lead);
-  if (!lead.erroSync) {
-    lead.erroSync = "Sem erros — geocodificação e distribuição concluídas normalmente.";
-  }
 
   const errors = validateCreateLeadInput(lead);
   if (errors.length) {
