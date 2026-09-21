@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { MdClose, MdPhone, MdBadge, MdLocationOn, MdMedicalServices } from "react-icons/md";
+import { MdClose, MdPhone, MdBadge, MdLocationOn, MdMedicalServices, MdAccessTime } from "react-icons/md";
 import { useSlaOffers } from "../../contexts/SlaOfferContext";
 import { useEffect, useRef, useState } from "react";
 
@@ -198,6 +198,14 @@ export default function SlaOfferModal() {
   const contato = offer.celular || offer.telefone;
   const crm = offer.numeroRegistro ? `CRM ${offer.ufCrm || ""} ${offer.numeroRegistro}`.trim() : null;
   const origem = offer.origem || offer.evento;
+  const chegouEm = offer.criadoEm
+    ? new Date(offer.criadoEm).toLocaleString("pt-BR", {
+        day: "2-digit",
+        month: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : null;
 
   return (
     <div
@@ -281,6 +289,11 @@ export default function SlaOfferModal() {
 
           {/* Informações do lead */}
           <div className="space-y-2.5 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
+            <InfoRow
+              icon={MdAccessTime}
+              label="Chegou em"
+              value={chegouEm}
+            />
             <InfoRow
               icon={MdLocationOn}
               label="Localidade"

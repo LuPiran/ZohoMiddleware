@@ -230,6 +230,25 @@ function leadInfoFrom(lead) {
   };
 }
 
+// 0. Lead chegou ao portal → gestão (aviso informativo, antes de qualquer atribuição)
+function contentLeadChegou(lead) {
+  const fila = lead.regiao
+    ? `enviado automaticamente para atribuição na região <strong>${lead.regiao}</strong>`
+    : "sem região definida — encaminhado diretamente para a Gestão";
+  return {
+    subject: `Novo lead no funil — ${lead.nome || "Lead"} (${lead.regiao || "sem região"})`,
+    html: buildHtml({
+      badgeStatus: "Novo Lead",
+      title: "Lead chegou ao portal",
+      intro: `O lead abaixo foi qualificado no Zoho CRM e ${fila}.`,
+      leadInfo: leadInfoFrom(lead),
+      ctaUrl: leadPortalUrl(lead.id),
+      ctaLabel: "Ver no Portal →",
+      footerNote: `Gerado em: ${nowBR()}`,
+    }),
+  };
+}
+
 // 1. Oferta SLA → consultor
 function contentLeadOffer(lead, consultorNome) {
   const minutos = Number(ENV.SLA_OFFER_MINUTES) || 10;
@@ -717,6 +736,7 @@ export function previewEmailTemplates() {
   const consultorNome = sampleLead.consultor;
 
   return [
+    { key: "lead_chegou", label: "0. Lead chegou ao portal → gestão (função existe, não é chamada hoje)", ...contentLeadChegou(sampleLead) },
     { key: "oferta_consultor", label: "1. Oferta SLA → consultor", ...contentLeadOffer(sampleLead, consultorNome) },
     { key: "oferta_gestao", label: "1b. Oferta SLA → aviso gestão (função existe, não é chamada hoje)", ...contentLeadOfferGestao(sampleLead, consultorNome) },
     { key: "aceito_consultor", label: "2. Lead aceito → consultor", ...contentLeadAceitoConsultor(sampleLead, consultorNome) },
