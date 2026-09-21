@@ -566,6 +566,13 @@ export async function rejectLeadOffer(lead, { reason, by } = {}) {
             : `${consultorAtual} recusou explicitamente este lead.`
         } ${semRotacaoTexto}`,
         by: by || "sistema",
+        // Estruturado (além do texto acima) — com redistribuição, o lead
+        // pode trocar de consultor várias vezes, então "quem recusou nesse
+        // evento" não é mais igual a "quem está com o lead hoje". Usado
+        // pelo relatório de recusas por consultor (leadsMedicosKpis.js).
+        consultorId: lead.consultorId ? String(lead.consultorId) : null,
+        consultorNome: consultorAtual,
+        motivoRejeicao,
       },
     ],
     stillOffered,

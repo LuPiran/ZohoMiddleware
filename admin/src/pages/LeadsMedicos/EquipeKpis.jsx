@@ -92,7 +92,7 @@ export default function EquipeKpis() {
       Rejeitados: c.rejeitados,
       "Taxa de rejeição": formatPct(c.taxaRejeicao),
       "  — Recusados pelo consultor": c.recusados,
-      "  — Por timeout (48h)": c.expirados,
+      "  — Por timeout (prazo de aceite)": c.expirados,
       "Sem tratativa": c.semTratativa,
       "Encaminhados MKT": c.encaminhadosMkt,
       "Taxa sem tratativa": formatPct(c.taxaSemTratativa),
@@ -257,7 +257,7 @@ export default function EquipeKpis() {
                   <th scope="col" className="px-4 py-3 font-semibold text-right whitespace-nowrap">Convertidos</th>
                   <th scope="col" className="px-4 py-3 font-semibold text-right whitespace-nowrap">Conversão</th>
                   <th scope="col" className="px-4 py-3 font-semibold text-right whitespace-nowrap" title="Consultor clicou em Recusar">Recusas</th>
-                  <th scope="col" className="px-4 py-3 font-semibold text-right whitespace-nowrap" title="Prazo de 48h venceu sem resposta">Timeout 48h</th>
+                  <th scope="col" className="px-4 py-3 font-semibold text-right whitespace-nowrap" title="Prazo de aceite venceu sem resposta">Timeout</th>
                   <th scope="col" className="px-4 py-3 font-semibold text-right whitespace-nowrap">Sem tratativa</th>
                   <th scope="col" className="px-4 py-3 font-semibold text-right whitespace-nowrap" title="Encaminhado ao Marketing, sem compra">Enc. MKT</th>
                   <th scope="col" className="px-4 py-3 font-semibold text-right whitespace-nowrap">Tentativas</th>

@@ -94,14 +94,47 @@ export async function buildEquipeKpis(user = {}) {
 
   const acoesGeral = new Map();
 
+  // Recusas/timeouts por consultor — escaneia TODOS os leads (não só o
+  // bucket atual do lead), porque com a redistribuição pro próximo
+  // consultor mais próximo, um lead pode ter passado por várias pessoas
+  // antes de fechar com outra — quem recusou não é mais necessariamente
+  // quem está com o lead hoje. Cada evento carrega seu próprio consultorId
+  // (a partir desta entrega); eventos antigos sem esse campo ficam de fora
+  // em vez de arriscar atribuir errado.
+  const recusasPorConsultor = new Map();
+  for (const lead of leads) {
+    for (const entry of Array.isArray(lead.historico) ? lead.historico : []) {
+      if (
+        entry?.action !== "lead_rejeitado_timeout" &&
+        entry?.action !== "lead_rejeitado_recusa"
+      ) {
+        continue;
+      }
+      if (!entry.consultorId) continue;
+      const key = String(entry.consultorId);
+      const bucketRecusas = recusasPorConsultor.get(key) || {
+        recusados: 0,
+        expirados: 0,
+        eventos: [],
+      };
+      if (entry.motivoRejeicao === "expirado") bucketRecusas.expirados += 1;
+      else if (entry.motivoRejeicao === "recusa") bucketRecusas.recusados += 1;
+      bucketRecusas.eventos.push({
+        leadId: lead.id,
+        leadNome: lead.nome || null,
+        at: entry.at,
+        motivo: entry.motivoRejeicao || null,
+      });
+      recusasPorConsultor.set(key, bucketRecusas);
+    }
+  }
+
   const porConsultor = [...buckets.values()].map((bucket) => {
     const { leads: leadsDoConsultor } = bucket;
     const total = leadsDoConsultor.length;
     const statusCount = {};
     let convertidos = 0;
     let rejeitados = 0;
-    let recusados = 0;
-    let expirados = 0;
     let semTratativa = 0;
     let semInteresse = 0;
     let semContato = 0;
@@ -119,14 +152,7 @@ export async function buildEquipeKpis(user = {}) {
       statusCount[status] = (statusCount[status] || 0) + 1;
 
       if (lead.dataConversao) convertidos += 1;
-      if (lead.dataLeadRejeitado) {
-        rejeitados += 1;
-        // motivoRejeicao só existe pra leads rejeitados a partir desta
-        // entrega — leads antigos contam em "rejeitados" mas não entram
-        // em nenhum dos dois baldes abaixo (evita presumir qual foi o motivo).
-        if (lead.motivoRejeicao === "expirado") expirados += 1;
-        else if (lead.motivoRejeicao === "recusa") recusados += 1;
-      }
+      if (lead.dataLeadRejeitado) rejeitados += 1;
       if (lead.dataLeadSemTratativa) semTratativa += 1;
       if (lead.dataSemInteresse) semInteresse += 1;
       if (lead.dataSemContato) semContato += 1;
@@ -153,6 +179,12 @@ export async function buildEquipeKpis(user = {}) {
       }
     }
 
+    const recusasInfo = recusasPorConsultor.get(String(bucket.id)) || {
+      recusados: 0,
+      expirados: 0,
+      eventos: [],
+    };
+
     return {
       id: bucket.id,
       nome: bucket.nome,
@@ -162,8 +194,9 @@ export async function buildEquipeKpis(user = {}) {
       taxaConversao: pct(convertidos, total),
       rejeitados,
       taxaRejeicao: pct(rejeitados, total),
-      recusados,
-      expirados,
+      recusados: recusasInfo.recusados,
+      expirados: recusasInfo.expirados,
+      recusasEventos: recusasInfo.eventos,
       semTratativa,
       taxaSemTratativa: pct(semTratativa, total),
       semInteresse,
