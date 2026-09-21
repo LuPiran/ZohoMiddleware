@@ -15,7 +15,7 @@ import {
 } from "./consultores.js";
 import { notifyLeadOffer, notifyLeadRecusado, formatMinutes } from "./emailService.js";
 import { ZOHO_LEAD_STATUS } from "../domain/leadStatus.js";
-import { syncZohoLeadRejected } from "./zohoLeadSync.js";
+import { syncZohoLeadRejected, syncZohoLeadDistribuicao } from "./zohoLeadSync.js";
 import { haversineDistance } from "./geocoding.js";
 
 /**
@@ -489,11 +489,24 @@ function previousOfferHistory(reason, by) {
   };
 }
 
+function encaminhadoGestaoCondition() {
+  return {
+    expression: "#stCond = :encaminhado",
+    names: { "#stCond": "status" },
+    values: { ":encaminhado": ZOHO_LEAD_STATUS.ENCAMINHADO_GESTAO },
+  };
+}
+
 /**
- * Recusa explícita OU estouro do prazo de aceite (ver SLA_OFFER_MINUTES):
- * o lead é encerrado no Portal e devolvido ao Zoho como "Lead Rejeitado" —
- * NÃO volta ao rodízio. Quem estava com a oferta (consultorId/consultor/
- * emailConsultor) é preservado de propósito: é o registro de quem rejeitou.
+ * Recusa explícita OU estouro do prazo de aceite (ver SLA_OFFER_MINUTES).
+ * Quem estava com a oferta (consultorId/consultor/emailConsultor) é
+ * preservado de propósito: é o registro de quem rejeitou.
+ *
+ * Se ainda sobra alguém na região (excluindo todo mundo que já recusou),
+ * o lead vira "Lead Encaminhado à Gestão" — fica parado aguardando uma
+ * ação manual/automação no Zoho (botão, regra) que reenvie o webhook e
+ * dispare redistributeLead() pro próximo consultor mais próximo. Se não
+ * sobra ninguém, encerra direto como "Lead Rejeitado" (terminal).
  */
 export async function rejectLeadOffer(lead, { reason, by } = {}) {
   const now = new Date().toISOString();
@@ -507,17 +520,38 @@ export async function rejectLeadOffer(lead, { reason, by } = {}) {
   const timeout = /expirad/i.test(reason || "");
   // Guardado no próprio lead — sem isso, "Lead Rejeitado" mistura recusa
   // explícita e estouro de prazo no mesmo balde, e os KPIs não conseguem
-  // separar as duas coisas.
+  // separar as duas coisas. Também vai pro Zoho (Dist_Motivo_Rejeicao).
   const motivoRejeicao = timeout ? "expirado" : "recusa";
+
+  const recusadosSet = refusedSet(lead);
+  if (lead.consultorId) recusadosSet.add(String(lead.consultorId));
+  const slaRecusados = [...recusadosSet];
+
+  // Ainda tem alguém na região pra tentar (excluindo quem já recusou)?
+  // Só verifica pra decidir o status — a oferta de verdade só acontece
+  // quando redistributeLead() for chamado (reenvio do webhook do Zoho).
+  const coords = leadCoords(lead);
+  const hasNext =
+    !isGestaoPhase(lead) &&
+    Boolean(lead.regiao) &&
+    Boolean(await pickConsultorForOffer(lead.regiao, slaRecusados, coords));
+
+  const novoStatus = hasNext
+    ? ZOHO_LEAD_STATUS.ENCAMINHADO_GESTAO
+    : ZOHO_LEAD_STATUS.REJEITADO;
+  const semRotacaoTexto = hasNext
+    ? "Encaminhado à Gestão para redistribuição ao próximo consultor mais próximo."
+    : 'Encerrado no Portal e sincronizado ao Zoho como "Lead Rejeitado" — não há mais consultores disponíveis na região.';
 
   const updated = await persistOfferSwitch(
     lead,
     {
       slaStatus: "rejeitado",
       slaDeadline: null,
-      status: ZOHO_LEAD_STATUS.REJEITADO,
+      status: novoStatus,
       dataLeadRejeitado: now,
       motivoRejeicao,
+      slaRecusados,
     },
     [
       closedEntry,
@@ -526,9 +560,11 @@ export async function rejectLeadOffer(lead, { reason, by } = {}) {
         label: timeout
           ? `Lead encerrado — prazo de ${tempoStr} esgotado sem resposta`
           : "Lead encerrado — recusado pelo consultor",
-        detail: timeout
-          ? `${consultorAtual} não respondeu à oferta dentro de ${tempoStr}. Encerrado no Portal e sincronizado ao Zoho como "Lead Rejeitado" — não retorna à fila.`
-          : `${consultorAtual} recusou explicitamente este lead. Encerrado no Portal e sincronizado ao Zoho como "Lead Rejeitado" — não retorna à fila.`,
+        detail: `${
+          timeout
+            ? `${consultorAtual} não respondeu à oferta dentro de ${tempoStr}.`
+            : `${consultorAtual} recusou explicitamente este lead.`
+        } ${semRotacaoTexto}`,
         by: by || "sistema",
       },
     ],
@@ -539,6 +575,81 @@ export async function rejectLeadOffer(lead, { reason, by } = {}) {
     syncZohoLeadRejected(updated, { at: now });
     // Evento inesperado — avisa o gerente da região/gerência do lead.
     void notifyLeadRecusado(updated, { timeout });
+  }
+  return updated;
+}
+
+/**
+ * Redistribui um lead "Lead Encaminhado à Gestão" pro próximo consultor
+ * mais próximo da região, excluindo todo mundo que já recusou
+ * (lead.slaRecusados). Disparado quando o webhook do Zoho reenvia os
+ * dados do lead — um botão manual ou uma regra automática no CRM.
+ *
+ * Condicional (encaminhadoGestaoCondition): só aplica a mudança se o
+ * lead AINDA estiver "Lead Encaminhado à Gestão" no momento exato do
+ * UPDATE. Protege contra reenvio duplicado do webhook (duplo clique no
+ * botão, retry de rede do Zoho) — a segunda chamada concorrente encontra
+ * a condição já falsa (a primeira já mudou o status) e não faz nada.
+ */
+export async function redistributeLead(lead) {
+  if (lead.status !== ZOHO_LEAD_STATUS.ENCAMINHADO_GESTAO) return null;
+
+  const condition = encaminhadoGestaoCondition();
+  const coords = leadCoords(lead);
+  const excludeIds = refusedSet(lead);
+  const next = await pickConsultorForOffer(lead.regiao, excludeIds, coords);
+  const now = new Date().toISOString();
+
+  if (!next) {
+    const updated = await persistOfferSwitch(
+      lead,
+      {
+        slaStatus: "rejeitado",
+        status: ZOHO_LEAD_STATUS.REJEITADO,
+        slaDeadline: null,
+      },
+      {
+        action: "sla_redistribuicao_esgotada",
+        label: "Lead encerrado — nenhum consultor disponível pra redistribuir",
+        detail: `Todos os consultores da região ${lead.regiao || "—"} já haviam recusado este lead. Encerrado como rejeitado.`,
+        by: "sistema",
+      },
+      condition,
+    );
+    if (updated) syncZohoLeadRejected(updated, { at: now });
+    return updated;
+  }
+
+  await updateConsultorUltimaAtribuicao(next.id, now);
+  const copy = offerHistoryCopy(lead, next, { reoffer: true });
+  const deadline = offerDeadlineIso();
+
+  const updated = await persistOfferSwitch(
+    lead,
+    {
+      consultorId: String(next.id),
+      consultorIdOferta: String(next.id),
+      consultor: consultorNome(next),
+      emailConsultor: next.email || lead.emailConsultor,
+      gerencia: getConsultorGerencia(next) || lead.gerencia,
+      slaStatus: "ofertado",
+      status: ZOHO_LEAD_STATUS.EM_OFERTA,
+      slaDeadline: deadline,
+      slaCheckinAt: null,
+      slaOfertaRound: Number(lead.slaOfertaRound || 0) + 1,
+    },
+    {
+      action: "sla_redistribuido",
+      label: copy.label,
+      detail: `${copy.detail} (redistribuído após recusa/timeout anterior)`,
+      by: "sistema",
+    },
+    condition,
+  );
+
+  if (updated) {
+    syncZohoLeadDistribuicao(updated);
+    void notifyLeadOffer(updated, next);
   }
   return updated;
 }

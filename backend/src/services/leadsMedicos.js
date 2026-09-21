@@ -23,6 +23,7 @@ import {
   isSlaOffered,
   offerLeadOnCreate,
   offeredStatusCondition,
+  redistributeLead,
   rejectLeadOffer,
   slaOfferMinutes,
 } from "./slaOffers.js";
@@ -650,6 +651,21 @@ export async function createLeadFromZoho(payload) {
 
   const existing = await findLeadByZohoId(lead.idZoho);
   if (existing) {
+    // Reenvio do webhook pra um lead "Encaminhado à Gestão" (botão manual
+    // ou regra automática no Zoho) — redistribui pro próximo consultor mais
+    // próximo em vez de tratar como uma atualização de status qualquer.
+    // redistributeLead() é auto-protegido contra reenvio duplicado (condição
+    // atômica no UPDATE), então não precisa de trava extra aqui.
+    if (existing.status === ZOHO_LEAD_STATUS.ENCAMINHADO_GESTAO) {
+      const redistributed = await redistributeLead(existing);
+      return {
+        created: false,
+        alreadyExists: true,
+        redistributed: Boolean(redistributed),
+        lead: redistributed || existing,
+      };
+    }
+
     const updates = {};
 
     const statusIsConverted =

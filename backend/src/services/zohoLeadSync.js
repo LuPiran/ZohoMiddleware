@@ -30,6 +30,10 @@ const STATUS_ALIASES = {
   "lead encaminhado ao marketing": ZOHO_LEAD_STATUS.ENCAMINHADO_MKT,
   "encaminhado ao marketing": ZOHO_LEAD_STATUS.ENCAMINHADO_MKT,
   "encaminhado marketing": ZOHO_LEAD_STATUS.ENCAMINHADO_MKT,
+  "lead encaminhado à gestão": ZOHO_LEAD_STATUS.ENCAMINHADO_GESTAO,
+  "lead encaminhado a gestao": ZOHO_LEAD_STATUS.ENCAMINHADO_GESTAO,
+  "encaminhado à gestão": ZOHO_LEAD_STATUS.ENCAMINHADO_GESTAO,
+  "encaminhado gestao": ZOHO_LEAD_STATUS.ENCAMINHADO_GESTAO,
 };
 
 export function canonicalizeLeadStatus(raw, fallback = ZOHO_LEAD_STATUS.NOVO) {
@@ -353,20 +357,26 @@ export function buildZohoAgendamentoFields({ n, data } = {}) {
 }
 
 /**
- * Lead recusado ou não aceito dentro do prazo — devolvido ao Zoho como
- * terminal, sem voltar ao rodízio. Registra também quem estava com a oferta.
+ * Consultor recusou ou não aceitou dentro do prazo. `lead.status` já vem
+ * decidido por quem chamou (rejectLeadOffer): "Lead Encaminhado à Gestão"
+ * se ainda sobra alguém pra tentar na região, "Lead Rejeitado" (terminal)
+ * se a região se esgotou. Registra também quem estava com a oferta e se
+ * foi recusa explícita ou timeout (Dist_Motivo_Rejeicao).
  */
 export function syncZohoLeadRejected(lead, { at } = {}) {
   syncZohoLead(lead.idZoho, buildZohoRejectedFields(lead, { at }));
 }
 
 export function buildZohoRejectedFields(lead, { at } = {}) {
+  const motivoLabel =
+    lead.motivoRejeicao === "expirado" ? "Timeout" : "Recusa explícita";
   return {
-    ...field(ENV.ZOHO_LEAD_STATUS_FIELD, ZOHO_LEAD_STATUS.REJEITADO),
+    ...field(ENV.ZOHO_LEAD_STATUS_FIELD, lead.status || ZOHO_LEAD_STATUS.REJEITADO),
     ...field(ENV.ZOHO_LEAD_DATA_REJEITADO_FIELD, toZohoDate(at)),
     ...field(ENV.ZOHO_LEAD_CONSULTOR_FIELD, consultorLookup(lead)),
     ...field(ENV.ZOHO_LEAD_EMAIL_CONSULTOR_FIELD, lead.emailConsultor),
     ...field(ENV.ZOHO_LEAD_DIST_STATUS_FIELD, "Rejeitado"),
+    ...field(ENV.ZOHO_LEAD_DIST_MOTIVO_REJEICAO_FIELD, motivoLabel),
   };
 }
 

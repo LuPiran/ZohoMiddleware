@@ -141,6 +141,11 @@ export const ENV = {
     process.env.ZOHO_LEAD_DIST_GEO_METODO_FIELD || "Dist_Geo_Metodo",
   ZOHO_LEAD_DIST_ERRO_SYNC_FIELD:
     process.env.ZOHO_LEAD_DIST_ERRO_SYNC_FIELD || "Dist_Erro_Sync",
+  // Guarda se a rejeição mais recente foi recusa explícita do consultor
+  // ou estouro do prazo de aceite (timeout) — usado nos KPIs internos,
+  // agora também espelhado no Zoho.
+  ZOHO_LEAD_DIST_MOTIVO_REJEICAO_FIELD:
+    process.env.ZOHO_LEAD_DIST_MOTIVO_REJEICAO_FIELD || "Dist_Motivo_Rejeicao",
 
   // Confirmação de que o lead passou pelo Portal + de qual evento ele veio
   // (campos já existiam no Zoho, sem uso — só passaram a ser escritos agora)
