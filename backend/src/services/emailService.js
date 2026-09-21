@@ -124,7 +124,7 @@ function statusBadge(status) {
 /* ─── Template HTML base ────────────────────────────────────────────────── */
 
 function buildHtml({ badgeStatus, title, intro, leadInfo, bodyExtra = "", ctaUrl, ctaLabel, footerNote = "" }) {
-  const { nome, regiao, especialidade, consultor } = leadInfo || {};
+  const { nome, evento, regiao, especialidade, consultor } = leadInfo || {};
 
   const headerLogo = `<img src="${LOGO_DATA_URI}" alt="TegraPharma Corp" height="128"
        style="display:block;max-height:128px;border:0;">`;
@@ -173,6 +173,10 @@ function buildHtml({ badgeStatus, title, intro, leadInfo, bodyExtra = "", ctaUrl
                     ${nome ? `<tr>
                       <td style="${labelCell}">Médico</td>
                       <td style="${valueCell}font-weight:700;">${nome}</td>
+                    </tr>` : ""}
+                    ${evento ? `<tr>
+                      <td style="${labelCell}">Evento</td>
+                      <td style="${valueCell}">${evento}</td>
                     </tr>` : ""}
                     ${regiao ? `<tr>
                       <td style="${labelCell}">Região</td>
@@ -227,6 +231,7 @@ function buildHtml({ badgeStatus, title, intro, leadInfo, bodyExtra = "", ctaUrl
 function leadInfoFrom(lead) {
   return {
     nome: lead?.nome || null,
+    evento: lead?.evento || null,
     regiao: formatRegiao(lead),            // "SUDESTE (Guarulhos / SP)"
     especialidade: lead?.especialidade || null,
     consultor: lead?.consultor || null,
@@ -728,6 +733,7 @@ export function previewEmailTemplates() {
   const sampleLead = {
     id: "preview-lead-id",
     nome: "Maria Aparecida Souza",
+    evento: "Brain Congress 2026",
     regiao: "SUDESTE",
     cidade: "São Paulo",
     estado: "SP",
