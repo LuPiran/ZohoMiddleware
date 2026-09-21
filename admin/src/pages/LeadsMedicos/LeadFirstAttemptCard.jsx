@@ -206,17 +206,6 @@ export default function LeadFirstAttemptCard({
   const days =
     typeof attempt.daysRemaining === "number" ? attempt.daysRemaining : null;
 
-  const validateEvidencias = () => {
-    if (!files.length) {
-      const message = "Envie pelo menos 1 imagem de evidência (máximo 5).";
-      setFileError(message);
-      showToast(message, "error", 3500);
-      return false;
-    }
-    setFileError("");
-    return true;
-  };
-
   const resetForm = () => {
     setObservacao("");
     setFiles([]);
@@ -294,8 +283,10 @@ export default function LeadFirstAttemptCard({
     resetForm();
   };
 
+  // Evidência é opcional pra "sem contato" — mesma regra das outras ações
+  // desta tela.
   const handleSemContato = async () => {
-    if (!validateEvidencias()) return;
+    setFileError("");
     await onSemContato(files);
     resetForm();
   };
@@ -490,6 +481,7 @@ export default function LeadFirstAttemptCard({
               onChange={setFiles}
               disabled={submitting}
               error={fileError}
+              required={false}
             />
 
             {attempt.canRegisterAttempt && copy.hint && (
@@ -622,6 +614,7 @@ export default function LeadFirstAttemptCard({
               onChange={setFiles}
               disabled={submitting}
               error={fileError}
+              required={false}
             />
             <div className="flex justify-end gap-3">
               {canSchedule && (

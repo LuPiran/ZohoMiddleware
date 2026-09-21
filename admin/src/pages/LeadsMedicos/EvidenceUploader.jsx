@@ -16,6 +16,7 @@ export default function EvidenceUploader({
   onChange,
   disabled,
   error,
+  required = true,
 }) {
   const inputRef = useRef(null);
   const [previews, setPreviews] = useState([]);
@@ -34,9 +35,13 @@ export default function EvidenceUploader({
 
   const remaining = MAX_FILES - files.length;
   const helper = useMemo(() => {
-    if (files.length === 0) return "Obrigatório: 1 a 5 imagens (JPG, PNG, WEBP ou GIF).";
+    if (files.length === 0) {
+      return required
+        ? "Obrigatório: 1 a 5 imagens (JPG, PNG, WEBP ou GIF)."
+        : "Opcional: até 5 imagens (JPG, PNG, WEBP ou GIF).";
+    }
     return `${files.length} de ${MAX_FILES} evidências selecionadas.`;
-  }, [files.length]);
+  }, [files.length, required]);
 
   const addFiles = (incoming) => {
     if (disabled) return;
