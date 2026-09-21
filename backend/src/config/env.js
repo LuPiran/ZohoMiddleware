@@ -95,7 +95,7 @@ export const ENV = {
   ZOHO_LEAD_MOTIVO_4A_FIELD:
     process.env.ZOHO_LEAD_MOTIVO_4A_FIELD || "Motivo_4_Tentativa",
 
-  // Rejeição de oferta (48h sem aceite ou recusa explícita) e "Lead Sem Tratativa"
+  // Rejeição de oferta (prazo sem aceite ou recusa explícita) e "Lead Sem Tratativa"
   ZOHO_LEAD_DATA_REJEITADO_FIELD:
     process.env.ZOHO_LEAD_DATA_REJEITADO_FIELD || "Data_Lead_Rejeitado",
   ZOHO_LEAD_DATA_SEM_TRATATIVA_FIELD:

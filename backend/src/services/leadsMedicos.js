@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import {
+  formatMinutes,
   notifyLeadAceito,
   notifyLeadConvertido,
   notifyLeadSemTratativa,
@@ -23,6 +24,7 @@ import {
   offerLeadOnCreate,
   offeredStatusCondition,
   rejectLeadOffer,
+  slaOfferMinutes,
 } from "./slaOffers.js";
 import {
   ZOHO_LEAD_STATUS,
@@ -1829,7 +1831,7 @@ export async function checkinLead(leadId, user) {
 
   if (lead.slaStatus === "rejeitado") {
     const err = new Error(
-      "Este lead foi rejeitado (recusa ou prazo de 48h vencido) e devolvido ao Zoho. Não retorna à fila.",
+      `Este lead foi rejeitado (recusa ou prazo de ${formatMinutes(slaOfferMinutes())} vencido) e devolvido ao Zoho. Não retorna à fila.`,
     );
     err.status = 400;
     err.code = "VALIDATION_ERROR";
@@ -1868,13 +1870,13 @@ export async function checkinLead(leadId, user) {
 
     if (raw && isSlaOffered(raw)) {
       await rejectLeadOffer(raw, {
-        reason: "Prazo de 48h para aceite expirado no momento da confirmação.",
+        reason: "Prazo para aceite expirado no momento da confirmação.",
         by: user.email || user.id || "usuario",
       });
     }
 
     const err = new Error(
-      "Prazo de 48h para aceite expirado. Este lead foi encerrado e devolvido ao Zoho como rejeitado.",
+      `Prazo de ${formatMinutes(slaOfferMinutes())} para aceite expirado. Este lead foi encerrado e devolvido ao Zoho como rejeitado.`,
     );
     err.status = 400;
     err.code = "VALIDATION_ERROR";
@@ -1969,7 +1971,7 @@ export async function recusarLead(leadId, user) {
   }
 
   // Notificação ao gerente já é disparada dentro de rejectLeadOffer (cobre
-  // tanto essa recusa explícita quanto o timeout de 48h do sweeper).
+  // tanto essa recusa explícita quanto o timeout do sweeper).
   return toLeadDetail(updated);
 }
 

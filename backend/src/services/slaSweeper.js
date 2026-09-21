@@ -3,8 +3,10 @@ import * as leadsRepo from "../db/leadsRepo.js";
 import {
   isSlaOffered,
   rejectLeadOffer,
+  slaOfferMinutes,
   startOfferCycle,
 } from "./slaOffers.js";
+import { formatMinutes } from "./emailService.js";
 
 const SWEEP_INTERVAL_MS = 60 * 1000;
 
@@ -26,7 +28,7 @@ async function runSweep() {
       await Promise.allSettled(
         expired.filter(isSlaOffered).map((lead) =>
           rejectLeadOffer(lead, {
-            reason: "Prazo de 48h para aceite expirado.",
+            reason: `Prazo de ${formatMinutes(slaOfferMinutes())} para aceite expirado.`,
             by: "sweeper",
           }),
         ),

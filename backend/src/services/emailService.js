@@ -23,7 +23,7 @@ function leadPortalUrl(leadId) {
 }
 
 /** Formata minutos em texto legível: 10 → "10 minutos", 120 → "2 horas", 2880 → "48 horas" */
-function formatMinutes(min) {
+export function formatMinutes(min) {
   if (!min) return "—";
   // > 2880 (48h) vira dias — o prazo padrão de 48h exatas continua em "horas"
   // (48 horas), não "2 dias", que é como o time trata o prazo internamente.
@@ -332,17 +332,18 @@ function contentLeadAceitoGestao(lead, consultorNome) {
   };
 }
 
-// 3. Lead recusado (explícito) ou sem resposta em 48h (timeout) → gerente
+// 3. Lead recusado (explícito) ou sem resposta no prazo (timeout) → gerente
 function contentLeadRecusado(lead, consultorNome, { timeout = false } = {}) {
+  const tempoStr = formatMinutes(Number(ENV.SLA_OFFER_MINUTES) || 10);
   return {
     subject: timeout
-      ? `Lead sem resposta em 48h — ${lead.nome || "Lead"} encerrado`
+      ? `Lead sem resposta em ${tempoStr} — ${lead.nome || "Lead"} encerrado`
       : `Lead recusado — ${lead.nome || "Lead"} encerrado`,
     html: buildHtml({
       badgeStatus: "Lead Rejeitado",
       title: timeout ? "Lead encerrado — consultor não respondeu" : "Lead recusado pelo consultor",
       intro: timeout
-        ? `<strong>${consultorNome || "O consultor"}</strong> não aceitou nem recusou o lead abaixo dentro do prazo de 48h. O lead foi encerrado no portal e devolvido ao Zoho CRM.`
+        ? `<strong>${consultorNome || "O consultor"}</strong> não aceitou nem recusou o lead abaixo dentro do prazo de ${tempoStr}. O lead foi encerrado no portal e devolvido ao Zoho CRM.`
         : `<strong>${consultorNome || "Um consultor"}</strong> recusou o lead abaixo. O lead foi encerrado no portal e devolvido ao Zoho CRM.`,
       leadInfo: leadInfoFrom(lead),
       ctaUrl: leadPortalUrl(lead.id),
@@ -607,7 +608,7 @@ export async function notifyLeadAceito(lead, user) {
 }
 
 /**
- * Consultor recusou o lead (explícito) OU não respondeu em 48h (timeout) →
+ * Consultor recusou o lead (explícito) OU não respondeu no prazo (timeout) →
  * só o gerente da região/gerência do lead. É exatamente o "evento inesperado"
  * que justifica avisar alguém além do próprio consultor.
  */
@@ -742,7 +743,7 @@ export function previewEmailTemplates() {
     { key: "aceito_consultor", label: "2. Lead aceito → consultor", ...contentLeadAceitoConsultor(sampleLead, consultorNome) },
     { key: "aceito_gestao", label: "2b. Lead aceito → aviso gestão (função existe, não é chamada hoje)", ...contentLeadAceitoGestao(sampleLead, consultorNome) },
     { key: "recusado_explicito", label: "3. Recusado — recusa explícita → gerente", ...contentLeadRecusado(sampleLead, consultorNome, { timeout: false }) },
-    { key: "recusado_timeout", label: "3b. Recusado — timeout de 48h → gerente", ...contentLeadRecusado(sampleLead, consultorNome, { timeout: true }) },
+    { key: "recusado_timeout", label: "3b. Recusado — timeout do prazo de aceite → gerente", ...contentLeadRecusado(sampleLead, consultorNome, { timeout: true }) },
     { key: "tentativa", label: "4. Tentativa de contato registrada → consultor", ...contentTentativa(sampleLead, consultorNome, 1) },
     { key: "tentativa_vencida_1", label: "4b. Prazo da 1ª tentativa encerrado, 2ª abriu sozinha (sweeper automático) → consultor", ...contentTentativaVencida(sampleLead, consultorNome, 1, new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()) },
     { key: "tentativa_vencida_2", label: "4c. Prazo da 2ª tentativa encerrado, 3ª abriu sozinha (sweeper automático) → consultor", ...contentTentativaVencida(sampleLead, consultorNome, 2, new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()) },

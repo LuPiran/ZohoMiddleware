@@ -13,7 +13,7 @@ import {
   listActiveConsultores,
   updateConsultorUltimaAtribuicao,
 } from "./consultores.js";
-import { notifyLeadOffer, notifyLeadRecusado } from "./emailService.js";
+import { notifyLeadOffer, notifyLeadRecusado, formatMinutes } from "./emailService.js";
 import { ZOHO_LEAD_STATUS } from "../domain/leadStatus.js";
 import { syncZohoLeadRejected } from "./zohoLeadSync.js";
 import { haversineDistance } from "./geocoding.js";
@@ -489,17 +489,18 @@ function previousOfferHistory(reason, by) {
 }
 
 /**
- * Recusa explícita OU estouro do prazo de aceite (48h): o lead é encerrado
- * no Portal e devolvido ao Zoho como "Lead Rejeitado" — NÃO volta ao
- * rodízio. Quem estava com a oferta (consultorId/consultor/emailConsultor)
- * é preservado de propósito: é o registro de quem rejeitou.
+ * Recusa explícita OU estouro do prazo de aceite (ver SLA_OFFER_MINUTES):
+ * o lead é encerrado no Portal e devolvido ao Zoho como "Lead Rejeitado" —
+ * NÃO volta ao rodízio. Quem estava com a oferta (consultorId/consultor/
+ * emailConsultor) é preservado de propósito: é o registro de quem rejeitou.
  */
 export async function rejectLeadOffer(lead, { reason, by } = {}) {
   const now = new Date().toISOString();
   const stillOffered = offeredStatusCondition();
   const closedEntry = previousOfferHistory(reason, by);
   const consultorAtual = lead.consultor || "O consultor responsável";
-  // Distingue recusa explícita (usuário clicou "Recusar") de timeout de 48h
+  const tempoStr = formatMinutes(slaOfferMinutes());
+  // Distingue recusa explícita (usuário clicou "Recusar") de timeout do prazo
   // (sweeper, ou aceite tentado depois do prazo já vencido) pelo texto do
   // motivo — os 2 call sites de timeout sempre mencionam "expirad[o/a]".
   const timeout = /expirad/i.test(reason || "");
@@ -522,10 +523,10 @@ export async function rejectLeadOffer(lead, { reason, by } = {}) {
       {
         action: timeout ? "lead_rejeitado_timeout" : "lead_rejeitado_recusa",
         label: timeout
-          ? "Lead encerrado — prazo de 48h esgotado sem resposta"
+          ? `Lead encerrado — prazo de ${tempoStr} esgotado sem resposta`
           : "Lead encerrado — recusado pelo consultor",
         detail: timeout
-          ? `${consultorAtual} não respondeu à oferta dentro das 48h. Encerrado no Portal e sincronizado ao Zoho como "Lead Rejeitado" — não retorna à fila.`
+          ? `${consultorAtual} não respondeu à oferta dentro de ${tempoStr}. Encerrado no Portal e sincronizado ao Zoho como "Lead Rejeitado" — não retorna à fila.`
           : `${consultorAtual} recusou explicitamente este lead. Encerrado no Portal e sincronizado ao Zoho como "Lead Rejeitado" — não retorna à fila.`,
         by: by || "sistema",
       },
