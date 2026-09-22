@@ -1709,6 +1709,7 @@ export async function markLeadSemContato(leadId, user, { files } = {}) {
   const evidence = await persistLeadEvidencias(raw, files, {
     acao: "sem_contato",
     user,
+    requireEvidence: false,
   });
   const historico = appendHistorico(raw, {
     action: "sem_contato",
