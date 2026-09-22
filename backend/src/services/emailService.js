@@ -729,7 +729,7 @@ export async function notifyQuartaTentativaSolicitada(lead) {
  * exemplo, sem chamar sendEmail em nenhum momento. Serve só pra visualizar/
  * ajustar template sem precisar criar lead de teste na base.
  */
-export function previewEmailTemplates() {
+export function previewEmailTemplates(leadOverride) {
   const sampleLead = {
     id: "preview-lead-id",
     nome: "Maria Aparecida Souza",
@@ -742,6 +742,7 @@ export function previewEmailTemplates() {
     emailConsultor: "lucas.piran@tegrapharma.com",
     status: "Lead Em Qualificação",
     dataConversao: new Date().toISOString(),
+    ...leadOverride,
   };
   const consultorNome = sampleLead.consultor;
 
