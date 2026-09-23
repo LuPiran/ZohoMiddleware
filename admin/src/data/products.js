@@ -19,7 +19,6 @@ export const PRODUCTS = [
   { id: "4601422000452965115", nome: "TEGRA USALINE BALANCE 1:1", active: true, unitPrice: 349 },
   { id: "4601422000403285671", nome: "Produto Vigo", active: false, unitPrice: 0 },
   { id: "4601422000388458187", nome: "TEGRA LATAM HIGH THC 1260mg", active: false, unitPrice: 699 },
-  { id: "4601422000388458163", nome: "TEGRA LATAM 1:1", active: false, unitPrice: 499 },
   { id: "4601422000388458156", nome: "TEGRA LATAM 1:20", active: true, unitPrice: 849 },
   { id: "4601422000388458096", nome: "TEGRA LATAM 1:30", active: true, unitPrice: 599 },
   { id: "4601422000350347077", nome: "QUALCANN 1:30", active: false, unitPrice: 700 },
