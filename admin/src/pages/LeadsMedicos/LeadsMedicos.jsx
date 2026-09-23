@@ -28,6 +28,7 @@ import {
 } from "./mockLeads";
 import {
   canonicalizeLeadStatus,
+  getGerenteDisplayStatus,
   getLeadStatusMeta,
   isConvertedLeadStatus,
 } from "./leadStatus";
@@ -45,7 +46,7 @@ const EMPTY_FILTERS = {
 };
 
 function StatusBadge({ status }) {
-  const label = canonicalizeLeadStatus(status) || status || "—";
+  const label = getGerenteDisplayStatus(status) || status || "—";
   const style = getLeadStatusMeta(label);
 
   return (

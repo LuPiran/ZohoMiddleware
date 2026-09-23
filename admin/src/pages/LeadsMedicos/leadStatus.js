@@ -99,6 +99,20 @@ export function canonicalizeLeadStatus(raw) {
   return STATUS_ALIASES[key] || value;
 }
 
+// "Lead Encaminhado à Gestão" não existe neste enum do frontend (é um
+// status intermediário do fluxo de redistribuição de oferta, controlado
+// pelo backend/Zoho) — pros painéis do gerente, exibe como "Lead Rejeitado"
+// pra não confundir com um status novo. O campo real no backend/Zoho não
+// muda: isso é só rótulo de exibição, a redistribuição continua funcionando.
+const GERENTE_DISPLAY_ALIASES = {
+  "Lead Encaminhado à Gestão": LEAD_STATUS.REJEITADO,
+};
+
+export function getGerenteDisplayStatus(raw) {
+  const canonical = canonicalizeLeadStatus(raw);
+  return GERENTE_DISPLAY_ALIASES[canonical] || canonical;
+}
+
 export function getLeadStatusMeta(raw) {
   const status = canonicalizeLeadStatus(raw);
   return (

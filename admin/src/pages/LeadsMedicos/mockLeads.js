@@ -3,7 +3,11 @@
  * Rótulo: SYNTHETIC
  */
 
-import { canonicalizeLeadStatus, LEAD_STATUSES as CRM_LEAD_STATUSES } from "./leadStatus";
+import {
+  canonicalizeLeadStatus,
+  getGerenteDisplayStatus,
+  LEAD_STATUSES as CRM_LEAD_STATUSES,
+} from "./leadStatus";
 
 export const LEAD_STATUSES = CRM_LEAD_STATUSES;
 
@@ -183,7 +187,7 @@ export function aggregateLeadsByMonth(leads) {
 export function aggregateLeadsByStatus(leads) {
   const counts = {};
   leads.forEach((lead) => {
-    const status = canonicalizeLeadStatus(lead.status) || "—";
+    const status = getGerenteDisplayStatus(lead.status) || "—";
     counts[status] = (counts[status] || 0) + 1;
   });
 
