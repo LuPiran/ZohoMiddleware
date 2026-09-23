@@ -100,7 +100,6 @@ export default function EquipeKpis() {
       "Sem contato": c.semContato,
       "Tentativas tratadas": c.tentativasTratadas,
       Agendamentos: c.agendamentos,
-      "Compras vinculadas": c.comprasVinculadas,
       "Dias médio até 1ª tentativa": c.diasMedioAte1aTentativa ?? "—",
       "Dias médio até conversão": c.diasMedioAteConversao ?? "—",
       "Dias médio até aceite": c.diasMedioAteAceite ?? "—",
@@ -122,9 +121,6 @@ export default function EquipeKpis() {
       Gerência: lead.gerencia || "",
       "Rodada atual": lead.attempt?.currentRound ?? "—",
       Agendamentos: Array.isArray(lead.agendamentos) ? lead.agendamentos.length : 0,
-      "Compras vinculadas": Array.isArray(lead.comprasVinculadas)
-        ? lead.comprasVinculadas.length
-        : 0,
       "Data de criação": formatDateXLSX(lead.criadoEm),
     }));
 
@@ -262,7 +258,6 @@ export default function EquipeKpis() {
                   <th scope="col" className="px-4 py-3 font-semibold text-right whitespace-nowrap" title="Direcionado ao Marketing, sem compra">Enc. MKT</th>
                   <th scope="col" className="px-4 py-3 font-semibold text-right whitespace-nowrap">Tentativas</th>
                   <th scope="col" className="px-4 py-3 font-semibold text-right whitespace-nowrap">Agendamentos</th>
-                  <th scope="col" className="px-4 py-3 font-semibold text-right whitespace-nowrap">Compras</th>
                   <th scope="col" className="px-4 py-3 font-semibold text-right whitespace-nowrap">Até 1ª tentativa</th>
                   <th scope="col" className="px-4 py-3 font-semibold text-right whitespace-nowrap">Até conversão</th>
                   <th scope="col" className="px-4 py-3 font-semibold text-right whitespace-nowrap">Até aceite</th>
@@ -271,7 +266,7 @@ export default function EquipeKpis() {
               <tbody className="divide-y divide-tegra-gray-medium">
                 {porConsultor.length === 0 ? (
                   <tr>
-                    <td colSpan={14} className="px-4 py-6 text-center text-tegra-text-secondary">
+                    <td colSpan={13} className="px-4 py-6 text-center text-tegra-text-secondary">
                       Nenhum lead encontrado pra essa equipe ainda.
                     </td>
                   </tr>
@@ -288,7 +283,6 @@ export default function EquipeKpis() {
                       <td className="px-4 py-3 text-right tabular-nums">{c.encaminhadosMkt}</td>
                       <td className="px-4 py-3 text-right tabular-nums">{c.tentativasTratadas}</td>
                       <td className="px-4 py-3 text-right tabular-nums">{c.agendamentos}</td>
-                      <td className="px-4 py-3 text-right tabular-nums">{c.comprasVinculadas}</td>
                       <td className="px-4 py-3 text-right tabular-nums whitespace-nowrap">{formatDias(c.diasMedioAte1aTentativa)}</td>
                       <td className="px-4 py-3 text-right tabular-nums whitespace-nowrap">{formatDias(c.diasMedioAteConversao)}</td>
                       <td className="px-4 py-3 text-right tabular-nums whitespace-nowrap">{formatDias(c.diasMedioAteAceite)}</td>
@@ -301,7 +295,7 @@ export default function EquipeKpis() {
         </section>
 
         <p className="text-xs text-tegra-text-light">
-          "Até aceite", "Compras vinculadas" e a separação "Recusas" × "Timeout 48h" só existem pra leads ofertados/rejeitados a partir desta atualização — leads antigos aparecem como "—", 0, ou não entram em nenhum dos dois baldes de rejeição (mesmo contando no total de leads).
+          "Até aceite" e a separação "Recusas" × "Timeout 48h" só existem pra leads ofertados/rejeitados a partir desta atualização — leads antigos aparecem como "—", 0, ou não entram em nenhum dos dois baldes de rejeição (mesmo contando no total de leads).
         </p>
       </div>
     </MainLayout>
