@@ -43,7 +43,6 @@ import {
 } from "./zohoLeadSync.js";
 import {
   ATTEMPT_ROUNDS,
-  ATTEMPT_WINDOW_DAYS,
   agendamentoUpdates,
   attemptDeadlineAt,
   buildAttemptView,
@@ -1781,17 +1780,12 @@ export async function advanceLeadTimeForTesting(leadId, user) {
       err.status = 400;
       throw err;
     }
-    if (round === 4) {
-      updates.dataQuartaTentativa = targetIso;
-      descricao = "Prazo da 4ª tentativa";
-    } else {
-      const startIso = new Date(
-        now + 10_000 - round * ATTEMPT_WINDOW_DAYS * 24 * 60 * 60 * 1000,
-      ).toISOString();
-      updates.dataQualificado = startIso;
-      if (raw.slaCheckinAt) updates.slaCheckinAt = startIso;
-      descricao = `Prazo da ${round}ª tentativa`;
-    }
+    // Só grava um prazo forçado pra essa rodada específica — não mexe em
+    // dataQualificado, dataQuartaTentativa nem em nenhuma outra data
+    // exibida na tela (attemptDeadlineAt dá preferência a esse override).
+    updates.testAttemptDeadlineOverride = targetIso;
+    updates.testAttemptDeadlineRound = round;
+    descricao = `Prazo da ${round}ª tentativa`;
   } else {
     const err = new Error("Este lead não tem nenhum prazo em aberto pra avançar.");
     err.status = 400;

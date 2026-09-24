@@ -125,6 +125,18 @@ export function addDays(iso, days) {
 export function attemptDeadlineAt(lead, round) {
   const n = Number(round);
   if (!n) return null;
+
+  // Ferramenta de teste ("Avançar tempo"): se a rodada atual tiver um
+  // prazo forçado, ele vence a conta normal — sem mexer em dataQualificado,
+  // dataQuartaTentativa nem em nenhuma outra data exibida na tela.
+  if (
+    lead?.testAttemptDeadlineOverride &&
+    Number(lead?.testAttemptDeadlineRound) === n
+  ) {
+    const forced = new Date(lead.testAttemptDeadlineOverride);
+    if (!Number.isNaN(forced.getTime())) return forced;
+  }
+
   // A 4ª tentativa não segue "qualificação + N janelas": o prazo é a data
   // exata que o próprio consultor escolheu ao solicitá-la.
   if (n === 4) {
@@ -294,6 +306,10 @@ export function treatedAttemptUpdates(lead, round, { observacao, at, destino = "
       dataEmAquecimento: lead.dataEmAquecimento || at,
       ...(isMkt ? { dataEncaminhadoMkt: at } : {}),
       updatedAt: at,
+      // Encerra a rodada de verdade — limpa qualquer prazo forçado da
+      // ferramenta de teste, pra não vazar pra próxima rodada.
+      testAttemptDeadlineOverride: null,
+      testAttemptDeadlineRound: null,
     },
   };
 }
@@ -317,6 +333,8 @@ export function semInteresseUpdates(lead, { observacao, at }) {
     status: ZOHO_LEAD_STATUS.SEM_INTERESSE,
     dataSemInteresse: at,
     updatedAt: at,
+    testAttemptDeadlineOverride: null,
+    testAttemptDeadlineRound: null,
   };
   if (meta) {
     if (note) updates[meta.desc] = note;
@@ -346,6 +364,8 @@ export function timeoutAttemptUpdates(lead, round, at) {
     [meta.date]: at,
     [meta.status]: ZOHO_ATTEMPT_STATUS.SEM_RETORNO,
     updatedAt: at,
+    testAttemptDeadlineOverride: null,
+    testAttemptDeadlineRound: null,
   };
   if (n === 1) updates.adicionarSegundaTentativa = true;
   if (n === 2) updates.adicionarTerceiraTentativa = true;
@@ -433,6 +453,8 @@ export function semContatoUpdates(lead, { at }) {
       status: ZOHO_LEAD_STATUS.SEM_CONTATO,
       dataSemContato: at,
       updatedAt: at,
+      testAttemptDeadlineOverride: null,
+      testAttemptDeadlineRound: null,
     },
   };
 }
