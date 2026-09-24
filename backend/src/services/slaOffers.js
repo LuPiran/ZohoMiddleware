@@ -59,8 +59,48 @@ export function offeredStatusCondition() {
   };
 }
 
+// América/São_Paulo é sempre UTC-3 (Brasil suspendeu o horário de verão em
+// 2019) — dá pra tratar como offset fixo, sem precisar de Intl/timezone db.
+const BR_OFFSET_MS = 3 * 60 * 60 * 1000;
+
+function isWeekendBR(date) {
+  const localDay = new Date(date.getTime() - BR_OFFSET_MS).getUTCDay(); // 0=dom, 6=sáb
+  return localDay === 0 || localDay === 6;
+}
+
+/** Instante correspondente à próxima meia-noite em horário de Brasília. */
+function nextMidnightBR(date) {
+  const local = new Date(date.getTime() - BR_OFFSET_MS);
+  local.setUTCHours(24, 0, 0, 0);
+  return new Date(local.getTime() + BR_OFFSET_MS);
+}
+
+/**
+ * Soma `minutes` a partir de `start` contando só dias úteis (horário de
+ * Brasília): sábado e domingo inteiros não contam prazo, dias de semana
+ * contam as 24h corridas. Ex.: oferta sexta às 23h com prazo de 48h vira
+ * terça às 23h — sábado e domingo são pulados por inteiro.
+ */
+export function addBusinessMinutes(start, minutes) {
+  let cursor = new Date(start);
+  let remainingMs = minutes * 60 * 1000;
+
+  while (remainingMs > 0) {
+    if (isWeekendBR(cursor)) {
+      cursor = nextMidnightBR(cursor);
+      continue;
+    }
+    const endOfDay = nextMidnightBR(cursor);
+    const consume = Math.min(remainingMs, endOfDay.getTime() - cursor.getTime());
+    cursor = new Date(cursor.getTime() + consume);
+    remainingMs -= consume;
+  }
+
+  return cursor;
+}
+
 function offerDeadlineIso() {
-  return new Date(Date.now() + slaOfferMinutes() * 60 * 1000).toISOString();
+  return addBusinessMinutes(new Date(), slaOfferMinutes()).toISOString();
 }
 
 function refusedSet(lead) {

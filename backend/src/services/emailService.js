@@ -38,9 +38,18 @@ export function formatMinutes(min) {
   return `${min} minuto${min > 1 ? "s" : ""}`;
 }
 
-/** Data/hora de prazo: "até 18:30 de 26/08" */
-function formatDeadlineTime(minutes) {
-  const d = new Date(Date.now() + minutes * 60 * 1000);
+/**
+ * Data/hora de prazo: "até 18:30 de 26/08". Aceita o deadline real do lead
+ * (string/Date — já ajustado pra pular fim de semana) ou, na falta dele
+ * (preview sem lead real), estima com now + minutos corridos.
+ */
+function formatDeadlineTime(deadlineOrMinutes) {
+  const d =
+    deadlineOrMinutes instanceof Date
+      ? deadlineOrMinutes
+      : typeof deadlineOrMinutes === "number"
+        ? new Date(Date.now() + deadlineOrMinutes * 60 * 1000)
+        : new Date(deadlineOrMinutes);
   const hora = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
   const data = d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", timeZone: "America/Sao_Paulo" });
   return `até ${hora} de ${data}`;
@@ -261,7 +270,7 @@ function contentLeadChegou(lead) {
 function contentLeadOffer(lead, consultorNome) {
   const minutos = Number(ENV.SLA_OFFER_MINUTES) || 10;
   const tempoStr   = formatMinutes(minutos);          // "2 horas" / "10 minutos"
-  const deadlineStr = formatDeadlineTime(minutos);    // "até 18:30 de 26/08"
+  const deadlineStr = formatDeadlineTime(lead?.slaDeadline || minutos); // "até 18:30 de 26/08"
   const fila = lead.regiao ? `da regional <strong>${lead.regiao}</strong>` : "sem região (fila da Gestão)";
 
   const prazoBox = `
@@ -295,7 +304,7 @@ function contentLeadOffer(lead, consultorNome) {
 function contentLeadOfferGestao(lead, consultorNome) {
   const minutos = Number(ENV.SLA_OFFER_MINUTES) || 10;
   const tempoStr = formatMinutes(minutos);
-  const deadlineStr = formatDeadlineTime(minutos);
+  const deadlineStr = formatDeadlineTime(lead?.slaDeadline || minutos);
   return {
     subject: `Lead oferecido a ${consultorNome || "consultor"} — ${lead.regiao || "Gestão"}`,
     html: buildHtml({
