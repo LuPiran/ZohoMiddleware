@@ -69,8 +69,8 @@ export async function putIfNotExists(item) {
   const { sealed } = persistColumns(item);
   try {
     await query(
-      `INSERT INTO consultores (id, payload, email_hmac, ativo, regiao, gerencia)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO consultores (id, payload, email_hmac, ativo, regiao, gerencia, recebe_leads)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
         sealed.id,
         JSON.stringify(sealed.payload),
@@ -78,6 +78,7 @@ export async function putIfNotExists(item) {
         sealed.ativo,
         sealed.regiao,
         sealed.gerencia,
+        sealed.recebe_leads,
       ],
     );
     return item;
@@ -100,7 +101,7 @@ export async function update(id, updates) {
     const sealed = sealConsultor(next);
     await conn.execute(
       `UPDATE consultores
-       SET payload = ?, email_hmac = ?, ativo = ?, regiao = ?, gerencia = ?
+       SET payload = ?, email_hmac = ?, ativo = ?, regiao = ?, gerencia = ?, recebe_leads = ?
        WHERE id = ?`,
       [
         JSON.stringify(sealed.payload),
@@ -108,6 +109,7 @@ export async function update(id, updates) {
         sealed.ativo,
         sealed.regiao,
         sealed.gerencia,
+        sealed.recebe_leads,
         String(id),
       ],
     );

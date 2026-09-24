@@ -28,6 +28,9 @@ export function consultorIndexes(item) {
     ativo: item?.ativo === true || item?.ativo === 1 ? 1 : 0,
     regiao: emptyToNull(item?.regiao)?.toUpperCase() || null,
     gerencia: emptyToNull(item?.gerencia),
+    // Default true — sem isso, todo consultor existente sumiria da
+    // distribuição no rollout deste campo (recebeLeads nunca setado ainda).
+    recebe_leads: item?.recebeLeads === false || item?.recebeLeads === 0 ? 0 : 1,
   };
 }
 

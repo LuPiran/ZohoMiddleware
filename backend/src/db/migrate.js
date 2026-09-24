@@ -112,6 +112,13 @@ async function upgradeLegacyGeneratedColumns(conn) {
         ADD KEY idx_consultores_gerencia (gerencia)
     `);
   }
+
+  if (!(await hasColumn(conn, "consultores", "recebe_leads"))) {
+    await conn.query(`
+      ALTER TABLE consultores
+        ADD COLUMN recebe_leads TINYINT(1) NOT NULL DEFAULT 1
+    `);
+  }
 }
 
 export async function migrateSchema() {

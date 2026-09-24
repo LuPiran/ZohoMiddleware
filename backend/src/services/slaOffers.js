@@ -193,7 +193,12 @@ function scoreCandidates(candidates, leadCoords = null) {
 
 function availablePeople(people, excludeIds) {
   const excluded = new Set(toExcludeIdList(excludeIds).map((id) => String(id)));
-  return people.filter((person) => person?.id && !excluded.has(String(person.id)));
+  return people.filter(
+    (person) =>
+      person?.id &&
+      !excluded.has(String(person.id)) &&
+      person?.recebeLeads !== false,
+  );
 }
 
 /**
@@ -690,6 +695,47 @@ export async function redistributeLead(lead) {
   if (updated) {
     syncZohoLeadDistribuicao(updated);
     void notifyLeadOffer(updated, next);
+  }
+  return updated;
+}
+
+/**
+ * Atribuição manual — admin escolhe diretamente o consultor, sem passar
+ * pelo algoritmo de fila/geo. Vira uma oferta SLA normal para o consultor
+ * escolhido (ele ainda precisa Aceitar/Recusar dentro do prazo), só que o
+ * destinatário foi escolhido manualmente em vez do algoritmo automático.
+ */
+export async function assignLeadToConsultor(lead, consultor, { by } = {}) {
+  const nome = consultorNome(consultor);
+  const deadline = offerDeadlineIso();
+  const quemAtribuiu = by || "Um administrador";
+
+  const updated = await persistOfferSwitch(
+    lead,
+    {
+      consultorId: String(consultor.id),
+      consultorIdOferta: String(consultor.id),
+      consultor: nome,
+      emailConsultor: consultor.email || lead.emailConsultor,
+      gerencia: getConsultorGerencia(consultor) || lead.gerencia,
+      slaStatus: "ofertado",
+      status: ZOHO_LEAD_STATUS.EM_OFERTA,
+      slaDeadline: deadline,
+      slaCheckinAt: null,
+      slaOfertaRound: Number(lead.slaOfertaRound || 0) + 1,
+    },
+    {
+      action: "lead_atribuido_manualmente",
+      label: `Lead enviado manualmente para ${nome}`,
+      detail: `${quemAtribuiu} enviou este lead diretamente para ${nome}. Prazo: ${formatMinutes(slaOfferMinutes())} para aceitar ou recusar.`,
+      by: by || "sistema",
+    },
+  );
+
+  if (updated) {
+    await updateConsultorUltimaAtribuicao(consultor.id, new Date().toISOString());
+    syncZohoLeadDistribuicao(updated);
+    void notifyLeadOffer(updated, consultor);
   }
   return updated;
 }

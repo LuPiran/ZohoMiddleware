@@ -15,11 +15,13 @@ import {
   decrementCargaAceita,
   findConsultorByEmail,
   findEquipeDoGerente,
+  getConsultorById,
   getConsultorDisplayName,
   getConsultorGerencia,
   incrementCargaAceita,
 } from "./consultores.js";
 import {
+  assignLeadToConsultor,
   isSlaAccepted,
   isSlaOffered,
   offerLeadOnCreate,
@@ -2081,6 +2083,63 @@ export async function recusarLead(leadId, user, motivo) {
 
   // Notificação ao gerente já é disparada dentro de rejectLeadOffer (cobre
   // tanto essa recusa explícita quanto o timeout do sweeper).
+  return toLeadDetail(updated);
+}
+
+/**
+ * Admin envia o lead manualmente para um consultor escolhido (por ID ou por
+ * e-mail), fora do algoritmo automático de fila/geo. Vira uma oferta SLA
+ * normal para esse consultor — ele ainda precisa Aceitar/Recusar dentro do
+ * prazo.
+ */
+export async function atribuirLeadManualmente(leadId, user, { consultorId, email } = {}) {
+  const targetId = String(consultorId || "").trim();
+  const targetEmail = String(email || "").trim();
+  if (!targetId && !targetEmail) {
+    const err = new Error("Selecione um consultor para enviar o lead.");
+    err.status = 400;
+    err.code = "VALIDATION_ERROR";
+    throw err;
+  }
+
+  const { lead } = await getLeadForUser(leadId, user);
+
+  if (isLeadClosed(lead)) {
+    const err = new Error("Este lead já está encerrado e não pode ser reatribuído.");
+    err.status = 400;
+    err.code = "VALIDATION_ERROR";
+    throw err;
+  }
+
+  const consultor = targetId
+    ? await getConsultorById(targetId)
+    : await findConsultorByEmail(targetEmail);
+  if (!consultor) {
+    const err = new Error("Consultor não encontrado.");
+    err.status = 404;
+    err.code = "NOT_FOUND";
+    throw err;
+  }
+
+  const raw = await leadsRepo.getById(leadId);
+  if (!raw) {
+    const err = new Error("Lead não encontrado");
+    err.status = 404;
+    err.code = "NOT_FOUND";
+    throw err;
+  }
+
+  const updated = await assignLeadToConsultor(raw, consultor, {
+    by: user.email || user.id || "usuario",
+  });
+
+  if (!updated) {
+    const err = new Error("Não foi possível enviar este lead agora. Tente novamente.");
+    err.status = 409;
+    err.code = "OFFER_GONE";
+    throw err;
+  }
+
   return toLeadDetail(updated);
 }
 

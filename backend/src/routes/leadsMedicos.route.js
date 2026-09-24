@@ -1,6 +1,7 @@
 import express from "express";
 import {
   advanceLeadTimeForTesting,
+  atribuirLeadManualmente,
   checkinLead,
   createLeadFromZoho,
   getLeadForUser,
@@ -20,7 +21,7 @@ import {
 import { buildEquipeKpis } from "../services/leadsMedicosKpis.js";
 import { authenticateLeadsWebhook } from "../middleware/leadsWebhookAuth.js";
 import { authenticateToken } from "../services/jwtService.js";
-import { requireSafeResourceId } from "../middleware/authz.js";
+import { requireAdmin, requireSafeResourceId } from "../middleware/authz.js";
 import { writeRateLimiter } from "../middleware/rateLimiter.js";
 import { evidenceUploadMiddleware } from "../middleware/leadEvidenceUpload.js";
 
@@ -598,6 +599,37 @@ router.post(
       return res.status(500).json({
         success: false,
         error: error.message || "Erro ao recusar o lead",
+      });
+    }
+  },
+);
+
+/**
+ * Envia o lead manualmente para um consultor escolhido pelo admin (fora do
+ * algoritmo automático de fila/geo) — vira uma oferta SLA normal para ele.
+ * POST /v1/leads-medicos/:id/atribuir
+ */
+router.post(
+  "/:id/atribuir",
+  authenticateToken,
+  requireAdmin,
+  requireSafeResourceId("id"),
+  writeRateLimiter,
+  async (req, res) => {
+    try {
+      const lead = await atribuirLeadManualmente(req.params.id, req.user, {
+        consultorId: req.body?.consultorId,
+        email: req.body?.email,
+      });
+      return res.json({ success: true, data: lead });
+    } catch (error) {
+      console.error("[LEADS] Erro ao atribuir lead manualmente:", error);
+      const handled = storageErrorResponse(res, error);
+      if (handled) return handled;
+
+      return res.status(500).json({
+        success: false,
+        error: error.message || "Erro ao atribuir o lead",
       });
     }
   },

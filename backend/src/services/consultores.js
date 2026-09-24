@@ -92,6 +92,13 @@ export async function listActiveConsultores() {
   return consultoresRepo.listActive();
 }
 
+/**
+ * Busca consultor por ID — usado na atribuição manual de lead.
+ */
+export async function getConsultorById(id) {
+  return consultoresRepo.getById(id);
+}
+
 function normalizeRegiao(regiao) {
   return String(regiao || "").trim().toUpperCase();
 }
@@ -215,6 +222,52 @@ export function getConsultorGerencia(consultor) {
     return asString(raw.name ?? raw.nome ?? raw.id);
   }
   return asString(raw);
+}
+
+/**
+ * Lista todos os consultores (ativos ou não) num formato enxuto pro admin
+ * escolher destinatário na atribuição manual de lead / gerenciar quem
+ * recebe leads. Não inclui campos sensíveis (endereço, CPF, etc.).
+ */
+export async function listConsultoresForAdmin() {
+  const items = await consultoresRepo.listAll();
+  return items
+    .map((c) => ({
+      id: c.id,
+      nome: getConsultorDisplayName(c) || null,
+      email: asString(c.email) || null,
+      perfil: getConsultorPerfil(c) || null,
+      regiao: c.regiao || null,
+      gerencia: c.gerencia || null,
+      ativo: c.ativo === true || c.ativo === 1,
+      recebeLeads: c.recebeLeads !== false && c.recebeLeads !== 0,
+      cargaAceita: getConsultorCargaAceita(c),
+    }))
+    .sort((a, b) => (a.nome || "").localeCompare(b.nome || "", "pt-BR"));
+}
+
+/**
+ * Liga/desliga se o consultor participa da distribuição de leads (fila
+ * automática e seletor de atribuição manual).
+ */
+export async function setConsultorRecebeLeads(consultorId, recebeLeads) {
+  const id = asString(consultorId);
+  if (!id) {
+    const err = new Error("ID do consultor é obrigatório");
+    err.status = 400;
+    err.code = "VALIDATION_ERROR";
+    throw err;
+  }
+
+  const current = await consultoresRepo.getById(id);
+  if (!current) {
+    const err = new Error("Consultor não encontrado");
+    err.status = 404;
+    err.code = "NOT_FOUND";
+    throw err;
+  }
+
+  return consultoresRepo.update(id, { recebeLeads: Boolean(recebeLeads) });
 }
 
 /**
