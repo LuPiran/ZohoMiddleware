@@ -87,7 +87,8 @@ export default function RecusarOfertaModal({
                 Recusar {leadNome ? `"${leadNome}"` : "este lead"}
               </h2>
               <p className="mt-1.5 text-sm text-slate-500 leading-relaxed">
-                Explique o motivo — o gerente vê essa informação.
+                Conte pra gente o motivo da recusa. Seu gerente vai ver essa
+                informação.
               </p>
             </div>
           </div>
