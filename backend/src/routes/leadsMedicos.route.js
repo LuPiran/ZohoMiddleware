@@ -24,8 +24,14 @@ import { authenticateToken } from "../services/jwtService.js";
 import { requireAdmin, requireSafeResourceId } from "../middleware/authz.js";
 import { writeRateLimiter } from "../middleware/rateLimiter.js";
 import { evidenceUploadMiddleware } from "../middleware/leadEvidenceUpload.js";
+import { createAsyncQueue } from "../utils/asyncQueue.js";
 
 const router = express.Router();
+
+// Serializa a criação/distribuição de leads vindos do Zoho — se vários
+// webhooks chegarem ao mesmo tempo (import em massa, reenvio), processa um
+// de cada vez em vez de rodar tudo em paralelo (ver asyncQueue.js).
+const enqueueLeadFromZoho = createAsyncQueue({ concurrency: 1 });
 
 function storageErrorResponse(res, error) {
   if (error.status === 400 || error.code === "VALIDATION_ERROR") {
@@ -170,7 +176,7 @@ router.post("/from-zoho", authenticateLeadsWebhook, writeRateLimiter, async (req
   try {
     console.log("[LEADS] Recebendo lead do Zoho");
 
-    const result = await createLeadFromZoho(req.body);
+    const result = await enqueueLeadFromZoho(() => createLeadFromZoho(req.body));
 
     return res.status(result.created ? 201 : 200).json({
       success: true,
