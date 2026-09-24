@@ -236,6 +236,18 @@ function distGeoMetodoLabel(geoMetodo) {
 }
 
 /**
+ * Dist_Status desse momento da distribuição: "Sem consultor" quando não
+ * sobrou destinatário nenhum (slaStatus expirado_ciclo), "Escalado gestor"
+ * quando caiu na fila da Gestão, "Oferecido" no caso normal (consultor da
+ * fila regional ou geo).
+ */
+function distStatusForOffer(lead) {
+  if (lead.slaStatus === "expirado_ciclo") return "Sem consultor";
+  if (lead.slaFaseGestao) return "Escalado gestor";
+  return "Oferecido";
+}
+
+/**
  * Sincroniza campos Dist_* imediatamente após a distribuição do lead no portal.
  * Chamado em createLeadFromZoho logo após gravar no MySQL.
  * Fire-and-forget — não bloqueia o fluxo de criação.
@@ -256,7 +268,7 @@ export function syncZohoLeadDistribuicao(lead) {
     ...field(ENV.ZOHO_LEAD_EVENTO_TRATADO_FIELD, true),
     ...field(ENV.ZOHO_LEAD_NOME_EVENTO_FIELD, lead.evento),
     ...field(ENV.ZOHO_LEAD_DIST_FILA_FIELD, fila),
-    ...field(ENV.ZOHO_LEAD_DIST_STATUS_FIELD, "Oferecido"),
+    ...field(ENV.ZOHO_LEAD_DIST_STATUS_FIELD, distStatusForOffer(lead)),
     // Campo principal "Status" — antes ficava em "Novo Lead" durante toda a
     // janela de oferta, indistinguível de um lead que acabou de chegar.
     ...field(ENV.ZOHO_LEAD_STATUS_FIELD, lead.status),
@@ -408,12 +420,17 @@ export function syncZohoLeadRejected(lead, { at } = {}) {
 export function buildZohoRejectedFields(lead, { at } = {}) {
   const motivoLabel =
     lead.motivoRejeicao === "expirado" ? "Timeout" : "Recusa explícita";
+  // "Rejeitado" só no encerramento definitivo — enquanto ainda sobra alguém
+  // na região pra tentar (status fica "Lead Encaminhado à Gestão", à espera
+  // do Zoho reenviar o webhook), é "Repassado": recusou, mas vai adiante.
+  const distStatus =
+    lead.status === ZOHO_LEAD_STATUS.ENCAMINHADO_GESTAO ? "Repassado" : "Rejeitado";
   return {
     ...field(ENV.ZOHO_LEAD_STATUS_FIELD, lead.status || ZOHO_LEAD_STATUS.REJEITADO),
     ...field(ENV.ZOHO_LEAD_DATA_REJEITADO_FIELD, toZohoDate(at)),
     ...field(ENV.ZOHO_LEAD_CONSULTOR_FIELD, consultorLookup(lead)),
     ...field(ENV.ZOHO_LEAD_EMAIL_CONSULTOR_FIELD, lead.emailConsultor),
-    ...field(ENV.ZOHO_LEAD_DIST_STATUS_FIELD, "Rejeitado"),
+    ...field(ENV.ZOHO_LEAD_DIST_STATUS_FIELD, distStatus),
     ...field(ENV.ZOHO_LEAD_DIST_MOTIVO_REJEICAO_FIELD, motivoLabel),
     ...logField(lead),
   };
