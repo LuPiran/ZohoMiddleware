@@ -62,6 +62,7 @@ export const API_ENDPOINTS = {
     AGENDAMENTO: (id) => `/v1/leads-medicos/${id}/agendamento`,
     SEM_INTERESSE: (id) => `/v1/leads-medicos/${id}/sem-interesse`,
     SEM_CONTATO: (id) => `/v1/leads-medicos/${id}/sem-contato`,
+    AVANCAR_TEMPO: (id) => `/v1/leads-medicos/${id}/avancar-tempo`,
     CHECKIN: (id) => `/v1/leads-medicos/${id}/checkin`,
     ACEITAR: (id) => `/v1/leads-medicos/${id}/aceitar`,
     RECUSAR: (id) => `/v1/leads-medicos/${id}/recusar`,

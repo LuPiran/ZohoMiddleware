@@ -113,6 +113,9 @@ services:
         VITE_ENTRA_TENANT_ID: ${VITE_ENTRA_TENANT_ID}
         VITE_ENTRA_REDIRECT_URI: ${VITE_ENTRA_REDIRECT_URI:-https://portal.autofullall.com}
         VITE_GOOGLE_MAPS_KEY: ${VITE_GOOGLE_MAPS_KEY}
+        # Botão "Avançar tempo" na tela do lead — ferramenta de teste, NUNCA
+        # true em produção (ver ALLOW_LEAD_TIME_TRAVEL no backend/.env.example)
+        VITE_ALLOW_LEAD_TIME_TRAVEL: ${VITE_ALLOW_LEAD_TIME_TRAVEL:-false}
     container_name: zoho-admin
     ports:
       - "80:80"

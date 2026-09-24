@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import { ENV } from "../config/env.js";
 import {
   formatMinutes,
   notifyLeadAceito,
@@ -42,12 +43,15 @@ import {
 } from "./zohoLeadSync.js";
 import {
   ATTEMPT_ROUNDS,
+  ATTEMPT_WINDOW_DAYS,
   agendamentoUpdates,
   attemptDeadlineAt,
   buildAttemptView,
   buildLeadTimeline,
   currentOpenAttemptRound,
   isAttemptWindowOpen,
+  isLeadAccepted,
+  isLeadClosed,
   parseAttemptRound,
   qualificationStartIso,
   requestFourthAttemptUpdates,
@@ -1737,6 +1741,71 @@ export async function markLeadSemContato(leadId, user, { files } = {}) {
     void decrementCargaAceita(raw.consultorId);
   }
   void notifyStatusChange(updated, user, "Lead Sem Contato");
+  return toLeadDetail(updated);
+}
+
+/**
+ * Ferramenta de teste (só em homologação): avança o prazo ativo do lead
+ * — a oferta SLA, ou a janela da tentativa em aberto — pra ~10s no futuro,
+ * pra observar o sweeper automático processar o timeout de verdade (e-mail
+ * real, histórico real), em vez de simular o desfecho manualmente.
+ */
+export async function advanceLeadTimeForTesting(leadId, user) {
+  if (!ENV.ALLOW_LEAD_TIME_TRAVEL) {
+    const err = new Error("Recurso não disponível neste ambiente.");
+    err.status = 404;
+    err.code = "NOT_FOUND";
+    throw err;
+  }
+
+  await getLeadForUser(leadId, user);
+  const raw = await leadsRepo.getById(leadId);
+  if (!raw) {
+    const err = new Error("Lead não encontrado.");
+    err.status = 404;
+    throw err;
+  }
+
+  const now = Date.now();
+  const targetIso = new Date(now + 10_000).toISOString();
+  const updates = {};
+  let descricao;
+
+  if (isSlaOffered(raw)) {
+    updates.slaDeadline = targetIso;
+    descricao = "Prazo da oferta SLA";
+  } else if (isLeadAccepted(raw) && !isLeadClosed(raw)) {
+    const round = currentOpenAttemptRound(raw);
+    if (!round) {
+      const err = new Error("Este lead não tem nenhum prazo em aberto pra avançar.");
+      err.status = 400;
+      throw err;
+    }
+    if (round === 4) {
+      updates.dataQuartaTentativa = targetIso;
+      descricao = "Prazo da 4ª tentativa";
+    } else {
+      const startIso = new Date(
+        now + 10_000 - round * ATTEMPT_WINDOW_DAYS * 24 * 60 * 60 * 1000,
+      ).toISOString();
+      updates.dataQualificado = startIso;
+      if (raw.slaCheckinAt) updates.slaCheckinAt = startIso;
+      descricao = `Prazo da ${round}ª tentativa`;
+    }
+  } else {
+    const err = new Error("Este lead não tem nenhum prazo em aberto pra avançar.");
+    err.status = 400;
+    throw err;
+  }
+
+  const historico = appendHistorico(raw, {
+    action: "tempo_avancado_teste",
+    label: `${descricao} avançado manualmente (teste)`,
+    detail: `${descricao} ajustado pra expirar em ~10 segundos, pra testar o comportamento automático do sistema (sweeper, e-mails, redistribuição).`,
+    by: user.email || user.id || "usuario",
+  });
+
+  const updated = await updateLeadItem(leadId, { ...updates, historico });
   return toLeadDetail(updated);
 }
 

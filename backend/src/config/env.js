@@ -51,6 +51,11 @@ export const ENV = {
   // Regra de negócio: 48h para aceitar a oferta = 2880 minutos.
   SLA_OFFER_MINUTES: Number(process.env.SLA_OFFER_MINUTES || 2880),
 
+  // Ferramenta de teste: avança o prazo ativo do lead (oferta SLA ou
+  // tentativa) pra ~10s no futuro, pra ver o sweeper automático agir de
+  // verdade. NUNCA deve ficar ligado em produção — só em homologação.
+  ALLOW_LEAD_TIME_TRAVEL: process.env.ALLOW_LEAD_TIME_TRAVEL === "true",
+
   // Módulo CRM dos leads médicos (não confundir com ZOHO_MODULE_NAME dos usuários)
   ZOHO_LEADS_MODULE: process.env.ZOHO_LEADS_MODULE || "Leads_M_dicos",
   ZOHO_LEAD_STATUS_FIELD: process.env.ZOHO_LEAD_STATUS_FIELD || "Status",

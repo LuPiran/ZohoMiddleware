@@ -1,5 +1,6 @@
 import express from "express";
 import {
+  advanceLeadTimeForTesting,
   checkinLead,
   createLeadFromZoho,
   getLeadForUser,
@@ -492,6 +493,33 @@ router.post(
       return res.status(500).json({
         success: false,
         error: error.message || "Erro ao marcar lead sem contato",
+      });
+    }
+  },
+);
+
+/**
+ * Ferramenta de teste (só em homologação, ver ALLOW_LEAD_TIME_TRAVEL):
+ * avança o prazo ativo do lead pra ~10s no futuro.
+ * POST /v1/leads-medicos/:id/avancar-tempo
+ */
+router.post(
+  "/:id/avancar-tempo",
+  authenticateToken,
+  requireSafeResourceId("id"),
+  writeRateLimiter,
+  async (req, res) => {
+    try {
+      const lead = await advanceLeadTimeForTesting(req.params.id, req.user);
+      return res.json({ success: true, data: lead });
+    } catch (error) {
+      console.error("[LEADS] Erro ao avançar tempo (teste):", error);
+      const handled = storageErrorResponse(res, error);
+      if (handled) return handled;
+
+      return res.status(500).json({
+        success: false,
+        error: error.message || "Erro ao avançar o tempo do lead",
       });
     }
   },

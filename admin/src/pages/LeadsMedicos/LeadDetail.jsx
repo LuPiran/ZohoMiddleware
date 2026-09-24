@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { MdArrowBack, MdPhoneMissed, MdThumbDown } from "react-icons/md";
+import { MdArrowBack, MdPhoneMissed, MdSchedule, MdThumbDown } from "react-icons/md";
 import MainLayout from "../../components/layout/MainLayout";
 import Button from "../../components/ui/Button";
 import ConfirmModal from "../../components/ui/ConfirmModal";
@@ -266,6 +266,27 @@ export default function LeadDetail() {
     }
   };
 
+  const handleAdvanceTime = async () => {
+    setSubmitting(true);
+    try {
+      const result = await leadsMedicosService.avancarTempo(id);
+      setLead(result.data);
+      showToast(
+        "Prazo ajustado — vira em ~10 segundos. Aguarde e clique em Atualizar.",
+        "success",
+        4500,
+      );
+    } catch (err) {
+      const message =
+        err?.response?.data?.error ||
+        err?.message ||
+        "Erro ao avançar o tempo do lead";
+      showToast(message, "error", 3500);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleRefuse = async () => {
     setSubmitting(true);
     window.dispatchEvent(
@@ -383,6 +404,29 @@ export default function LeadDetail() {
           </div>
         ) : (
           <>
+            {import.meta.env.VITE_ALLOW_LEAD_TIME_TRAVEL === "true" && (
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed border-amber-400 bg-amber-50 px-4 py-3">
+                <div>
+                  <p className="text-sm font-bold text-amber-900">
+                    Ferramenta de teste — só nesse ambiente
+                  </p>
+                  <p className="text-xs text-amber-800">
+                    Força o prazo ativo deste lead (oferta ou tentativa) a expirar em ~10s,
+                    pra ver o sistema reagir de verdade (sweeper, e-mail, redistribuição).
+                  </p>
+                </div>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleAdvanceTime}
+                  disabled={submitting}
+                  className="inline-flex shrink-0 items-center gap-1.5 border-amber-400 text-amber-900 hover:bg-amber-100"
+                >
+                  <MdSchedule aria-hidden />
+                  Avançar tempo (teste)
+                </Button>
+              </div>
+            )}
             <SlaTimer
               lead={lead}
               onAccept={handleAccept}
