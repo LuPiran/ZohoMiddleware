@@ -17,6 +17,11 @@ export function SlaOfferProvider({ children }) {
   const [submittingId, setSubmittingId] = useState(null);
   const busyRef = useRef(false);
   const autoShownRef = useRef(new Set()); // IDs já exibidos automaticamente
+  // Só abre o card sozinho na primeira checagem da sessão (quando o
+  // consultor entra no Portal) -- os pollings seguintes atualizam a lista
+  // em silêncio, sem interromper quem já está com o Portal aberto. Pra ver
+  // ofertas novas que chegaram nesse meio tempo, o consultor usa o sininho.
+  const didInitialAutoShowRef = useRef(false);
 
   const dismissOffer = useCallback((offerId) => {
     if (!offerId) return;
@@ -45,6 +50,8 @@ export function SlaOfferProvider({ children }) {
         if (current) {
           return next.find((item) => item.id === current.id) || null;
         }
+        // Só abre sozinho na primeira checagem da sessão (entrada no Portal)
+        if (didInitialAutoShowRef.current) return null;
         // Abre automaticamente a primeira oferta nova (ainda não exibida)
         const newOffer = next.find((o) => !autoShownRef.current.has(o.id));
         if (newOffer) {
@@ -53,6 +60,7 @@ export function SlaOfferProvider({ children }) {
         }
         return null;
       });
+      didInitialAutoShowRef.current = true;
     } catch {
       // polling silencioso
     }
