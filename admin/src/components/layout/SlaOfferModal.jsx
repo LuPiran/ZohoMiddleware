@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { MdClose, MdPhone, MdBadge, MdLocationOn, MdMedicalServices, MdAccessTime } from "react-icons/md";
 import { useSlaOffers } from "../../contexts/SlaOfferContext";
 import { useEffect, useRef, useState } from "react";
+import RecusarOfertaModal from "../ui/RecusarOfertaModal";
 
 /**
  * Retorna { remaining, total } onde:
@@ -169,6 +170,7 @@ export default function SlaOfferModal() {
   const expired = remaining <= 0;
   const overlayRef = useRef(null);
   const expiredCheckedRef = useRef(null);
+  const [showRecusar, setShowRecusar] = useState(false);
 
   useEffect(() => {
     if (!offer) return undefined;
@@ -328,7 +330,7 @@ export default function SlaOfferModal() {
             <button
               type="button"
               disabled={submitting || expired}
-              onClick={() => refuseOffer(offer)}
+              onClick={() => setShowRecusar(true)}
               className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Recusar
@@ -354,6 +356,17 @@ export default function SlaOfferModal() {
           </p>
         </div>
       </div>
+
+      <RecusarOfertaModal
+        open={showRecusar}
+        leadNome={offer.nome}
+        submitting={submitting}
+        onCancel={() => setShowRecusar(false)}
+        onConfirm={async (motivo) => {
+          const ok = await refuseOffer(offer, motivo);
+          if (ok) setShowRecusar(false);
+        }}
+      />
     </div>
   );
 }

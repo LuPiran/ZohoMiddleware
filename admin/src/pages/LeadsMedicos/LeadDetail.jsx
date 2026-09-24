@@ -4,6 +4,7 @@ import { MdArrowBack, MdPhoneMissed, MdSchedule, MdThumbDown } from "react-icons
 import MainLayout from "../../components/layout/MainLayout";
 import Button from "../../components/ui/Button";
 import ConfirmModal from "../../components/ui/ConfirmModal";
+import RecusarOfertaModal from "../../components/ui/RecusarOfertaModal";
 import { useToast } from "../../components/feedback/auth/ToastContainer";
 import { ROUTES } from "../../utils/constants";
 import { leadsMedicosService } from "../../services/leadsMedicos";
@@ -149,6 +150,7 @@ export default function LeadDetail() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [confirmModal, setConfirmModal] = useState(null); // { type: "semContato" | "semInteresse", files, observacao }
+  const [showRecusarModal, setShowRecusarModal] = useState(false);
 
   const loadLead = useCallback(async () => {
     if (!id) return;
@@ -287,14 +289,19 @@ export default function LeadDetail() {
     }
   };
 
-  const handleRefuse = async () => {
+  const handleRefuse = () => {
+    setShowRecusarModal(true);
+  };
+
+  const executeRefuse = async (motivo) => {
+    setShowRecusarModal(false);
     setSubmitting(true);
     window.dispatchEvent(
       new CustomEvent("sla-offer-optimistic-refuse", { detail: { id } }),
     );
     navigate(ROUTES.LEADS_MEDICOS);
     try {
-      await leadsMedicosService.recusarOferta(id);
+      await leadsMedicosService.recusarOferta(id, motivo);
       showToast("Oferta recusada. O lead segue para o próximo consultor.", "success", 2500);
       window.dispatchEvent(
         new CustomEvent("sla-offer-changed", { detail: { id, action: "recusar" } }),
@@ -473,6 +480,15 @@ export default function LeadDetail() {
         icon={<MdThumbDown className="text-lg" />}
         onConfirm={executeConfirmed}
         onCancel={() => setConfirmModal(null)}
+      />
+
+      {/* Modal de recusa da oferta — motivo obrigatório */}
+      <RecusarOfertaModal
+        open={showRecusarModal}
+        leadNome={lead?.nome}
+        submitting={submitting}
+        onConfirm={executeRefuse}
+        onCancel={() => setShowRecusarModal(false)}
       />
     </MainLayout>
   );

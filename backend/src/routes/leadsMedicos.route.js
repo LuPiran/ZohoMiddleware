@@ -588,7 +588,7 @@ router.post(
   writeRateLimiter,
   async (req, res) => {
     try {
-      const lead = await recusarLead(req.params.id, req.user);
+      const lead = await recusarLead(req.params.id, req.user, req.body?.motivo);
       return res.json({ success: true, data: lead });
     } catch (error) {
       console.error("[LEADS] Erro ao recusar oferta:", error);

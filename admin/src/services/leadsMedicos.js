@@ -125,8 +125,8 @@ export async function confirmarCheckin(id) {
   };
 }
 
-export async function recusarOferta(id) {
-  const response = await api.post(API_ENDPOINTS.LEADS_MEDICOS.RECUSAR(id));
+export async function recusarOferta(id, motivo) {
+  const response = await api.post(API_ENDPOINTS.LEADS_MEDICOS.RECUSAR(id), { motivo });
   return {
     success: Boolean(response.data?.success),
     data: response.data?.data || null,

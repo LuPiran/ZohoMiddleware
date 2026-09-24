@@ -505,16 +505,12 @@ function encaminhadoGestaoCondition() {
  * dispare redistributeLead() pro próximo consultor mais próximo. Se não
  * sobra ninguém, encerra direto como "Lead Rejeitado" (terminal).
  */
-export async function rejectLeadOffer(lead, { reason, by } = {}) {
+export async function rejectLeadOffer(lead, { reason, by, timeout = false } = {}) {
   const now = new Date().toISOString();
   const stillOffered = offeredStatusCondition();
   const closedEntry = previousOfferHistory(reason, by);
   const consultorAtual = lead.consultor || "O consultor responsável";
   const tempoStr = formatMinutes(slaOfferMinutes());
-  // Distingue recusa explícita (usuário clicou "Recusar") de timeout do prazo
-  // (sweeper, ou aceite tentado depois do prazo já vencido) pelo texto do
-  // motivo — os 2 call sites de timeout sempre mencionam "expirad[o/a]".
-  const timeout = /expirad/i.test(reason || "");
   // Guardado no próprio lead — sem isso, "Lead Rejeitado" mistura recusa
   // explícita e estouro de prazo no mesmo balde, e os KPIs não conseguem
   // separar as duas coisas. Também vai pro Zoho (Dist_Motivo_Rejeicao).

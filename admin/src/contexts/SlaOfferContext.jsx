@@ -99,7 +99,7 @@ export function SlaOfferProvider({ children }) {
   );
 
   const refuseOffer = useCallback(
-    async (offer) => {
+    async (offer, motivo) => {
       if (!offer?.id || busyRef.current) return false;
       const offerId = offer.id;
 
@@ -112,7 +112,7 @@ export function SlaOfferProvider({ children }) {
       setSubmittingId(offerId);
       busyRef.current = true;
       try {
-        await leadsMedicosService.recusarOferta(offerId);
+        await leadsMedicosService.recusarOferta(offerId, motivo);
         showToast("Oferta recusada. O lead segue para o próximo consultor.", "success", 2800);
         notifyChanged(offerId, "recusar");
         void loadOffers();

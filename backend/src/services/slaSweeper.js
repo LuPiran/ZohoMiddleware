@@ -30,6 +30,7 @@ async function runSweep() {
           rejectLeadOffer(lead, {
             reason: `Prazo de ${formatMinutes(slaOfferMinutes())} para aceite expirado.`,
             by: "sweeper",
+            timeout: true,
           }),
         ),
       );

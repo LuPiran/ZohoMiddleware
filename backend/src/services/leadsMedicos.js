@@ -43,6 +43,7 @@ import {
 } from "./zohoLeadSync.js";
 import {
   ATTEMPT_ROUNDS,
+  MIN_OBSERVACAO,
   agendamentoUpdates,
   attemptDeadlineAt,
   buildAttemptView,
@@ -1966,6 +1967,7 @@ export async function checkinLead(leadId, user) {
       await rejectLeadOffer(raw, {
         reason: "Prazo para aceite expirado no momento da confirmação.",
         by: user.email || user.id || "usuario",
+        timeout: true,
       });
     }
 
@@ -2021,10 +2023,22 @@ export async function checkinLead(leadId, user) {
 }
 
 /**
- * Consultor recusa a oferta — o lead é encerrado no Portal (Lead Rejeitado)
- * e devolvido ao Zoho. Não segue para o próximo da fila.
+ * Consultor recusa a oferta — se ainda sobrar alguém na região, o lead
+ * vira "Lead Encaminhado à Gestão" e aguarda redistribuição; senão,
+ * encerra como "Lead Rejeitado" e é devolvido ao Zoho. O motivo é
+ * obrigatório (o gerente lê no histórico e no e-mail de recusa).
  */
-export async function recusarLead(leadId, user) {
+export async function recusarLead(leadId, user, motivo) {
+  const nota = String(motivo || "").trim();
+  if (nota.length < MIN_OBSERVACAO) {
+    const err = new Error(
+      `Explique o motivo da recusa (pelo menos ${MIN_OBSERVACAO} caracteres).`,
+    );
+    err.status = 400;
+    err.code = "VALIDATION_ERROR";
+    throw err;
+  }
+
   const { role, viewer, lead } = await getLeadForUser(leadId, user);
 
   if (!isSlaOffered(lead)) {
@@ -2053,8 +2067,9 @@ export async function recusarLead(leadId, user) {
   }
 
   const updated = await rejectLeadOffer(raw, {
-    reason: `Consultor recusou a oferta (${user.email || user.id || "usuario"}).`,
+    reason: nota,
     by: user.email || user.id || "usuario",
+    timeout: false,
   });
 
   if (!updated) {
