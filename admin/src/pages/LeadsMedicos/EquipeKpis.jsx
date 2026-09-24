@@ -92,7 +92,7 @@ export default function EquipeKpis() {
       Rejeitados: c.rejeitados,
       "Taxa de rejeição": formatPct(c.taxaRejeicao),
       "  — Recusados pelo consultor": c.recusados,
-      "  — Perda por tempo (prazo de aceite)": c.expirados,
+      "  — Tempo sem resposta (prazo de aceite)": c.expirados,
       "Sem tratativa": c.semTratativa,
       "Encaminhados MKT": c.encaminhadosMkt,
       "Taxa sem tratativa": formatPct(c.taxaSemTratativa),
@@ -253,7 +253,7 @@ export default function EquipeKpis() {
                   <th scope="col" className="px-4 py-3 font-semibold text-right whitespace-nowrap">Convertidos</th>
                   <th scope="col" className="px-4 py-3 font-semibold text-right whitespace-nowrap">Conversão</th>
                   <th scope="col" className="px-4 py-3 font-semibold text-right whitespace-nowrap" title="Consultor clicou em Recusar">Recusas</th>
-                  <th scope="col" className="px-4 py-3 font-semibold text-right whitespace-nowrap" title="Prazo de aceite venceu sem resposta">Perda por tempo</th>
+                  <th scope="col" className="px-4 py-3 font-semibold text-right whitespace-nowrap" title="Prazo de aceite venceu sem resposta">Tempo Sem Resposta</th>
                   <th scope="col" className="px-4 py-3 font-semibold text-right whitespace-nowrap">Sem tratativa</th>
                   <th scope="col" className="px-4 py-3 font-semibold text-right whitespace-nowrap" title="Direcionado ao Marketing, sem compra">Enc. MKT</th>
                   <th scope="col" className="px-4 py-3 font-semibold text-right whitespace-nowrap">Tentativas</th>
@@ -295,7 +295,7 @@ export default function EquipeKpis() {
         </section>
 
         <p className="text-xs text-tegra-text-light">
-          "Até aceite" e a separação "Recusas" × "Perda por tempo 48h" só existem pra leads ofertados/rejeitados a partir desta atualização — leads antigos aparecem como "—", 0, ou não entram em nenhum dos dois baldes de rejeição (mesmo contando no total de leads).
+          "Até aceite" e a separação "Recusas" × "Tempo Sem Resposta 48h" só existem pra leads ofertados/rejeitados a partir desta atualização — leads antigos aparecem como "—", 0, ou não entram em nenhum dos dois baldes de rejeição (mesmo contando no total de leads).
         </p>
       </div>
     </MainLayout>
