@@ -428,7 +428,10 @@ function appendCreateHistory(lead, entry) {
 
 /**
  * Primeira oferta na criação (24h). Com região: consultores, depois gerência.
- * Sem região: Gestão.
+ * Sem região: Gestão (ou geo, se tiver coordenadas). Se o médico já for
+ * prescritor de algum consultor Tegra (campos vindos do Zoho), essa
+ * informação só vai junto no card de oferta como contexto — não muda quem
+ * recebe o lead, a distribuição continua normalmente por região/geo.
  */
 export async function offerLeadOnCreate(lead) {
   if (lead.regiao) {

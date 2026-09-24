@@ -313,6 +313,27 @@ export function mapZohoPayloadToLead(payload) {
     pick(source, ["gerencia", "Gerencia", "gerência", "manager", "Manager"]),
   );
 
+  // Médico que já prescreve pra algum consultor Tegra (relação histórica,
+  // não é a distribuição do Portal) — só informativo, mostrado no card de
+  // oferta pro consultor que receber o lead (distribuição normal continua
+  // por região/geo, ver toLeadListItem).
+  const medicoPrescritorRaw = asString(
+    pick(source, ["medicoPrescritor", "M_dico_Prescritor"]),
+  );
+  const medicoPrescritor = normalizeText(medicoPrescritorRaw) === "sim";
+  const dataUltimaPrescricao = asIsoDate(
+    pick(source, ["dataUltimaPrescricao", "Data_Ultima_Prescri_o"]),
+  );
+  const statusAquecimento = asString(
+    pick(source, ["statusAquecimento", "Status_de_Aquecimento"]),
+  );
+  const prescritorConsultorNome = asString(
+    pick(source, ["prescritorConsultorNome", "Consultor_Tegra"]),
+  );
+  const prescritorConsultorEmail = asString(
+    pick(source, ["prescritorConsultorEmail", "E_mail_Consultor"]),
+  );
+
   const rua = asString(
     pick(source, [
       "rua",
@@ -443,6 +464,11 @@ export function mapZohoPayloadToLead(payload) {
     regiao,
     tipoLead,
     gerencia,
+    medicoPrescritor,
+    dataUltimaPrescricao: dataUltimaPrescricao || null,
+    statusAquecimento: statusAquecimento || null,
+    prescritorConsultorNome: prescritorConsultorNome || null,
+    prescritorConsultorEmail: prescritorConsultorEmail || null,
     rua,
     numero,
     complemento,
@@ -984,6 +1010,14 @@ export function toLeadListItem(lead) {
     slaCheckinAt: lead.slaCheckinAt || null,
     protocolo: lead.protocolo || null,
     eventos: Array.isArray(lead.eventos) ? lead.eventos : [],
+    // Médico já prescreve pra algum consultor Tegra (relação histórica vinda
+    // do Zoho) — mostrado no card de oferta como contexto pro consultor que
+    // recebeu o lead. Não influencia quem recebe (distribuição continua por
+    // região/geo normalmente).
+    medicoPrescritor: Boolean(lead.medicoPrescritor),
+    dataUltimaPrescricao: lead.dataUltimaPrescricao || null,
+    statusAquecimento: lead.statusAquecimento || null,
+    prescritorConsultorNome: lead.prescritorConsultorNome || null,
   };
 }
 

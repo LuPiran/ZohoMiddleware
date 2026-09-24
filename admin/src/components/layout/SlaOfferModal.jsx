@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { MdClose, MdPhone, MdBadge, MdLocationOn, MdMedicalServices, MdAccessTime } from "react-icons/md";
+import { MdClose, MdPhone, MdBadge, MdLocationOn, MdMedicalServices, MdAccessTime, MdVerified } from "react-icons/md";
 import { useSlaOffers } from "../../contexts/SlaOfferContext";
 import { useEffect, useRef, useState } from "react";
 import RecusarOfertaModal from "../ui/RecusarOfertaModal";
@@ -291,6 +291,31 @@ export default function SlaOfferModal() {
               </p>
             </div>
           </div>
+
+          {/* Médico já prescreve pra algum consultor Tegra — contexto, não muda quem recebeu o lead */}
+          {offer.medicoPrescritor && (
+            <div className="flex items-start gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+              <MdVerified className="mt-0.5 shrink-0 text-lg text-emerald-600" />
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-emerald-700">Médico já é prescritor</p>
+                {offer.prescritorConsultorNome && (
+                  <p className="mt-0.5 text-xs text-emerald-700">
+                    Já prescreveu com <span className="font-semibold">{offer.prescritorConsultorNome}</span>
+                  </p>
+                )}
+                {(offer.dataUltimaPrescricao || offer.statusAquecimento) && (
+                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-emerald-600">
+                    {offer.dataUltimaPrescricao && (
+                      <span>
+                        Última prescrição: {new Date(offer.dataUltimaPrescricao).toLocaleDateString("pt-BR")}
+                      </span>
+                    )}
+                    {offer.statusAquecimento && <span>{offer.statusAquecimento}</span>}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Informações do lead */}
           <div className="space-y-2.5 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
