@@ -8,6 +8,7 @@ import {
   MdAccessTime,
 } from "react-icons/md";
 import { useSlaOffers } from "../../contexts/SlaOfferContext";
+import { businessMsRemaining } from "../../utils/businessTime";
 
 function formatCountdown(ms) {
   const totalSecs = Math.max(0, Math.floor(ms / 1000));
@@ -22,14 +23,14 @@ function formatCountdown(ms) {
 }
 
 function OfferCountdown({ deadline }) {
-  const [remaining, setRemaining] = useState(() =>
-    deadline ? new Date(deadline).getTime() - Date.now() : 0,
-  );
+  const [remaining, setRemaining] = useState(() => businessMsRemaining(deadline));
 
   useEffect(() => {
     if (!deadline) return undefined;
+    // Congela no fim de semana e só volta a descer na segunda — o prazo
+    // real (backend) já pula sábado/domingo (ver businessTime.js).
     function tick() {
-      setRemaining(new Date(deadline).getTime() - Date.now());
+      setRemaining(businessMsRemaining(deadline));
     }
     tick();
     const id = setInterval(tick, 1000);

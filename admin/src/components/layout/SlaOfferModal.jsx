@@ -3,11 +3,14 @@ import { MdClose, MdPhone, MdBadge, MdLocationOn, MdMedicalServices, MdAccessTim
 import { useSlaOffers } from "../../contexts/SlaOfferContext";
 import { useEffect, useRef, useState } from "react";
 import RecusarOfertaModal from "../ui/RecusarOfertaModal";
+import { businessMsRemaining } from "../../utils/businessTime";
 
 /**
  * Retorna { remaining, total } onde:
- * - remaining: ms restantes até o deadline (atualizado a cada segundo)
- * - total: ms totais da oferta (capturado uma vez por deadline, nunca muda)
+ * - remaining: ms ÚTEIS restantes até o deadline (atualizado a cada
+ *   segundo) — congela no fim de semana e só volta a descer na segunda,
+ *   já que o prazo real (backend) também pula sábado/domingo.
+ * - total: ms úteis totais da oferta (capturado uma vez por deadline, nunca muda)
  */
 function useCountdown(deadline) {
   const totalRef = useRef(0);
@@ -21,12 +24,12 @@ function useCountdown(deadline) {
     }
 
     // Captura o total UMA VEZ por deadline — resetado quando muda de oferta
-    const initial = Math.max(1, new Date(deadline).getTime() - Date.now());
+    const initial = Math.max(1, businessMsRemaining(deadline));
     totalRef.current = initial;
     setRemaining(initial);
 
     const id = setInterval(() => {
-      setRemaining(Math.max(0, new Date(deadline).getTime() - Date.now()));
+      setRemaining(Math.max(0, businessMsRemaining(deadline)));
     }, 1000);
 
     return () => clearInterval(id);

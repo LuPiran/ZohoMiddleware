@@ -12,6 +12,7 @@ import LeadTimeline from "./LeadTimeline";
 import LeadDetailsCard from "./LeadDetailsCard";
 import LeadFirstAttemptCard from "./LeadFirstAttemptCard";
 import LeadHistory from "./LeadHistory";
+import { businessMsRemaining } from "../../utils/businessTime";
 
 function isOfferedStatus(status) {
   return status === "ofertado" || status === "pendente";
@@ -33,8 +34,9 @@ function SlaTimer({ lead, onAccept, onRefuse, submitting }) {
     }
 
     function tick() {
-      const diff = new Date(slaDeadline).getTime() - Date.now();
-      setRemaining(Math.max(0, diff));
+      // Congela no fim de semana e só volta a descer na segunda — o prazo
+      // real (backend) já pula sábado/domingo (ver businessTime.js).
+      setRemaining(businessMsRemaining(slaDeadline));
     }
 
     tick();
