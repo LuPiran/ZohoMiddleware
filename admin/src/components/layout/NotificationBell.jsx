@@ -9,6 +9,7 @@ import {
 } from "react-icons/md";
 import { useSlaOffers } from "../../contexts/SlaOfferContext";
 import { businessMsRemaining } from "../../utils/businessTime";
+import RecusarOfertaModal from "../ui/RecusarOfertaModal";
 
 function formatCountdown(ms) {
   const totalSecs = Math.max(0, Math.floor(ms / 1000));
@@ -48,6 +49,7 @@ function OfferCountdown({ deadline }) {
 export default function NotificationBell() {
   const { offers, acceptOffer, refuseOffer, openOffer, submittingId } = useSlaOffers();
   const [open, setOpen] = useState(false);
+  const [recusando, setRecusando] = useState(null);
   const panelRef = useRef(null);
 
   useEffect(() => {
@@ -172,7 +174,7 @@ export default function NotificationBell() {
                         <button
                           type="button"
                           disabled={busy}
-                          onClick={(e) => { e.stopPropagation(); refuseOffer(offer); }}
+                          onClick={(e) => { e.stopPropagation(); setRecusando(offer); }}
                           className="flex-1 rounded-lg border border-slate-200 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
                         >
                           <MdClose className="inline mr-0.5 text-sm" aria-hidden />
@@ -196,6 +198,17 @@ export default function NotificationBell() {
           </div>
         </div>
       )}
+
+      <RecusarOfertaModal
+        open={Boolean(recusando)}
+        leadNome={recusando?.nome}
+        submitting={submittingId === recusando?.id}
+        onCancel={() => setRecusando(null)}
+        onConfirm={async (motivo) => {
+          const ok = await refuseOffer(recusando, motivo);
+          if (ok) setRecusando(null);
+        }}
+      />
     </div>
   );
 }
