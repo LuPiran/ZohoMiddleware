@@ -309,6 +309,12 @@ export async function syncConsultorZohoPerfil(email, dadosZoho) {
   const zohoId     = asString(dadosZoho.id || dadosZoho.ID);
   const agora      = new Date().toISOString();
 
+  // Recebe_Leads é Booleana no Zoho (módulo Usuário Portal Consultor) — só
+  // atualiza quando vem um boolean de verdade; ausência/valor inesperado não
+  // mexe no que já está gravado (mesmo padrão dos campos de texto acima).
+  const recebeLeadsRaw = dadosZoho.Recebe_Leads;
+  const recebeLeads = typeof recebeLeadsRaw === "boolean" ? recebeLeadsRaw : undefined;
+
   let consultorId = null; // capturado para o geocoding posterior
 
   try {
@@ -328,6 +334,7 @@ export async function syncConsultorZohoPerfil(email, dadosZoho) {
         ["cep",          cep],
         ["emailPessoal", emailPess],
         ["cargo",        cargo],
+        ["recebeLeads",  recebeLeads],
         ["syncZohoEm",   agora],
       ].filter(([, v]) => v !== undefined);
 
@@ -358,6 +365,7 @@ export async function syncConsultorZohoPerfil(email, dadosZoho) {
           ["cep",          cep],
           ["emailPessoal", emailPess],
           ["cargo",        cargo],
+          ["recebeLeads",  recebeLeads],
           ["syncZohoEm",   agora],
         ].filter(([, v]) => v !== undefined),
       );
