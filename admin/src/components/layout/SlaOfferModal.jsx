@@ -143,6 +143,57 @@ function TimerRing({ remaining, total }) {
   );
 }
 
+/**
+ * Cor do selo "já é prescritor" conforme o Status de Aquecimento vindo do
+ * Zoho — mesma lógica de farol que o próprio Zoho usa nesse picklist
+ * (verde recente, amarelo intermediário, vermelho há mais tempo).
+ */
+function aquecimentoCores(statusAquecimento) {
+  const normalizado = String(statusAquecimento || "")
+    .normalize("NFD")
+    .replace(new RegExp("[\\u0300-\\u036f]", "g"), "")
+    .toLowerCase();
+
+  if (normalizado.includes("ultimos 6 meses")) {
+    return {
+      border: "border-emerald-200",
+      bg: "bg-emerald-50",
+      icon: "text-emerald-600",
+      title: "text-emerald-700",
+      text: "text-emerald-700",
+      meta: "text-emerald-600",
+    };
+  }
+  if (normalizado.includes("6 meses a 1 ano")) {
+    return {
+      border: "border-amber-200",
+      bg: "bg-amber-50",
+      icon: "text-amber-600",
+      title: "text-amber-700",
+      text: "text-amber-700",
+      meta: "text-amber-600",
+    };
+  }
+  if (normalizado.includes("mais de 1 ano")) {
+    return {
+      border: "border-red-200",
+      bg: "bg-red-50",
+      icon: "text-red-600",
+      title: "text-red-700",
+      text: "text-red-700",
+      meta: "text-red-600",
+    };
+  }
+  return {
+    border: "border-slate-200",
+    bg: "bg-slate-50",
+    icon: "text-slate-500",
+    title: "text-slate-700",
+    text: "text-slate-700",
+    meta: "text-slate-500",
+  };
+}
+
 function InfoRow({ icon: Icon, label, value }) {
   if (!value) return null;
   return (
@@ -293,29 +344,32 @@ export default function SlaOfferModal() {
           </div>
 
           {/* Médico já prescreve pra algum consultor Tegra — contexto, não muda quem recebeu o lead */}
-          {offer.medicoPrescritor && (
-            <div className="flex items-start gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
-              <MdVerified className="mt-0.5 shrink-0 text-lg text-emerald-600" />
-              <div className="min-w-0">
-                <p className="text-xs font-bold text-emerald-700">Médico já é prescritor</p>
-                {offer.prescritorConsultorNome && (
-                  <p className="mt-0.5 text-xs text-emerald-700">
-                    Já prescreveu com <span className="font-semibold">{offer.prescritorConsultorNome}</span>
-                  </p>
-                )}
-                {(offer.dataUltimaPrescricao || offer.statusAquecimento) && (
-                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-emerald-600">
-                    {offer.dataUltimaPrescricao && (
-                      <span>
-                        Última prescrição: {new Date(offer.dataUltimaPrescricao).toLocaleDateString("pt-BR")}
-                      </span>
-                    )}
-                    {offer.statusAquecimento && <span>{offer.statusAquecimento}</span>}
-                  </div>
-                )}
+          {offer.medicoPrescritor && (() => {
+            const cores = aquecimentoCores(offer.statusAquecimento);
+            return (
+              <div className={`flex items-start gap-2.5 rounded-xl border ${cores.border} ${cores.bg} px-4 py-3`}>
+                <MdVerified className={`mt-0.5 shrink-0 text-lg ${cores.icon}`} />
+                <div className="min-w-0">
+                  <p className={`text-xs font-bold ${cores.title}`}>Médico já é prescritor</p>
+                  {offer.prescritorConsultorNome && (
+                    <p className={`mt-0.5 text-xs ${cores.text}`}>
+                      Já prescreveu com <span className="font-semibold">{offer.prescritorConsultorNome}</span>
+                    </p>
+                  )}
+                  {(offer.dataUltimaPrescricao || offer.statusAquecimento) && (
+                    <div className={`mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] ${cores.meta}`}>
+                      {offer.dataUltimaPrescricao && (
+                        <span>
+                          Última prescrição: {new Date(offer.dataUltimaPrescricao).toLocaleDateString("pt-BR")}
+                        </span>
+                      )}
+                      {offer.statusAquecimento && <span>{offer.statusAquecimento}</span>}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Informações do lead */}
           <div className="space-y-2.5 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
