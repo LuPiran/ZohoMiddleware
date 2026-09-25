@@ -13,6 +13,7 @@ import LeadDetailsCard from "./LeadDetailsCard";
 import LeadFirstAttemptCard from "./LeadFirstAttemptCard";
 import LeadHistory from "./LeadHistory";
 import { businessMsRemaining } from "../../utils/businessTime";
+import { hasAdminPanelPermission } from "../../utils/permissions";
 
 function isOfferedStatus(status) {
   return status === "ofertado" || status === "pendente";
@@ -413,7 +414,7 @@ export default function LeadDetail() {
           </div>
         ) : (
           <>
-            {import.meta.env.VITE_ALLOW_LEAD_TIME_TRAVEL === "true" && (
+            {import.meta.env.VITE_ALLOW_LEAD_TIME_TRAVEL === "true" && hasAdminPanelPermission() && (
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed border-amber-400 bg-amber-50 px-4 py-3">
                 <div>
                   <p className="text-sm font-bold text-amber-900">
