@@ -1,6 +1,7 @@
 import { expireOverdueAttempts } from "./leadsMedicos.js";
 import * as leadsRepo from "../db/leadsRepo.js";
 import {
+  aguardandoDataEvento,
   isSlaOffered,
   rejectLeadOffer,
   slaOfferMinutes,
@@ -53,6 +54,23 @@ async function runSweep() {
           startOfferCycle(lead, {
             reason: "Oferta 24h liberada para lead que aguardava horário comercial.",
             by: "sweeper",
+          }),
+        ),
+      );
+    }
+
+    const aguardandoEvento = await fetchLeadsByStatus("aguardando_evento");
+    const dataChegou = aguardandoEvento.filter((lead) => !aguardandoDataEvento(lead));
+    if (dataChegou.length) {
+      console.log(
+        `[SWEEPER] ${dataChegou.length} lead(s) com data do evento liberada — distribuindo agora...`,
+      );
+      await Promise.allSettled(
+        dataChegou.map((lead) =>
+          startOfferCycle(lead, {
+            reason: `Data do evento (${new Date(lead.dataEvento).toLocaleDateString("pt-BR")}) chegou — distribuição liberada automaticamente.`,
+            by: "sweeper",
+            waitingStatus: "aguardando_evento",
           }),
         ),
       );

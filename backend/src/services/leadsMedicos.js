@@ -21,6 +21,7 @@ import {
   incrementCargaAceita,
 } from "./consultores.js";
 import {
+  aguardandoDataEvento,
   assignLeadToConsultor,
   isSlaAccepted,
   isSlaOffered,
@@ -29,6 +30,7 @@ import {
   redistributeLead,
   rejectLeadOffer,
   slaOfferMinutes,
+  startOfferCycle,
 } from "./slaOffers.js";
 import {
   ZOHO_LEAD_STATUS,
@@ -334,6 +336,13 @@ export function mapZohoPayloadToLead(payload) {
     pick(source, ["prescritorConsultorEmail", "E_mail_Consultor"]),
   );
 
+  // Data do evento de origem do lead — se ainda não chegou, o lead fica
+  // retido (aguardando_evento) em vez de tentar distribuir (ver
+  // offerLeadOnCreate em slaOffers.js).
+  const dataEvento = asIsoDate(
+    pick(source, ["dataEvento", "Data_do_Evento"]),
+  );
+
   const rua = asString(
     pick(source, [
       "rua",
@@ -469,6 +478,7 @@ export function mapZohoPayloadToLead(payload) {
     statusAquecimento: statusAquecimento || null,
     prescritorConsultorNome: prescritorConsultorNome || null,
     prescritorConsultorEmail: prescritorConsultorEmail || null,
+    dataEvento: dataEvento || null,
     rua,
     numero,
     complemento,
@@ -683,6 +693,28 @@ export async function createLeadFromZoho(payload) {
 
   const existing = await findLeadByZohoId(lead.idZoho);
   if (existing) {
+    // Lead ainda retido esperando a data do evento — reavalia com a data
+    // fresca vinda desse reenvio. Se ainda não chegou, só atualiza a data
+    // guardada e mantém retido; se já passou, libera pra distribuição normal.
+    if (existing.slaStatus === "aguardando_evento") {
+      const dataEvento = lead.dataEvento || existing.dataEvento;
+      if (aguardandoDataEvento({ dataEvento })) {
+        const atualizado = await updateLeadItem(existing.id, { dataEvento });
+        return { created: false, alreadyExists: true, lead: atualizado };
+      }
+      const liberado = await startOfferCycle(
+        { ...existing, dataEvento },
+        {
+          reason: `Data do evento (${new Date(dataEvento).toLocaleDateString("pt-BR")}) chegou — distribuição liberada.`,
+          by: "zoho",
+          waitingStatus: "aguardando_evento",
+        },
+      );
+      if (liberado) {
+        return { created: false, alreadyExists: true, lead: liberado };
+      }
+    }
+
     // Campo "Consultor Tegra" preenchido no reenvio (botão "Distribuir Lead"
     // ou regra do Zoho) → redireciona direto pro consultor indicado, mesmo
     // que o lead já tenha dono — desde que ainda não esteja encerrado.
@@ -951,7 +983,11 @@ export async function createLeadFromZoho(payload) {
   }
 
   syncZohoLeadProtocolo(lead);
-  syncZohoLeadDistribuicao(lead); // Dist_Consultor_Nome/Email/Id, Dist_Regiao, Dist_Fila, Dist_Status, Dist_Rodadas
+  // Retido aguardando a data do evento — nada foi distribuído ainda, não
+  // sincroniza Dist_Status/Dist_Consultor_* prematuramente (ver sweeper).
+  if (lead.slaStatus !== "aguardando_evento") {
+    syncZohoLeadDistribuicao(lead); // Dist_Consultor_Nome/Email/Id, Dist_Regiao, Dist_Fila, Dist_Status, Dist_Rodadas
+  }
 
   return {
     created: true,
@@ -1043,6 +1079,7 @@ export function toLeadListItem(lead) {
     dataUltimaPrescricao: lead.dataUltimaPrescricao || null,
     statusAquecimento: lead.statusAquecimento || null,
     prescritorConsultorNome: lead.prescritorConsultorNome || null,
+    dataEvento: lead.dataEvento || null,
   };
 }
 
@@ -1083,7 +1120,11 @@ export async function listLeadsForGerencia(gerenteRecord) {
     }
   }
 
-  return { equipe, leads: [...collected.values()] };
+  // Retido esperando a data do evento — invisível até o sweeper liberar.
+  const leads = [...collected.values()].filter(
+    (lead) => lead.slaStatus !== "aguardando_evento",
+  );
+  return { equipe, leads };
 }
 
 /**
@@ -1153,6 +1194,10 @@ export async function listLeadsForUser(user = {}) {
       (lead) => !lead.slaStatus || isSlaAccepted(lead),
     );
   }
+
+  // Retido esperando a data do evento — invisível pra todo mundo (inclusive
+  // admin) até o sweeper liberar a distribuição de verdade.
+  leads = leads.filter((lead) => lead.slaStatus !== "aguardando_evento");
 
   leads.sort((a, b) => {
     const da = new Date(a.entradaEm || a.dataNovoLead || a.createdAt || 0).getTime();

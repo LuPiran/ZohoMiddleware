@@ -478,13 +478,32 @@ async function offerLeadToRequestedConsultor(lead) {
   return lead;
 }
 
+/** A data do evento de origem ainda não chegou? */
+export function aguardandoDataEvento(lead) {
+  return Boolean(lead?.dataEvento) && new Date(lead.dataEvento) > new Date();
+}
+
 /**
  * Primeira oferta na criação (24h). Com região: consultores, depois gerência.
- * Sem região: Gestão (ou geo, se tiver coordenadas). Exceção: lead com
- * "Consultor Tegra" preenchido pula direto pra esse consultor (ver
- * offerLeadToRequestedConsultor).
+ * Sem região: Gestão (ou geo, se tiver coordenadas). Exceções, nessa ordem:
+ * 1) Data do evento no futuro → segura o lead (ver aguardandoDataEvento),
+ *    liberado depois pelo sweeper quando a data passar.
+ * 2) "Consultor Tegra" preenchido → pula direto pra esse consultor (ver
+ *    offerLeadToRequestedConsultor).
  */
 export async function offerLeadOnCreate(lead) {
+  if (aguardandoDataEvento(lead)) {
+    lead.slaStatus = "aguardando_evento";
+    delete lead.slaDeadline;
+    appendCreateHistory(lead, {
+      action: "sla_aguardando_evento",
+      label: "Aguardando a data do evento",
+      detail: `Lead recebido antes da data do evento (${new Date(lead.dataEvento).toLocaleDateString("pt-BR")}). A distribuição será liberada automaticamente assim que a data passar.`,
+      by: "sistema",
+    });
+    return lead;
+  }
+
   if (lead.prescritorConsultorEmail) {
     return offerLeadToRequestedConsultor(lead);
   }
@@ -799,13 +818,16 @@ export async function assignLeadToConsultor(lead, consultor, { by } = {}) {
 }
 
 /**
- * Libera leads que ficaram em aguardando_horario (legado).
+ * Libera um lead que ficou retido num slaStatus de espera — hoje usado por
+ * "aguardando_horario" (legado) e "aguardando_evento" (data do evento ainda
+ * não tinha chegado). Roda o algoritmo normal de fila/geo/gestão a partir
+ * daqui pra frente.
  */
-export async function startOfferCycle(lead, { reason, by } = {}) {
+export async function startOfferCycle(lead, { reason, by, waitingStatus = "aguardando_horario" } = {}) {
   const waitingCondition = {
     expression: "#ssWait = :wait",
     names: { "#ssWait": "slaStatus" },
-    values: { ":wait": "aguardando_horario" },
+    values: { ":wait": waitingStatus },
   };
 
   if (lead.regiao && !lead.slaFaseGestao) {
@@ -872,6 +894,9 @@ export async function startOfferCycle(lead, { reason, by } = {}) {
     waitingCondition,
   );
 
-  if (updated) void notifyLeadOffer(updated, next);
+  if (updated) {
+    syncZohoLeadDistribuicao(updated);
+    void notifyLeadOffer(updated, next);
+  }
   return updated;
 }

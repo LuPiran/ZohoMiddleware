@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addBusinessMinutes } from "./slaOffers.js";
+import { addBusinessMinutes, aguardandoDataEvento } from "./slaOffers.js";
 
 // Horários em UTC que correspondem a horário de Brasília (UTC-3, sem DST
 // desde 2019) — ex.: "10:00 BR" = "13:00Z" no mesmo dia.
@@ -21,5 +21,22 @@ describe("addBusinessMinutes", () => {
     const start = "2026-09-26T11:00:00.000Z"; // sábado 08:00 BR
     const result = addBusinessMinutes(start, 60);
     expect(result.toISOString()).toBe("2026-09-28T04:00:00.000Z"); // segunda 01:00 BR
+  });
+});
+
+describe("aguardandoDataEvento", () => {
+  it("true quando dataEvento está no futuro", () => {
+    const futuro = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    expect(aguardandoDataEvento({ dataEvento: futuro })).toBe(true);
+  });
+
+  it("false quando dataEvento já passou", () => {
+    const passado = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    expect(aguardandoDataEvento({ dataEvento: passado })).toBe(false);
+  });
+
+  it("false quando não tem dataEvento", () => {
+    expect(aguardandoDataEvento({})).toBe(false);
+    expect(aguardandoDataEvento({ dataEvento: null })).toBe(false);
   });
 });
