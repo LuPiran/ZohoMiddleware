@@ -683,6 +683,31 @@ export async function createLeadFromZoho(payload) {
 
   const existing = await findLeadByZohoId(lead.idZoho);
   if (existing) {
+    // Campo "Consultor Tegra" preenchido no reenvio (botão "Distribuir Lead"
+    // ou regra do Zoho) → redireciona direto pro consultor indicado, mesmo
+    // que o lead já tenha dono — desde que ainda não esteja encerrado.
+    // Tem prioridade sobre o redistributeLead automático logo abaixo.
+    if (lead.prescritorConsultorEmail && !isLeadClosed(existing)) {
+      const consultorIndicado = await findConsultorByEmail(lead.prescritorConsultorEmail);
+      const usable =
+        consultorIndicado && consultorIndicado.recebeLeads !== false
+          ? consultorIndicado
+          : null;
+      if (usable) {
+        const reatribuido = await assignLeadToConsultor(existing, usable, {
+          by: "zoho",
+        });
+        if (reatribuido) {
+          return {
+            created: false,
+            alreadyExists: true,
+            reassigned: true,
+            lead: reatribuido,
+          };
+        }
+      }
+    }
+
     // Reenvio do webhook pra um lead "Encaminhado à Gestão" (botão manual
     // ou regra automática no Zoho) — redistribui pro próximo consultor mais
     // próximo em vez de tratar como uma atualização de status qualquer.

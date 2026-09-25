@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { ENV } from "../config/env.js";
 import * as leadsRepo from "../db/leadsRepo.js";
 import {
+  findConsultorByEmail,
   findConsultoresByRegiao,
   findConsultoresGestao,
   getConsultorCargaAceita,
@@ -427,13 +428,67 @@ function appendCreateHistory(lead, entry) {
 }
 
 /**
+ * Lead chega com o campo "Consultor Tegra" preenchido (+ "E-mail Consultor")
+ * → pula a fila inteira e vai direto pro consultor indicado. Se esse
+ * consultor não for encontrado no Portal (ou estiver com "recebe leads"
+ * desligado), escala direto pra Gestão em vez de cair na fila normal.
+ */
+async function offerLeadToRequestedConsultor(lead) {
+  const consultor = await findConsultorByEmail(lead.prescritorConsultorEmail);
+  const usable = consultor && consultor.recebeLeads !== false ? consultor : null;
+
+  lead.slaCicloRegional = 0;
+
+  if (usable) {
+    lead.slaFaseGestao = false;
+    applyOfferToLead(lead, usable, {
+      reason: `Consultor "${lead.prescritorConsultorNome || consultorNome(usable)}" indicado no Zoho (campo Consultor Tegra). Lead enviado diretamente, sem passar pela fila.`,
+    });
+    await updateConsultorUltimaAtribuicao(usable.id, new Date().toISOString());
+    void notifyLeadOffer(lead, usable);
+    return lead;
+  }
+
+  lead.slaFaseGestao = true;
+  appendCreateHistory(lead, {
+    action: "sla_consultor_solicitado_nao_encontrado",
+    label: "Consultor indicado no Zoho não foi encontrado",
+    detail: `O campo "Consultor Tegra" indicava "${lead.prescritorConsultorNome || "—"}" (${lead.prescritorConsultorEmail || "sem e-mail"}), mas esse consultor não foi localizado (ou está com "recebe leads" desligado) no Portal. Encaminhado direto para a Gestão revisar.`,
+    by: "sistema",
+  });
+
+  const gestaoRecusados = [];
+  const next = await pickConsultorGestao(gestaoRecusados);
+  if (!next) {
+    lead.slaStatus = "expirado_ciclo";
+    delete lead.slaDeadline;
+    appendCreateHistory(lead, {
+      action: "sla_ciclo_encerrado",
+      label: "Nenhum perfil Gestão disponível",
+      detail: "Consultor indicado não encontrado e não há consultor Gestão ativo para revisar.",
+      by: "sistema",
+    });
+    return lead;
+  }
+
+  lead.slaRecusados = gestaoRecusados;
+  applyOfferToLead(lead, next);
+  await updateConsultorUltimaAtribuicao(next.id, new Date().toISOString());
+  void notifyLeadOffer(lead, next);
+  return lead;
+}
+
+/**
  * Primeira oferta na criação (24h). Com região: consultores, depois gerência.
- * Sem região: Gestão (ou geo, se tiver coordenadas). Se o médico já for
- * prescritor de algum consultor Tegra (campos vindos do Zoho), essa
- * informação só vai junto no card de oferta como contexto — não muda quem
- * recebe o lead, a distribuição continua normalmente por região/geo.
+ * Sem região: Gestão (ou geo, se tiver coordenadas). Exceção: lead com
+ * "Consultor Tegra" preenchido pula direto pra esse consultor (ver
+ * offerLeadToRequestedConsultor).
  */
 export async function offerLeadOnCreate(lead) {
+  if (lead.prescritorConsultorEmail) {
+    return offerLeadToRequestedConsultor(lead);
+  }
+
   if (lead.regiao) {
     lead.slaCicloRegional = 1;
     lead.slaFaseGestao = false;
