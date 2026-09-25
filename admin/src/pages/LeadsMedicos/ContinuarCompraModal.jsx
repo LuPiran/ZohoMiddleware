@@ -49,7 +49,7 @@ export default function ContinuarCompraModal({
             </span>
             <span>
               <span className="block font-bold text-tegra-blue-dark">
-                Vou fazer a primeira venda
+                Continuar para a Venda
               </span>
               <span className="mt-0.5 block text-sm text-tegra-text-secondary">
                 Continua pra Compra, com os dados do médico já preenchidos.
