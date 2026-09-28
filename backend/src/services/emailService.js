@@ -416,6 +416,34 @@ function contentTentativaVencida(lead, consultorNome, round, nextDeadlineIso) {
   };
 }
 
+// 4c. Prazo da tentativa aberta vencendo em breve (aviso preventivo, disparado
+// pelo sweeper ~12h antes do prazo) → consultor. Só dispara uma vez por
+// rodada (controlado por lembreteTentativaEnviadoRound).
+function contentTentativaProximaVencer(lead, consultorNome, round, deadlineIso) {
+  const ordinals = ["", "Primeira", "Segunda", "Terceira", "Quarta"];
+  const label = ordinals[round] || `${round}ª`;
+  const prazoStr = deadlineIso
+    ? new Date(deadlineIso).toLocaleString("pt-BR", {
+        day: "2-digit",
+        month: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "America/Sao_Paulo",
+      })
+    : null;
+  return {
+    subject: `Prazo da ${label.toLowerCase()} tentativa vence em breve — ${lead.nome || "Lead"}`,
+    html: buildHtml({
+      badgeStatus: lead.status,
+      title: `Prazo da ${label.toLowerCase()} tentativa vencendo em breve`,
+      intro: `Olá${consultorNome ? `, <strong>${consultorNome}</strong>` : ""}! Faltam menos de 12 horas para o prazo da <strong>${label.toLowerCase()} tentativa</strong> deste lead${prazoStr ? ` — vence em <strong>${prazoStr}</strong>` : ""}. Registre o contato antes que o prazo vença.`,
+      leadInfo: leadInfoFrom(lead),
+      ctaUrl: leadPortalUrl(lead.id),
+      ctaLabel: "Registrar tentativa →",
+    }),
+  };
+}
+
 // 5. Mudança de status → consultor
 function contentStatusChange(lead, consultorNome, novoStatus) {
   return {
@@ -664,6 +692,20 @@ export async function notifyTentativaVencida(lead, round, nextDeadlineIso) {
   );
 }
 
+/**
+ * Prazo da tentativa aberta vencendo em breve (~12h) — aviso preventivo do
+ * sweeper, só consultor. Dispara uma única vez por rodada.
+ */
+export async function notifyTentativaProximaVencer(lead, round, deadlineIso) {
+  const emailConsultor = lead?.emailConsultor || null;
+  if (!emailConsultor) return;
+  const consultorNome = lead?.consultor || null;
+  const { subject, html } = contentTentativaProximaVencer(lead, consultorNome, round, deadlineIso);
+  sendEmail({ to: emailConsultor, subject, html }).catch((err) =>
+    console.error("[MAIL] Tentativa próxima de vencer:", err.message),
+  );
+}
+
 /** Mudança de status (sem interesse, sem contato) → só consultor. */
 export async function notifyStatusChange(lead, user, novoStatus) {
   const emailConsultor = lead?.emailConsultor || user?.email || null;
@@ -766,6 +808,7 @@ export function previewEmailTemplates(leadOverride) {
     { key: "tentativa", label: "4. Tentativa de contato registrada → consultor", ...contentTentativa(sampleLead, consultorNome, 1) },
     { key: "tentativa_vencida_1", label: "4b. Prazo da 1ª tentativa encerrado, 2ª abriu sozinha (sweeper automático) → consultor", ...contentTentativaVencida(sampleLead, consultorNome, 1, new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()) },
     { key: "tentativa_vencida_2", label: "4c. Prazo da 2ª tentativa encerrado, 3ª abriu sozinha (sweeper automático) → consultor", ...contentTentativaVencida(sampleLead, consultorNome, 2, new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()) },
+    { key: "tentativa_proxima_vencer", label: "4d. Prazo da tentativa aberta vence em ~12h (aviso preventivo, sweeper automático) → consultor", ...contentTentativaProximaVencer(sampleLead, consultorNome, 1, new Date(Date.now() + 10 * 60 * 60 * 1000).toISOString()) },
     { key: "status_change", label: "5. Mudança de status (Sem Interesse) → consultor", ...contentStatusChange(sampleLead, consultorNome, "Lead Sem Interesse") },
     { key: "convertido_consultor", label: "6. Lead convertido → consultor", ...contentLeadConvertido(sampleLead, consultorNome, false) },
     { key: "sem_tratativa_consultor", label: "7. Prazo da 3ª (ou 4ª) tentativa encerrado, lead fechado (sweeper automático) → consultor", ...contentLeadSemTratativa(sampleLead, consultorNome, false) },

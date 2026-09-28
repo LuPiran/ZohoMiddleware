@@ -1,4 +1,4 @@
-import { expireOverdueAttempts } from "./leadsMedicos.js";
+import { expireOverdueAttempts, sendAttemptDeadlineReminders } from "./leadsMedicos.js";
 import * as leadsRepo from "../db/leadsRepo.js";
 import {
   aguardandoDataEvento,
@@ -41,6 +41,13 @@ async function runSweep() {
     if (expiredAttempts) {
       console.log(
         `[SWEEPER] ${expiredAttempts} tentativa(s) vencida(s) — Sem retorno aplicado.`,
+      );
+    }
+
+    const reminders = await sendAttemptDeadlineReminders();
+    if (reminders) {
+      console.log(
+        `[SWEEPER] ${reminders} lembrete(s) de prazo de tentativa enviado(s) (~12h antes de vencer).`,
       );
     }
 

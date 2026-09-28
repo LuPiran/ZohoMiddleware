@@ -8,6 +8,7 @@ import {
   notifyQuartaTentativaSolicitada,
   notifyStatusChange,
   notifyTentativa,
+  notifyTentativaProximaVencer,
   notifyTentativaVencida,
 } from "./emailService.js";
 import * as leadsRepo from "../db/leadsRepo.js";
@@ -1749,6 +1750,49 @@ export async function expireOverdueAttempts() {
     }
   }
   return expired;
+}
+
+/** Quantas horas antes do prazo vencer o lembrete por e-mail é disparado. */
+const ATTEMPT_REMINDER_HOURS_BEFORE = 12;
+
+/**
+ * Varre leads aceitos com tentativa aberta a menos de 12h do prazo vencer e
+ * dispara um lembrete por e-mail pro consultor — uma única vez por rodada
+ * (controlado por lembreteTentativaEnviadoRound, limpo sempre que a rodada
+ * é resolvida ou avança).
+ */
+export async function sendAttemptDeadlineReminders() {
+  const items = [
+    ...(await leadsRepo.listBySlaStatus("aceito")),
+    ...(await leadsRepo.listBySlaStatus("confirmado")),
+  ];
+
+  let sent = 0;
+  for (const lead of items) {
+    const round = currentOpenAttemptRound(lead);
+    if (!round) continue;
+    if (!isAttemptWindowOpen(lead, round)) continue;
+    if (Number(lead.lembreteTentativaEnviadoRound) === round) continue;
+
+    const deadline = attemptDeadlineAt(lead, round);
+    if (!deadline) continue;
+    const horasRestantes = (deadline.getTime() - Date.now()) / (60 * 60 * 1000);
+    if (horasRestantes > ATTEMPT_REMINDER_HOURS_BEFORE) continue;
+
+    try {
+      const updated = await updateLeadItem(lead.id, {
+        lembreteTentativaEnviadoRound: round,
+      });
+      void notifyTentativaProximaVencer(updated, round, deadline.toISOString());
+      sent += 1;
+    } catch (error) {
+      console.warn(
+        `[TENTATIVAS] Falha ao enviar lembrete de prazo lead ${lead.id}:`,
+        error.message,
+      );
+    }
+  }
+  return sent;
 }
 
 /**

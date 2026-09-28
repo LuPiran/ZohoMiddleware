@@ -310,6 +310,7 @@ export function treatedAttemptUpdates(lead, round, { observacao, at, destino = "
       // ferramenta de teste, pra não vazar pra próxima rodada.
       testAttemptDeadlineOverride: null,
       testAttemptDeadlineRound: null,
+      lembreteTentativaEnviadoRound: null,
     },
   };
 }
@@ -335,6 +336,7 @@ export function semInteresseUpdates(lead, { observacao, at }) {
     updatedAt: at,
     testAttemptDeadlineOverride: null,
     testAttemptDeadlineRound: null,
+    lembreteTentativaEnviadoRound: null,
   };
   if (meta) {
     if (note) updates[meta.desc] = note;
@@ -366,6 +368,7 @@ export function timeoutAttemptUpdates(lead, round, at) {
     updatedAt: at,
     testAttemptDeadlineOverride: null,
     testAttemptDeadlineRound: null,
+    lembreteTentativaEnviadoRound: null,
   };
   if (n === 1) updates.adicionarSegundaTentativa = true;
   if (n === 2) updates.adicionarTerceiraTentativa = true;
@@ -455,6 +458,7 @@ export function semContatoUpdates(lead, { at }) {
       updatedAt: at,
       testAttemptDeadlineOverride: null,
       testAttemptDeadlineRound: null,
+      lembreteTentativaEnviadoRound: null,
     },
   };
 }
