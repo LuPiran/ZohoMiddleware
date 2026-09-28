@@ -15,8 +15,12 @@ export const LEAD_STATUS = {
   ENCAMINHADO_MKT: "Lead Direcionado ao Marketing",
 };
 
+// "Novo Lead" fica de fora do filtro de propósito: é só o status inicial
+// transitório — no mesmo request em que o lead chega, o sistema já tenta
+// distribuir e ele vira "Lead Em Oferta" (ou fica retido aguardando a data
+// do evento, já invisível nas listagens). Só sobrevive nesse status num
+// caso raro de falha total de distribuição, sem valer a pena como filtro.
 export const LEAD_STATUSES = [
-  LEAD_STATUS.NOVO,
   LEAD_STATUS.EM_OFERTA,
   LEAD_STATUS.CONVERTIDO,
   LEAD_STATUS.QUALIFICACAO,
