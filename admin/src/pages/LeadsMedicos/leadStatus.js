@@ -4,6 +4,7 @@
  */
 export const LEAD_STATUS = {
   NOVO: "Novo Lead",
+  EM_OFERTA: "Lead Em Oferta",
   CONVERTIDO: "Lead Convertido",
   QUALIFICACAO: "Lead Em Qualificação",
   SEM_INTERESSE: "Lead Sem Interesse",
@@ -16,6 +17,7 @@ export const LEAD_STATUS = {
 
 export const LEAD_STATUSES = [
   LEAD_STATUS.NOVO,
+  LEAD_STATUS.EM_OFERTA,
   LEAD_STATUS.CONVERTIDO,
   LEAD_STATUS.QUALIFICACAO,
   LEAD_STATUS.SEM_INTERESSE,
@@ -30,6 +32,10 @@ export const LEAD_STATUS_META = {
   [LEAD_STATUS.NOVO]: {
     color: "#2D8CFF",
     soft: "rgba(45, 140, 255, 0.14)",
+  },
+  [LEAD_STATUS.EM_OFERTA]: {
+    color: "#0D9488",
+    soft: "rgba(13, 148, 136, 0.14)",
   },
   [LEAD_STATUS.CONVERTIDO]: {
     color: "#2ECC71",
@@ -69,6 +75,8 @@ export const LEAD_STATUS_META = {
 const STATUS_ALIASES = {
   "novo lead": LEAD_STATUS.NOVO,
   novo: LEAD_STATUS.NOVO,
+  "lead em oferta": LEAD_STATUS.EM_OFERTA,
+  "em oferta": LEAD_STATUS.EM_OFERTA,
   "lead convertido": LEAD_STATUS.CONVERTIDO,
   convertido: LEAD_STATUS.CONVERTIDO,
   "lead em qualificação": LEAD_STATUS.QUALIFICACAO,
