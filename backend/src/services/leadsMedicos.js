@@ -42,6 +42,7 @@ import {
   syncZohoLeadAttemptTreated,
   syncZohoLeadDistribuicao,
   syncZohoLeadFourthAttemptRequested,
+  syncZohoLeadJaAtribuido,
   syncZohoLeadSemContato,
   syncZohoLeadSemInteresse,
   syncZohoLeadProtocolo,
@@ -778,6 +779,7 @@ export async function createLeadFromZoho(payload) {
 
     const hasAnyUpdate = Object.keys(updates).length > 0;
     if (!hasAnyUpdate) {
+      void syncZohoLeadJaAtribuido(existing);
       return {
         created: false,
         alreadyExists: true,

@@ -195,6 +195,17 @@ export function syncZohoLead(idZoho, fields) {
   });
 }
 
+/**
+ * Reenvio de um lead que já existe no Portal e não trouxe nada acionável
+ * (sem Consultor Tegra, sem estar "Encaminhado à Gestão", sem atualização
+ * de conversão) — avisa no Zoho que esse lead já está atribuído, em vez de
+ * ficar em silêncio como se o webhook não tivesse feito nada. Não altera o
+ * status interno do lead no Portal, só o que aparece pro Zoho.
+ */
+export function syncZohoLeadJaAtribuido(lead) {
+  syncZohoLead(lead.idZoho, field(ENV.ZOHO_LEAD_STATUS_FIELD, ZOHO_LEAD_STATUS.JA_ATRIBUIDO));
+}
+
 export function syncZohoLeadProtocolo(lead) {
   if (!lead?.protocolo) return;
   syncZohoLead(lead.idZoho, {
