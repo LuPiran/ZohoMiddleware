@@ -320,6 +320,10 @@ export function buildZohoAttemptTreatedFields(lead, round, { observacao, at, des
     ...(isMkt
       ? field(ENV.ZOHO_LEAD_DATA_ENCAMINHADO_MKT_FIELD, toZohoDate(at))
       : field(ENV.ZOHO_LEAD_DATA_INTERESSE_FIELD, toZohoDate(at))),
+    // Lead sai da carteira do Portal ao ir pro Marketing — não há valor
+    // dedicado no picklist Dist_Status pra esse caso, reaproveita "Sem
+    // consultor" (ninguém do Portal está mais com esse lead).
+    ...(isMkt ? field(ENV.ZOHO_LEAD_DIST_STATUS_FIELD, "Sem consultor") : {}),
     ...field(ENV.ZOHO_LEAD_DATA_1A_FIELD, toZohoDate(firstAt)),
     ...field(ENV.ZOHO_LEAD_OBS_1A_FIELD, firstObs),
     ...field(fields.date, toZohoDate(at)),
