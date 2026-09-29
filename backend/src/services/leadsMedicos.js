@@ -2291,6 +2291,27 @@ export async function atribuirLeadManualmente(leadId, user, { consultorId, email
 }
 
 /**
+ * Exclui definitivamente um lead da base do Portal — ação restrita a Admin
+ * Painel (ver requireAdmin na rota). Não mexe no registro do Zoho, só some
+ * daqui; se o Zoho reenviar o mesmo idZoho depois, entra como lead novo.
+ */
+export async function deletarLead(leadId, user) {
+  const raw = await leadsRepo.getById(leadId);
+  if (!raw) {
+    const err = new Error("Lead não encontrado");
+    err.status = 404;
+    err.code = "NOT_FOUND";
+    throw err;
+  }
+
+  await leadsRepo.remove(leadId);
+  console.warn(
+    `[LEADS] Lead ${leadId} (protocolo ${raw.protocolo || "-"}, idZoho ${raw.idZoho || "-"}) excluído por ${user?.email || user?.id || "desconhecido"}`,
+  );
+  return { id: leadId };
+}
+
+/**
  * Zoho informa que o lead foi convertido.
  */
 export async function markLeadConvertedFromZoho(payload) {

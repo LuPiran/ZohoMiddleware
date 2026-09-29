@@ -85,6 +85,12 @@ export async function update(id, updates, condition) {
   });
 }
 
+export async function remove(id) {
+  if (!id) return false;
+  const result = await query("DELETE FROM leads WHERE id = ?", [String(id)]);
+  return result.affectedRows > 0;
+}
+
 export async function findByZohoId(idZoho) {
   if (!idZoho) return null;
   const rows = await query(

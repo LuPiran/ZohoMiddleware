@@ -4,6 +4,7 @@ import {
   atribuirLeadManualmente,
   checkinLead,
   createLeadFromZoho,
+  deletarLead,
   getLeadForUser,
   listLeadsForUser,
   listPendingOffersForUser,
@@ -636,6 +637,33 @@ router.post(
       return res.status(500).json({
         success: false,
         error: error.message || "Erro ao atribuir o lead",
+      });
+    }
+  },
+);
+
+/**
+ * Exclui definitivamente um lead da base do Portal — restrito a Admin Painel.
+ * DELETE /v1/leads-medicos/:id
+ */
+router.delete(
+  "/:id",
+  authenticateToken,
+  requireAdmin,
+  requireSafeResourceId("id"),
+  writeRateLimiter,
+  async (req, res) => {
+    try {
+      const result = await deletarLead(req.params.id, req.user);
+      return res.json({ success: true, data: result });
+    } catch (error) {
+      console.error("[LEADS] Erro ao excluir lead:", error);
+      const handled = storageErrorResponse(res, error);
+      if (handled) return handled;
+
+      return res.status(500).json({
+        success: false,
+        error: error.message || "Erro ao excluir o lead",
       });
     }
   },

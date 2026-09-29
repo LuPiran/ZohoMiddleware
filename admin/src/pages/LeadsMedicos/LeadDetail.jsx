@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { MdArrowBack, MdPhoneMissed, MdSchedule, MdThumbDown } from "react-icons/md";
+import { MdArrowBack, MdDeleteForever, MdPhoneMissed, MdSchedule, MdThumbDown } from "react-icons/md";
 import MainLayout from "../../components/layout/MainLayout";
 import Button from "../../components/ui/Button";
 import ConfirmModal from "../../components/ui/ConfirmModal";
@@ -154,6 +154,8 @@ export default function LeadDetail() {
   const [error, setError] = useState("");
   const [confirmModal, setConfirmModal] = useState(null); // { type: "semContato" | "semInteresse", files, observacao }
   const [showRecusarModal, setShowRecusarModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const loadLead = useCallback(async () => {
     if (!id) return;
@@ -354,6 +356,23 @@ export default function LeadDetail() {
     }
   };
 
+  const handleDeleteLead = async () => {
+    setDeleting(true);
+    try {
+      await leadsMedicosService.excluirLead(id);
+      showToast("Lead excluído.", "success", 2500);
+      navigate(ROUTES.LEADS_MEDICOS);
+    } catch (err) {
+      const message =
+        err?.response?.data?.error ||
+        err?.message ||
+        "Não foi possível excluir o lead.";
+      showToast(message, "error", 3500);
+      setDeleting(false);
+      setShowDeleteModal(false);
+    }
+  };
+
   return (
     <MainLayout>
       <div className="max-w-5xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-8 space-y-4 sm:space-y-5">
@@ -383,14 +402,24 @@ export default function LeadDetail() {
               </h1>
             </div>
           </div>
-          <Button
-            variant="secondary"
-            onClick={loadLead}
-            disabled={loading || submitting}
-            className="shrink-0"
-          >
-            Atualizar
-          </Button>
+          <div className="flex shrink-0 items-center gap-2">
+            {hasAdminPanelPermission() && (
+              <Button
+                variant="danger"
+                onClick={() => setShowDeleteModal(true)}
+                disabled={loading || submitting || deleting}
+              >
+                Excluir lead
+              </Button>
+            )}
+            <Button
+              variant="secondary"
+              onClick={loadLead}
+              disabled={loading || submitting}
+            >
+              Atualizar
+            </Button>
+          </div>
         </div>
 
         {loading ? (
@@ -492,6 +521,19 @@ export default function LeadDetail() {
         submitting={submitting}
         onConfirm={executeRefuse}
         onCancel={() => setShowRecusarModal(false)}
+      />
+
+      {/* Modal de confirmação — exclusão definitiva (Admin Painel) */}
+      <ConfirmModal
+        open={showDeleteModal}
+        title="Excluir este lead?"
+        description="Isso apaga o lead definitivamente da base do Portal. Não afeta o registro no Zoho, e não pode ser desfeito por aqui."
+        confirmLabel={deleting ? "Excluindo…" : "Excluir definitivamente"}
+        cancelLabel="Cancelar"
+        variant="danger"
+        icon={<MdDeleteForever className="text-lg" />}
+        onConfirm={deleting ? undefined : handleDeleteLead}
+        onCancel={() => !deleting && setShowDeleteModal(false)}
       />
     </MainLayout>
   );
