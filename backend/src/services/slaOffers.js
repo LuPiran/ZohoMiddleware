@@ -429,18 +429,20 @@ function appendCreateHistory(lead, entry) {
 
 /**
  * Lead chega com o campo "Consultor Tegra" preenchido (+ "E-mail Consultor")
- * → pula a fila inteira e vai direto pro consultor indicado. Se esse
- * consultor não for encontrado no Portal (ou estiver com "recebe leads"
- * desligado), escala direto pra Gestão em vez de cair na fila normal.
+ * → pula a fila inteira e vai direto pro consultor indicado. "Recebe leads"
+ * não bloqueia esse caminho — esse flag só controla elegibilidade pra
+ * distribuição automática, não indicação manual explícita. Se esse
+ * consultor não for encontrado no Portal, escala direto pra Gestão em vez
+ * de cair na fila normal.
  */
 async function offerLeadToRequestedConsultor(lead) {
-  const consultor = await findConsultorByEmail(lead.prescritorConsultorEmail);
-  const usable = consultor && consultor.recebeLeads !== false ? consultor : null;
+  const usable = await findConsultorByEmail(lead.prescritorConsultorEmail);
 
   lead.slaCicloRegional = 0;
 
   if (usable) {
     lead.slaFaseGestao = false;
+    lead.distribuidoPorMarketing = true;
     applyOfferToLead(lead, usable, {
       reason: `Consultor "${lead.prescritorConsultorNome || consultorNome(usable)}" indicado no Zoho (campo Consultor Tegra). Lead enviado diretamente, sem passar pela fila.`,
     });
@@ -453,7 +455,7 @@ async function offerLeadToRequestedConsultor(lead) {
   appendCreateHistory(lead, {
     action: "sla_consultor_solicitado_nao_encontrado",
     label: "Consultor indicado no Zoho não foi encontrado",
-    detail: `O campo "Consultor Tegra" indicava "${lead.prescritorConsultorNome || "—"}" (${lead.prescritorConsultorEmail || "sem e-mail"}), mas esse consultor não foi localizado (ou está com "recebe leads" desligado) no Portal. Encaminhado direto para a Gestão revisar.`,
+    detail: `O campo "Consultor Tegra" indicava "${lead.prescritorConsultorNome || "—"}" (${lead.prescritorConsultorEmail || "sem e-mail"}), mas esse consultor não foi localizado no Portal. Encaminhado direto para a Gestão revisar.`,
     by: "sistema",
   });
 
@@ -800,6 +802,7 @@ export async function assignLeadToConsultor(lead, consultor, { by } = {}) {
       slaDeadline: deadline,
       slaCheckinAt: null,
       slaOfertaRound: Number(lead.slaOfertaRound || 0) + 1,
+      distribuidoPorMarketing: by === "zoho",
     },
     {
       action: "lead_atribuido_manualmente",

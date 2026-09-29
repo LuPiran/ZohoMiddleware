@@ -302,10 +302,19 @@ export default function SlaOfferModal() {
               <h2 id="sla-offer-title" className="mt-1.5 text-xl font-bold leading-snug">
                 {offer.nome || "Lead sem nome"}
               </h2>
-              {queue > 1 && (
-                <span className="mt-1 inline-block rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-semibold text-white/80">
-                  +{queue - 1} na fila
-                </span>
+              {(queue > 1 || offer.distribuidoPorMarketing) && (
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {offer.distribuidoPorMarketing && (
+                    <span className="inline-block rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-semibold text-white/80">
+                      Distribuído pelo Marketing
+                    </span>
+                  )}
+                  {queue > 1 && (
+                    <span className="inline-block rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-semibold text-white/80">
+                      +{queue - 1} na fila
+                    </span>
+                  )}
+                </div>
               )}
             </div>
             <button

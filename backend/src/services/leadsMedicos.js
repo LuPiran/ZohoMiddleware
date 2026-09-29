@@ -721,11 +721,7 @@ export async function createLeadFromZoho(payload) {
     // que o lead já tenha dono — desde que ainda não esteja encerrado.
     // Tem prioridade sobre o redistributeLead automático logo abaixo.
     if (lead.prescritorConsultorEmail && !isLeadClosed(existing)) {
-      const consultorIndicado = await findConsultorByEmail(lead.prescritorConsultorEmail);
-      const usable =
-        consultorIndicado && consultorIndicado.recebeLeads !== false
-          ? consultorIndicado
-          : null;
+      const usable = await findConsultorByEmail(lead.prescritorConsultorEmail);
       if (usable) {
         const reatribuido = await assignLeadToConsultor(existing, usable, {
           by: "zoho",
@@ -1081,6 +1077,7 @@ export function toLeadListItem(lead) {
     statusAquecimento: lead.statusAquecimento || null,
     prescritorConsultorNome: lead.prescritorConsultorNome || null,
     dataEvento: lead.dataEvento || null,
+    distribuidoPorMarketing: Boolean(lead.distribuidoPorMarketing),
   };
 }
 
