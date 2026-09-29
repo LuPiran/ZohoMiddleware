@@ -23,7 +23,7 @@ import { buildEquipeKpis } from "../services/leadsMedicosKpis.js";
 import { authenticateLeadsWebhook } from "../middleware/leadsWebhookAuth.js";
 import { authenticateToken } from "../services/jwtService.js";
 import { requireAdmin, requireSafeResourceId } from "../middleware/authz.js";
-import { writeRateLimiter } from "../middleware/rateLimiter.js";
+import { writeRateLimiter, zohoWebhookRateLimiter } from "../middleware/rateLimiter.js";
 import { evidenceUploadMiddleware } from "../middleware/leadEvidenceUpload.js";
 import { createAsyncQueue } from "../utils/asyncQueue.js";
 
@@ -173,7 +173,7 @@ router.get("/ofertas-pendentes", authenticateToken, async (req, res) => {
  * Cria lead médico no MySQL a partir do Zoho CRM.
  * POST /v1/leads-medicos/from-zoho
  */
-router.post("/from-zoho", authenticateLeadsWebhook, writeRateLimiter, async (req, res) => {
+router.post("/from-zoho", authenticateLeadsWebhook, zohoWebhookRateLimiter, async (req, res) => {
   try {
     console.log("[LEADS] Recebendo lead do Zoho");
 
@@ -201,7 +201,7 @@ router.post("/from-zoho", authenticateLeadsWebhook, writeRateLimiter, async (req
  * Zoho informa conversão do lead.
  * POST /v1/leads-medicos/convertido
  */
-router.post("/convertido", authenticateLeadsWebhook, writeRateLimiter, async (req, res) => {
+router.post("/convertido", authenticateLeadsWebhook, zohoWebhookRateLimiter, async (req, res) => {
   try {
     const result = await markLeadConvertedFromZoho(req.body);
     return res.json({

@@ -82,6 +82,28 @@ export const writeRateLimiter = rateLimit({
 });
 
 /**
+ * Ingestão de leads via webhook do Zoho (from-zoho, convertido) — pode vir
+ * em rajada numa subida em massa (evento com dezenas/centenas de leads de
+ * uma vez). Já é autenticada por segredo compartilhado
+ * (authenticateLeadsWebhook), então esse limite é só um teto de segurança,
+ * bem mais alto que o writeRateLimiter (pensado pra ação manual de UM
+ * consultor no Portal, não pro Zoho inteiro compartilhando o mesmo balde).
+ */
+export const zohoWebhookRateLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: 1000,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    res.status(429).json({
+      success: false,
+      error: "Muitas submissões do Zoho em pouco tempo. Aguarde alguns minutos.",
+      retryAfter: "5 minutos",
+    });
+  },
+});
+
+/**
  * Download / preview da Central Comercial (arquivos pesados).
  */
 export const centralContentRateLimiter = rateLimit({
