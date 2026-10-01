@@ -2,7 +2,7 @@ import bcrypt from "bcrypt";
 import { chamarZohoApi } from "./zohoApi.js";
 import zohoAuth from "./zohoAuth.js";
 import { ENV } from "../config/env.js";
-import { upsertConsultorFromCadastro } from "./consultores.js";
+import { findConsultorByEmail, upsertConsultorFromCadastro } from "./consultores.js";
 import {
   extrairCadastroZoho,
   mensagemErroZoho,
@@ -17,7 +17,32 @@ function modulo() {
 const CAMPOS_ESSENCIAIS = new Set(["id", "Email", "Name", "Nome", "Senha", "Ativo"]);
 
 function campoRejeitado(resultado) {
-  return resultado?.details?.api_name || resultado?.details?.json_path || "";
+  return resultado?.details?.api_name || "";
+}
+
+function emailDuplicadoNoZoho(resultado) {
+  if (!resultado || resultado.code !== "DUPLICATE_DATA") return false;
+  const api = String(resultado.details?.api_name || "").toLowerCase();
+  const mensagem = String(resultado.message || "").toLowerCase();
+  return api.includes("email") || mensagem.includes("email") || mensagem.includes("duplicate");
+}
+
+function erroEmailExistente() {
+  const err = new Error("Já existe um usuário com este e-mail");
+  err.status = 409;
+  return err;
+}
+
+async function garantirEmailLivre(email, ignorarId) {
+  const noZoho = await zohoAuth.buscarUsuarioPorEmail(email);
+  if (noZoho?.id && String(noZoho.id) !== String(ignorarId || "")) {
+    throw erroEmailExistente();
+  }
+
+  const noBanco = await findConsultorByEmail(email);
+  if (noBanco?.id && String(noBanco.id) !== String(ignorarId || "")) {
+    throw erroEmailExistente();
+  }
 }
 
 /**
@@ -29,7 +54,9 @@ async function gravarZoho(method, registro, fallback, removidos = new Set()) {
   try {
     response = await chamarZohoApi(method, `/${modulo()}`, { data: [registro] });
   } catch (error) {
-    const api = error?.response?.data?.data?.[0]?.details?.api_name;
+    const item = error?.response?.data?.data?.[0];
+    if (emailDuplicadoNoZoho(item)) throw erroEmailExistente();
+    const api = item?.details?.api_name;
     if (api && registro[api] !== undefined && !CAMPOS_ESSENCIAIS.has(api) && !removidos.has(api)) {
       const next = { ...registro };
       delete next[api];
@@ -44,6 +71,7 @@ async function gravarZoho(method, registro, fallback, removidos = new Set()) {
 
   const resultado = response?.data?.[0];
   if (!resultado || resultado.status === "error") {
+    if (emailDuplicadoNoZoho(resultado)) throw erroEmailExistente();
     const api = campoRejeitado(resultado);
     if (api && registro[api] !== undefined && !CAMPOS_ESSENCIAIS.has(api) && !removidos.has(api)) {
       const next = { ...registro };
@@ -64,6 +92,28 @@ async function gravarZoho(method, registro, fallback, removidos = new Set()) {
   };
 }
 
+let cacheCampos = { modulo: "", em: 0, campos: null };
+
+async function listarCamposModulo() {
+  const nome = modulo();
+  if (cacheCampos.campos && cacheCampos.modulo === nome && Date.now() - cacheCampos.em < 10 * 60 * 1000) {
+    return cacheCampos.campos;
+  }
+  try {
+    const response = await chamarZohoApi(
+      "GET",
+      `/settings/fields?module=${encodeURIComponent(nome)}`,
+    );
+    const campos = Array.isArray(response?.fields) ? response.fields : [];
+    cacheCampos = { modulo: nome, em: Date.now(), campos };
+    console.log(`[USERS] ${campos.length} campos lidos do módulo Zoho ${nome}`);
+    return campos;
+  } catch (error) {
+    console.warn("[USERS] Leitura dos campos do Zoho indisponível:", error.message);
+    return [];
+  }
+}
+
 async function lerUsuarioZoho(id) {
   const response = await chamarZohoApi("GET", `/${modulo()}/${id}`);
   const usuario = Array.isArray(response?.data) ? response.data[0] : response?.data;
@@ -72,18 +122,16 @@ async function lerUsuarioZoho(id) {
 
 export async function criarUsuarioPortal(body) {
   const cadastro = validarCadastroPortal(body, { exigindoSenha: true });
-  const existente = await zohoAuth.buscarUsuarioPorEmail(cadastro.email);
-  if (existente?.id) {
-    const err = new Error("Já existe um usuário com este e-mail");
-    err.status = 409;
-    throw err;
-  }
+  await garantirEmailLivre(cadastro.email);
 
   const senhaHash = await bcrypt.hash(cadastro.senha, 10);
-  const registro = montarRegistroZoho(cadastro, { senhaHash });
+  const campos = await listarCamposModulo();
+  const montado = montarRegistroZoho(cadastro, { senhaHash, campos });
+  const registro = montado.registro;
   delete registro.id;
 
   const gravado = await gravarZoho("POST", registro, "Falha ao criar usuário no Zoho");
+  gravado.camposIgnorados = [...new Set([...montado.ignorados, ...gravado.camposIgnorados])];
   const zohoId = gravado.id;
 
   const usuario = (await lerUsuarioZoho(zohoId)) || { id: zohoId, ...registro };
@@ -120,22 +168,24 @@ export async function atualizarUsuarioPortal(id, body) {
   }
 
   if (cadastro.email !== extrairCadastroZoho(atual).email) {
-    const outro = await zohoAuth.buscarUsuarioPorEmail(cadastro.email);
-    if (outro?.id && String(outro.id) !== String(id)) {
-      const err = new Error("Já existe um usuário com este e-mail");
-      err.status = 409;
-      throw err;
-    }
+    await garantirEmailLivre(cadastro.email, id);
   }
 
   const senhaHash = cadastro.senha ? await bcrypt.hash(cadastro.senha, 10) : undefined;
-  const registro = montarRegistroZoho({ ...cadastro, id }, { senhaHash, id });
+  const campos = await listarCamposModulo();
+  const montado = montarRegistroZoho(cadastro, {
+    senhaHash,
+    id,
+    registroAtual: atual,
+    campos,
+  });
 
-  const gravado = await gravarZoho("PUT", registro, "Falha ao atualizar usuário no Zoho");
+  const gravado = await gravarZoho("PUT", montado.registro, "Falha ao atualizar usuário no Zoho");
+  gravado.camposIgnorados = [...new Set([...montado.ignorados, ...gravado.camposIgnorados])];
 
   const salvo = { ...cadastro, id: String(id), senha: undefined };
   await upsertConsultorFromCadastro(salvo);
-  const usuario = (await lerUsuarioZoho(id)) || { id, ...registro };
+  const usuario = (await lerUsuarioZoho(id)) || { id, ...montado.registro };
   return {
     id: String(id),
     cadastro: extrairCadastroZoho(zohoAuth.removerCamposSenha(usuario)),

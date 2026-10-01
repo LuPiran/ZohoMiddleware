@@ -274,39 +274,163 @@ export function validarCadastroPortal(body = {}, { exigindoSenha = false } = {})
   };
 }
 
-/**
- * Monta o corpo do registro Zoho. Senha só entra se `senhaHash` for passado.
- * Rua grava em `Rua` e também em `Endere_o`, que é o campo que o portal já lê.
- */
-export function montarRegistroZoho(cadastro, { senhaHash, id } = {}) {
-  const campoEmail = process.env.ZOHO_EMAIL_FIELD || "Email";
-  const campoNome = process.env.ZOHO_NOME_FIELD || process.env.ZOHO_NAME_FIELD || "Name";
-  const campoStatus = process.env.ZOHO_STATUS_FIELD || "Ativo";
-  const campoSenha = process.env.ZOHO_SENHA_FIELD || "Senha";
+function normalizarChave(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
 
-  const registro = {
-    [campoNome]: cadastro.nome,
-    [campoEmail]: cadastro.email,
-    [campoStatus]: cadastro.ativo,
-    Recebe_Leads: cadastro.recebeLeads,
-    Perfil: cadastro.perfil,
-    Permiss_es_formul_rios: cadastro.permissoesFormularios,
-    Parceria: cadastro.parceria,
-    Parceiros: cadastro.parceiros,
-    Bairro: cadastro.bairro || "",
-    Cidade: cadastro.cidade || "",
-    Estado: cadastro.estado || "",
-    CEP: cadastro.cep || "",
-    Rua: cadastro.rua || "",
-    Endere_o: cadastro.rua || "",
+const CAMPOS_LOGICOS = [
+  { id: "nome", alvos: ["nome", "name"], env: ["ZOHO_NOME_FIELD", "ZOHO_NAME_FIELD"] },
+  { id: "email", alvos: ["email"], env: ["ZOHO_EMAIL_FIELD"] },
+  { id: "ativo", alvos: ["ativo", "status"], env: ["ZOHO_STATUS_FIELD"] },
+  { id: "senha", alvos: ["senha", "password"], env: ["ZOHO_SENHA_FIELD"] },
+  { id: "recebeLeads", alvos: ["recebeleads", "recebelead"] },
+  { id: "perfil", alvos: ["perfil", "cargo"] },
+  { id: "permissoes", alvos: ["permissoesformularios", "permissaoformularios", "permissoesformulario"] },
+  { id: "parceria", alvos: ["parceria", "temparceria"] },
+  { id: "parceiros", alvos: ["parceiros", "parcerias", "parceiro"] },
+  { id: "gerencia", alvos: ["gerencia"] },
+  { id: "regiao", alvos: ["regiao"] },
+  { id: "rua", alvos: ["rua", "endereco", "logradouro"] },
+  { id: "bairro", alvos: ["bairro"] },
+  { id: "cidade", alvos: ["cidade"] },
+  { id: "estado", alvos: ["estado"] },
+  { id: "cep", alvos: ["cep"] },
+];
+
+function nomesDoCampo(campo) {
+  return [campo.api_name, campo.field_label, campo.display_label]
+    .map(normalizarChave)
+    .filter(Boolean);
+}
+
+function combinaCampo(campo, logico) {
+  const nomes = nomesDoCampo(campo);
+  if (logico.id === "permissoes") {
+    return nomes.some((nome) => nome.includes("permiss") && nome.includes("formul"));
+  }
+  if (logico.id === "email") {
+    return nomes.some((nome) => nome === "email" || nome === "email1");
+  }
+  return logico.alvos.some((alvo) => nomes.some((nome) => nome === alvo));
+}
+
+function pareceNome(nome, alvo) {
+  if (nome.length < 5 || alvo.length < 5 || Math.abs(nome.length - alvo.length) > 2) return false;
+  const maior = nome.length >= alvo.length ? nome : alvo;
+  const menor = nome.length >= alvo.length ? alvo : nome;
+  let i = 0;
+  let j = 0;
+  let faltas = 0;
+  while (i < menor.length && j < maior.length) {
+    if (menor[i] === maior[j]) {
+      i += 1;
+      j += 1;
+    } else {
+      faltas += 1;
+      j += 1;
+      if (faltas > 2) return false;
+    }
+  }
+  faltas += maior.length - j;
+  return i === menor.length && faltas > 0 && faltas <= 2;
+}
+
+function escolherCampo(candidatos, logico) {
+  for (const envName of logico.env || []) {
+    const configurado = String(process.env[envName] || "").trim();
+    if (!configurado) continue;
+    const peloEnv = candidatos.find((campo) => campo.api_name === configurado);
+    if (peloEnv) return peloEnv;
+  }
+  if (logico.id === "permissoes") {
+    return candidatos.find((campo) => combinaCampo(campo, logico)) || null;
+  }
+  for (const alvo of logico.alvos) {
+    const encontrado = candidatos.find((campo) =>
+      nomesDoCampo(campo).some((nome) => nome === alvo || pareceNome(nome, alvo)),
+    );
+    if (encontrado) return encontrado;
+  }
+  return null;
+}
+
+function valorDaLista(campo, valor) {
+  const opcoes = Array.isArray(campo?.pick_list_values) ? campo.pick_list_values : [];
+  if (!valor || opcoes.length === 0) return valor;
+  const alvo = normalizarChave(valor);
+  const item = opcoes.find((opcao) => {
+    const atual = normalizarChave(opcao.actual_value);
+    const exibicao = normalizarChave(opcao.display_value);
+    return atual === alvo || exibicao === alvo;
+  });
+  return item?.actual_value || valor;
+}
+
+function formatarValor(campo, valor, atual) {
+  const tipo = campo?.data_type;
+  if (Array.isArray(valor)) {
+    const lista = valor.map((item) => valorDaLista(campo, item));
+    if (tipo === "multiselectpicklist" || Array.isArray(atual)) return lista;
+    if (typeof atual === "string") return lista.join(";");
+    return lista;
+  }
+  if (tipo === "boolean" || typeof atual === "boolean" || typeof valor === "boolean") {
+    return Boolean(valor);
+  }
+  if (tipo === "picklist") return valorDaLista(campo, valor);
+  return valor ?? "";
+}
+
+/**
+ * Descobre o api_name real de cada campo a partir do módulo Zoho
+ * (settings/fields) ou, na falta disso, das chaves do registro já salvo.
+ */
+export function montarRegistroZoho(cadastro, { senhaHash, id, registroAtual = {}, campos = [] } = {}) {
+  const candidatos = campos.length
+    ? campos.filter((campo) => campo?.api_name)
+    : Object.keys(registroAtual || {})
+        .filter((chave) => chave !== "id")
+        .map((chave) => ({ api_name: chave, field_label: chave }));
+
+  const registro = {};
+  const ignorados = [];
+  if (id) registro.id = id;
+
+  const definir = (logico, valor) => {
+    const campo = escolherCampo(candidatos, logico);
+    if (!campo) {
+      if (valor !== undefined && valor !== "" && !(Array.isArray(valor) && valor.length === 0)) {
+        ignorados.push(logico.id);
+      }
+      return;
+    }
+    registro[campo.api_name] = formatarValor(campo, valor, registroAtual[campo.api_name]);
   };
 
-  if (cadastro.gerencia) registro.Gerencia = cadastro.gerencia;
-  if (cadastro.regiao) registro.Regi_o = cadastro.regiao;
+  definir(CAMPOS_LOGICOS.find((item) => item.id === "nome"), cadastro.nome);
+  definir(CAMPOS_LOGICOS.find((item) => item.id === "email"), cadastro.email);
+  definir(CAMPOS_LOGICOS.find((item) => item.id === "ativo"), cadastro.ativo);
+  definir(CAMPOS_LOGICOS.find((item) => item.id === "recebeLeads"), cadastro.recebeLeads);
+  definir(CAMPOS_LOGICOS.find((item) => item.id === "perfil"), cadastro.perfil);
+  definir(CAMPOS_LOGICOS.find((item) => item.id === "permissoes"), cadastro.permissoesFormularios);
+  definir(CAMPOS_LOGICOS.find((item) => item.id === "parceria"), cadastro.parceria);
+  definir(CAMPOS_LOGICOS.find((item) => item.id === "parceiros"), cadastro.parceiros);
+  definir(CAMPOS_LOGICOS.find((item) => item.id === "gerencia"), cadastro.gerencia || "");
+  definir(CAMPOS_LOGICOS.find((item) => item.id === "regiao"), cadastro.regiao || "");
+  definir(CAMPOS_LOGICOS.find((item) => item.id === "rua"), cadastro.rua || "");
+  definir(CAMPOS_LOGICOS.find((item) => item.id === "bairro"), cadastro.bairro || "");
+  definir(CAMPOS_LOGICOS.find((item) => item.id === "cidade"), cadastro.cidade || "");
+  definir(CAMPOS_LOGICOS.find((item) => item.id === "estado"), cadastro.estado || "");
+  definir(CAMPOS_LOGICOS.find((item) => item.id === "cep"), cadastro.cep || "");
+  if (senhaHash) {
+    definir(CAMPOS_LOGICOS.find((item) => item.id === "senha"), senhaHash);
+  }
 
-  if (id) registro.id = id;
-  if (senhaHash) registro[campoSenha] = senhaHash;
-  return registro;
+  return { registro, ignorados };
 }
 
 export function mensagemErroZoho(error, fallback) {

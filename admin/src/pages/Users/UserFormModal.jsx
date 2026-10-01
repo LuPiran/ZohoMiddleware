@@ -138,12 +138,14 @@ export default function UserFormModal({ open, usuario, onClose, onSaved }) {
   const [form, setForm] = useState(EMPTY);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [erroEmail, setErroEmail] = useState("");
   const [mostrarSenha, setMostrarSenha] = useState(false);
   const [mostrarConfirmacao, setMostrarConfirmacao] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     setError("");
+    setErroEmail("");
     setMostrarSenha(false);
     setMostrarConfirmacao(false);
     setForm(editando ? cadastroParaForm(usuario) : EMPTY);
@@ -161,12 +163,14 @@ export default function UserFormModal({ open, usuario, onClose, onSaved }) {
   if (!open) return null;
 
   function setCampo(campo, valor) {
+    if (campo === "email") setErroEmail("");
     setForm((atual) => ({ ...atual, [campo]: valor }));
   }
 
   async function handleSubmit(event) {
     event.preventDefault();
     setError("");
+    setErroEmail("");
 
     if (form.senha !== form.confirmarSenha) {
       setError("A confirmação da senha não confere.");
@@ -203,7 +207,12 @@ export default function UserFormModal({ open, usuario, onClose, onSaved }) {
         : await usersService.createUser(payload);
       onSaved?.(response);
     } catch (err) {
-      setError(err?.error || err?.message || "Não foi possível salvar o usuário.");
+      const mensagem = err?.error || err?.message || "Não foi possível salvar o usuário.";
+      if (err?.status === 409 || /e-mail/i.test(mensagem)) {
+        setErroEmail(mensagem);
+      } else {
+        setError(mensagem);
+      }
     } finally {
       setSaving(false);
     }
@@ -251,6 +260,7 @@ export default function UserFormModal({ open, usuario, onClose, onSaved }) {
                 type="email"
                 value={form.email}
                 onChange={(e) => setCampo("email", e.target.value)}
+                error={erroEmail}
                 required
               />
               <div>
