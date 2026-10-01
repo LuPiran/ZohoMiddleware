@@ -1,9 +1,5 @@
 import express from "express";
-import { chamarZohoApi } from "../services/zohoApi.js";
-import { ENV } from "../config/env.js";
-import { removerCamposSenha } from "../services/zohoAuth.js";
-import { extrairCadastroZoho } from "../services/portalUsuarioCampos.js";
-import { mesclarCadastroComBanco } from "../services/consultores.js";
+import { listUsuariosPortal } from "../services/consultores.js";
 import {
   atualizarUsuarioPortal,
   criarUsuarioPortal,
@@ -15,260 +11,26 @@ import { writeRateLimiter } from "../middleware/rateLimiter.js";
 const router = express.Router();
 
 /**
- * Rota para buscar usuários do módulo Zoho
- * GET /api/users
- * Query params: page (opcional), per_page (opcional), search (opcional)
+ * Lista os usuários gravados no MySQL.
+ * GET /v1/users
  */
 router.get("/", async (req, res) => {
   try {
-    const moduleName = ENV.ZOHO_MODULE_NAME || "CustomModule45";
-    const page = parseInt(req.query.page) || 1;
-    const perPage = parseInt(req.query.per_page) || 10;
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const perPage = Math.min(100, Math.max(1, parseInt(req.query.per_page, 10) || 10));
     const search = req.query.search?.trim() || "";
-
-    // Calcula offset para paginação
-    const offset = (page - 1) * perPage;
-
-    // Constrói o endpoint com paginação
-    let endpoint = `/${moduleName}?page=${page}&per_page=${perPage}`;
-
-    // Se houver busca, adiciona critério
-    if (search) {
-      const campoEmail = ENV.ZOHO_EMAIL_FIELD || "Email";
-      const campoNome = ENV.ZOHO_NAME_FIELD || "Nome";
-
-      // Busca por email ou nome (case-insensitive)
-      const criteria = `(${campoEmail}:contains:${search}) OR (${campoNome}:contains:${search})`;
-      endpoint += `&criteria=${encodeURIComponent(criteria)}`;
-    }
-
-    console.log("[USERS API] Buscando usuários:", {
-      moduleName,
-      page,
-      perPage,
-      offset,
-      search,
-      endpoint,
-    });
-
-    const response = await chamarZohoApi("GET", endpoint);
-
-    // Formata a resposta
-    const usuarios = response.data || [];
-    const info = response.info || {};
-
-    // Função auxiliar para detectar hash do Zoho
-    const isZohoHash = (str) => {
-      if (!str || typeof str !== "string") return false;
-      // Hash do Zoho geralmente tem 60+ caracteres alfanuméricos
-      return /^[a-f0-9]{60,}$/i.test(str.trim());
-    };
-
-    // Função auxiliar para construir URL da imagem do Zoho
-    const construirUrlImagemZoho = (hash, userId, moduleName) => {
-      if (!hash || !userId || !moduleName) return null;
-      const baseUrl =
-        ENV.ZOHO_API_BASE?.replace(/\/$/, "") || "https://www.zohoapis.com";
-      const apiBase = baseUrl.replace("zohoapi.com", "zohoapis.com");
-      return `${apiBase}/crm/v2/${moduleName}/${userId}/photo`;
-    };
-
-    // Função auxiliar para extrair URL da imagem (recebe userId como parâmetro)
-    const extrairUrlImagem = (campo, userId) => {
-      if (!campo) return null;
-
-      // Se for string
-      if (typeof campo === "string") {
-        const valorLimpo = campo.trim();
-
-        // Se já for uma URL completa (http/https), retorna direto
-        if (
-          valorLimpo.startsWith("http://") ||
-          valorLimpo.startsWith("https://")
-        ) {
-          return valorLimpo;
-        }
-
-        // Se for um hash do Zoho, constrói a URL
-        if (isZohoHash(valorLimpo)) {
-          const moduleName = ENV.ZOHO_MODULE_NAME || "CustomModule45";
-          return construirUrlImagemZoho(valorLimpo, userId, moduleName);
-        }
-
-        return valorLimpo || null;
-      }
-
-      // Se for objeto, tenta extrair a URL
-      if (typeof campo === "object") {
-        const urlDireta =
-          campo.url ||
-          campo.URL ||
-          campo.download_url ||
-          campo.downloadUrl ||
-          campo.link ||
-          campo.Link ||
-          campo.src ||
-          campo.Src;
-        if (urlDireta) {
-          return typeof urlDireta === "string" ? urlDireta.trim() : null;
-        }
-
-        // Se tiver um campo id ou hash, tenta construir a URL
-        const hash = campo.id || campo.hash || campo.file_id || campo.fileId;
-        if (hash && typeof hash === "string" && isZohoHash(hash)) {
-          const moduleName = ENV.ZOHO_MODULE_NAME || "CustomModule45";
-          return construirUrlImagemZoho(hash, userId, moduleName);
-        }
-
-        return null;
-      }
-
-      return null;
-    };
-
-    // Formata cada usuário para o frontend
-    const usuariosFormatados = usuarios.map((usuario) => {
-      const campoEmail = ENV.ZOHO_EMAIL_FIELD || "Email";
-      const campoNome = ENV.ZOHO_NAME_FIELD || "Nome";
-      const campoStatus = ENV.ZOHO_STATUS_FIELD || "Ativo";
-      const campoUrlImagemPerfil = "Url_de_imagem_perfil";
-      const campoFoto = ENV.ZOHO_FOTO_FIELD || "Record_Image";
-
-      // Obtém o valor do campo de status (pode ser boolean ou string)
-      const statusValue =
-        usuario[campoStatus] !== undefined
-          ? usuario[campoStatus]
-          : usuario.Status !== undefined
-            ? usuario.Status
-            : usuario.status !== undefined
-              ? usuario.status
-              : true; // Padrão: ativo
-
-      // Converte boolean para string "ativo" ou "inativo"
-      let statusString = "ativo";
-      if (typeof statusValue === "boolean") {
-        statusString = statusValue ? "ativo" : "inativo";
-      } else if (typeof statusValue === "string") {
-        const statusLower = statusValue.toLowerCase();
-        statusString =
-          statusLower === "true" ||
-          statusLower === "ativo" ||
-          statusLower === "active" ||
-          statusLower === "1"
-            ? "ativo"
-            : "inativo";
-      }
-
-      // Processa a foto do usuário
-      let fotoUsuario = null;
-
-      // Primeiro tenta o campo Url_de_imagem_perfil (já processado)
-      if (usuario[campoUrlImagemPerfil]) {
-        fotoUsuario = extrairUrlImagem(
-          usuario[campoUrlImagemPerfil],
-          usuario.id,
-        );
-      }
-
-      // Se não encontrou, tenta outros campos comuns
-      if (!fotoUsuario) {
-        const camposImagem = [
-          campoFoto,
-          "Record_Image",
-          "record_image",
-          "Photo",
-          "photo",
-          "Avatar",
-          "avatar",
-          "Profile_Picture",
-          "profile_picture",
-          "Imagem",
-          "imagem",
-          "Foto",
-          "foto",
-        ];
-
-        for (const campo of camposImagem) {
-          if (usuario[campo]) {
-            fotoUsuario = extrairUrlImagem(usuario[campo], usuario.id);
-            if (fotoUsuario) break;
-          }
-        }
-      }
-
-      // Se encontrou uma URL do Zoho que requer autenticação, cria proxy URL
-      // com o token do admin autenticado (img src não envia Authorization)
-      if (
-        (fotoUsuario &&
-          fotoUsuario.includes("/crm/v2/") &&
-          fotoUsuario.includes("/photo")) ||
-        (fotoUsuario && fotoUsuario.includes("/v1/auth/user-photo/"))
-      ) {
-        const protocol = req.protocol || "http";
-        const host = req.get("host") || `localhost:${ENV.PORT || 3000}`;
-        const authHeader = req.headers["authorization"] || "";
-        const accessToken = authHeader.startsWith("Bearer ")
-          ? authHeader.slice(7)
-          : "";
-        const tokenQuery = accessToken
-          ? `?access=${encodeURIComponent(accessToken)}`
-          : "";
-        fotoUsuario = `${protocol}://${host}/v1/auth/user-photo/${usuario.id}${tokenQuery}`;
-      }
-
-      return {
-        id: usuario.id,
-        nome:
-          usuario[campoNome] ||
-          usuario.Nome ||
-          usuario.Name ||
-          usuario.nome ||
-          "",
-        email: usuario[campoEmail] || usuario.Email || usuario.email || "",
-        status: statusString, // Sempre retorna string "ativo" ou "inativo"
-        statusBoolean:
-          typeof statusValue === "boolean"
-            ? statusValue
-            : statusString === "ativo", // Mantém o valor boolean original
-        foto: fotoUsuario, // Foto processada do usuário
-        criado: usuario.Created_Time || usuario.created_time || null,
-        modificado: usuario.Modified_Time || usuario.modified_time || null,
-        cadastro: extrairCadastroZoho(usuario),
-        // Mantém dados originais sem campos de senha (anti-vazamento)
-        raw: removerCamposSenha({
-          ...usuario,
-          foto: fotoUsuario,
-        }),
-      };
-    });
-
-    for (const item of usuariosFormatados) {
-      if (!item.cadastro) continue;
-      try {
-        item.cadastro = await mesclarCadastroComBanco(item.cadastro);
-      } catch (error) {
-        console.warn("[USERS API] Falha ao completar cadastro local:", error.message);
-      }
-    }
+    const resultado = await listUsuariosPortal({ page, perPage, search });
 
     res.json({
       success: true,
-      data: usuariosFormatados,
-      pagination: {
-        page: page,
-        perPage: perPage,
-        total: info.count || usuarios.length,
-        totalPages: Math.ceil((info.count || usuarios.length) / perPage),
-      },
+      data: resultado.data,
+      pagination: resultado.pagination,
     });
   } catch (error) {
     console.error("[USERS API] Erro ao buscar usuários:", error);
     res.status(500).json({
       success: false,
-      error:
-        error.response?.data?.message ||
-        error.message ||
-        "Erro ao buscar usuários",
+      error: error.message || "Erro ao buscar usuários",
     });
   }
 });
@@ -318,20 +80,13 @@ router.put("/:id", requireSafeResourceId("id"), writeRateLimiter, async (req, re
 });
 
 /**
- * Rota para alternar o status do usuário (ativo/inativo)
+ * Alterna ativo/inativo no Zoho e no banco.
  * PUT /v1/users/:id/toggle-status
- * Body: { status: boolean }
  */
 router.put("/:id/toggle-status", requireSafeResourceId("id"), writeRateLimiter, async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
-
-    console.log("[USERS API] Alternando status do usuário:", {
-      userId: id,
-      newStatus: status,
-    });
-
     const data = await definirUsuarioAtivo(id, Boolean(status));
 
     res.json({

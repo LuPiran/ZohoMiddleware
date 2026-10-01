@@ -1,6 +1,6 @@
 import { geocodeAddress } from "./geocoding.js";
 import * as consultoresRepo from "../db/consultoresRepo.js";
-import { extrairCadastroZoho } from "./portalUsuarioCampos.js";
+import { canonizarPerfil, canonizarRegiao, extrairCadastroZoho } from "./portalUsuarioCampos.js";
 
 function asString(value) {
   if (value === undefined || value === null) return undefined;
@@ -230,6 +230,86 @@ export function getConsultorGerencia(consultor) {
  * escolher destinatário na atribuição manual de lead / gerenciar quem
  * recebe leads. Não inclui campos sensíveis (endereço, CPF, etc.).
  */
+function cadastroDoConsultor(consultor) {
+  const ativo = consultor.ativo === true || consultor.ativo === 1;
+  return {
+    id: String(consultor.id),
+    nome: getConsultorDisplayName(consultor) || "",
+    email: asString(consultor.email) || "",
+    recebeLeads: consultor.recebeLeads !== false && consultor.recebeLeads !== 0,
+    perfil: canonizarPerfil(consultor.perfil || consultor.cargo) || "Consultor",
+    permissoesFormularios: Array.isArray(consultor.permissoesFormularios)
+      ? consultor.permissoesFormularios
+      : [],
+    parceria: Boolean(consultor.parceria),
+    parceiros: Array.isArray(consultor.parceiros) ? consultor.parceiros : [],
+    gerencia: asString(consultor.gerencia) || "",
+    regiao: canonizarRegiao(consultor.regiao) || "",
+    rua: asString(consultor.endereco || consultor.rua) || "",
+    bairro: asString(consultor.bairro) || "",
+    cidade: asString(consultor.cidade) || "",
+    estado: asString(consultor.estado) || "",
+    cep: asString(consultor.cep) || "",
+    ativo,
+  };
+}
+
+/**
+ * Lista da tela de usuários, lida do MySQL (`consultores`).
+ */
+export async function listUsuariosPortal({ page = 1, perPage = 10, search = "" } = {}) {
+  const itens = await consultoresRepo.listAllComDatas();
+  const termo = String(search || "").trim().toLowerCase();
+  const filtrados = itens.filter((consultor) => {
+    if (!termo) return true;
+    const nome = String(getConsultorDisplayName(consultor) || "").toLowerCase();
+    const email = String(consultor.email || "").toLowerCase();
+    return nome.includes(termo) || email.includes(termo);
+  });
+
+  filtrados.sort((a, b) =>
+    String(getConsultorDisplayName(a) || "").localeCompare(
+      String(getConsultorDisplayName(b) || ""),
+      "pt-BR",
+    ),
+  );
+
+  const total = filtrados.length;
+  const inicio = (page - 1) * perPage;
+  const pagina = filtrados.slice(inicio, inicio + perPage);
+
+  return {
+    data: pagina.map((consultor) => {
+      const cadastro = cadastroDoConsultor(consultor);
+      return {
+        id: cadastro.id,
+        nome: cadastro.nome,
+        email: cadastro.email,
+        status: cadastro.ativo ? "ativo" : "inativo",
+        statusBoolean: cadastro.ativo,
+        foto: asString(consultor.foto) || null,
+        criado: consultor.criadoEm || null,
+        modificado: consultor.modificadoEm || null,
+        cadastro,
+        raw: {
+          id: cadastro.id,
+          nome: cadastro.nome,
+          Nome: cadastro.nome,
+          email: cadastro.email,
+          Email: cadastro.email,
+          foto: asString(consultor.foto) || null,
+        },
+      };
+    }),
+    pagination: {
+      page,
+      perPage,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / perPage)),
+    },
+  };
+}
+
 export async function listConsultoresForAdmin() {
   const items = await consultoresRepo.listAll();
   return items

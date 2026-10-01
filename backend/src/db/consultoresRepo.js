@@ -55,6 +55,23 @@ export async function listAll() {
   return rows.map(openConsultor).filter(Boolean);
 }
 
+export async function listAllComDatas() {
+  const rows = await query(
+    "SELECT id, payload, created_at, updated_at FROM consultores ORDER BY created_at DESC",
+  );
+  return rows
+    .map((row) => {
+      const item = openConsultor(row);
+      if (!item) return null;
+      return {
+        ...item,
+        criadoEm: row.created_at || null,
+        modificadoEm: row.updated_at || null,
+      };
+    })
+    .filter(Boolean);
+}
+
 export async function listActiveByRegiao(regiao) {
   const target = String(regiao || "").trim().toUpperCase();
   if (!target) return [];
