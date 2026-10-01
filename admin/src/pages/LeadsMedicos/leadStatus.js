@@ -100,7 +100,12 @@ const STATUS_ALIASES = {
   "direcionado marketing": LEAD_STATUS.ENCAMINHADO_MKT,
   // Nome antigo do status, antes do rename.
   "lead encaminhado ao marketing": LEAD_STATUS.ENCAMINHADO_MKT,
+  "encaminhado ao marketing": LEAD_STATUS.ENCAMINHADO_MKT,
   "encaminhado marketing": LEAD_STATUS.ENCAMINHADO_MKT,
+  "lead encaminhado à gestão": "Lead Encaminhado à Gestão",
+  "lead encaminhado a gestao": "Lead Encaminhado à Gestão",
+  "encaminhado à gestão": "Lead Encaminhado à Gestão",
+  "encaminhado gestao": "Lead Encaminhado à Gestão",
 };
 
 export function canonicalizeLeadStatus(raw) {

@@ -27,7 +27,6 @@ import {
   computeConversionRate,
 } from "./mockLeads";
 import {
-  canonicalizeLeadStatus,
   getGerenteDisplayStatus,
   getLeadStatusMeta,
   isConvertedLeadStatus,
@@ -209,7 +208,7 @@ export default function LeadsMedicos() {
 
       const matchesStatus =
         appliedFilters.statuses.length === 0 ||
-        appliedFilters.statuses.includes(canonicalizeLeadStatus(lead.status));
+        appliedFilters.statuses.includes(getGerenteDisplayStatus(lead.status));
 
       const matchesCriado = matchesDateRange(
         lead.criadoEm,
@@ -332,7 +331,7 @@ export default function LeadsMedicos() {
       Cidade: lead.cidade || "",
       UF: lead.uf || "",
       Origem: lead.origem || "",
-      Status: canonicalizeLeadStatus(lead.status) || lead.status || "",
+      Status: getGerenteDisplayStatus(lead.status) || lead.status || "",
       Consultor: lead.consultor || "",
       Gerência: lead.gerencia || lead.gerência || "",
       "Data de criação": formatDateXLSX(lead.criadoEm),
