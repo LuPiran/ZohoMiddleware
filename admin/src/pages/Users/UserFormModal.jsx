@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { MdClose } from "react-icons/md";
+import { MdClose, MdVisibility, MdVisibilityOff } from "react-icons/md";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
 import Checkbox from "../../components/ui/Checkbox";
+import Select from "../../components/ui/Select";
 import { usersService } from "../../services/users";
 
 export const PERFIS = ["Consultor", "Gerencia", "Admin Painel", "Gestão"];
@@ -81,17 +82,54 @@ function toggleItem(lista, item) {
   return lista.includes(item) ? lista.filter((atual) => atual !== item) : [...lista, item];
 }
 
-const selectClass =
-  "w-full rounded-lg border border-tegra-gray-medium bg-white px-3 py-2 text-sm text-tegra-text-primary outline-none focus:border-tegra-blue-dark";
+function avaliarSenha(senha) {
+  const regras = [
+    { ok: senha.length >= 8, falta: "no mínimo 8 caracteres" },
+    { ok: /[A-Z]/.test(senha), falta: "uma letra maiúscula" },
+    { ok: /\d/.test(senha), falta: "um número" },
+    { ok: /[^A-Za-z0-9]/.test(senha), falta: "um caractere especial" },
+  ];
+  const atendidas = regras.filter((regra) => regra.ok).length;
+  const faltando = regras.filter((regra) => !regra.ok).map((regra) => regra.falta);
+  const nivel = atendidas === 4 ? "forte" : atendidas >= 2 ? "media" : "fraca";
+  return { atendidas, faltando, nivel, progresso: (atendidas / 4) * 100 };
+}
 
-function Field({ label, children }) {
+function textoFaltando(faltando) {
+  if (!faltando.length) return "Senha forte.";
+  const lista = faltando.join(", ").replace(/, ([^,]+)$/, " e $1");
+  return `Falta ${lista}.`;
+}
+
+const FORCA_SENHA = {
+  fraca: { barra: "bg-tegra-error", texto: "text-tegra-error", rotulo: "Senha fraca" },
+  media: { barra: "bg-amber-400", texto: "text-amber-600", rotulo: "Senha média" },
+  forte: { barra: "bg-tegra-success", texto: "text-tegra-success", rotulo: "Senha forte" },
+};
+
+function BarraSenha({ senha }) {
+  const avaliacao = avaliarSenha(senha);
+  const visual = FORCA_SENHA[avaliacao.nivel];
   return (
-    <label className="block">
-      <span className="mb-1.5 block text-xs sm:text-sm font-medium text-tegra-text-secondary">
-        {label}
-      </span>
-      {children}
-    </label>
+    <div className="mt-2">
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <span className={`text-xs font-semibold ${visual.texto}`}>{visual.rotulo}</span>
+      </div>
+      <div
+        className="h-1.5 overflow-hidden rounded-full bg-tegra-gray-medium"
+        role="progressbar"
+        aria-valuenow={avaliacao.atendidas}
+        aria-valuemin={0}
+        aria-valuemax={4}
+        aria-label={visual.rotulo}
+      >
+        <div
+          className={`h-full rounded-full transition-all duration-200 ${visual.barra}`}
+          style={{ width: `${Math.max(avaliacao.progresso, 8)}%` }}
+        />
+      </div>
+      <p className={`mt-1.5 text-xs ${visual.texto}`}>{textoFaltando(avaliacao.faltando)}</p>
+    </div>
   );
 }
 
@@ -100,10 +138,14 @@ export default function UserFormModal({ open, usuario, onClose, onSaved }) {
   const [form, setForm] = useState(EMPTY);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [mostrarSenha, setMostrarSenha] = useState(false);
+  const [mostrarConfirmacao, setMostrarConfirmacao] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     setError("");
+    setMostrarSenha(false);
+    setMostrarConfirmacao(false);
     setForm(editando ? cadastroParaForm(usuario) : EMPTY);
   }, [open, usuario, editando]);
 
@@ -130,8 +172,8 @@ export default function UserFormModal({ open, usuario, onClose, onSaved }) {
       setError("A confirmação da senha não confere.");
       return;
     }
-    if (!editando && form.senha.length < 6) {
-      setError("A senha precisa ter pelo menos 6 caracteres.");
+    if ((!editando || form.senha) && avaliarSenha(form.senha).nivel !== "forte") {
+      setError(textoFaltando(avaliarSenha(form.senha).faltando));
       return;
     }
 
@@ -211,65 +253,66 @@ export default function UserFormModal({ open, usuario, onClose, onSaved }) {
                 onChange={(e) => setCampo("email", e.target.value)}
                 required
               />
-              <Input
-                label={editando ? "Nova senha" : "Senha"}
-                type="password"
-                value={form.senha}
-                onChange={(e) => setCampo("senha", e.target.value)}
-                placeholder={editando ? "Em branco mantém a senha atual" : ""}
-                required={!editando}
-                autoComplete="new-password"
-              />
+              <div>
+                <Input
+                  label={editando ? "Nova senha" : "Senha"}
+                  type={mostrarSenha ? "text" : "password"}
+                  value={form.senha}
+                  onChange={(e) => setCampo("senha", e.target.value)}
+                  placeholder={editando ? "Em branco mantém a senha atual" : ""}
+                  required={!editando}
+                  autoComplete="new-password"
+                  iconRight={
+                    mostrarSenha ? (
+                      <MdVisibility className="text-xl" aria-hidden />
+                    ) : (
+                      <MdVisibilityOff className="text-xl" aria-hidden />
+                    )
+                  }
+                  onIconClick={() => setMostrarSenha((atual) => !atual)}
+                />
+                {(!editando || form.senha) && <BarraSenha senha={form.senha} />}
+              </div>
               <Input
                 label="Confirmar senha"
-                type="password"
+                type={mostrarConfirmacao ? "text" : "password"}
                 value={form.confirmarSenha}
                 onChange={(e) => setCampo("confirmarSenha", e.target.value)}
                 required={!editando || Boolean(form.senha)}
                 autoComplete="new-password"
+                iconRight={
+                  mostrarConfirmacao ? (
+                    <MdVisibility className="text-xl" aria-hidden />
+                  ) : (
+                    <MdVisibilityOff className="text-xl" aria-hidden />
+                  )
+                }
+                onIconClick={() => setMostrarConfirmacao((atual) => !atual)}
               />
-              <Field label="Perfil">
-                <select
-                  className={selectClass}
-                  value={form.perfil}
-                  onChange={(e) => setCampo("perfil", e.target.value)}
-                  required
-                >
-                  {PERFIS.map((perfil) => (
-                    <option key={perfil} value={perfil}>
-                      {perfil}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Gerência">
-                <select
-                  className={selectClass}
-                  value={form.gerencia}
-                  onChange={(e) => setCampo("gerencia", e.target.value)}
-                >
-                  <option value="">Sem gerência</option>
-                  {GERENCIAS.map((gerencia) => (
-                    <option key={gerencia} value={gerencia}>
-                      {gerencia}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Região">
-                <select
-                  className={selectClass}
-                  value={form.regiao}
-                  onChange={(e) => setCampo("regiao", e.target.value)}
-                >
-                  <option value="">Sem região</option>
-                  {REGIOES.map((regiao) => (
-                    <option key={regiao} value={regiao}>
-                      {regiao}
-                    </option>
-                  ))}
-                </select>
-              </Field>
+              <Select
+                label="Perfil"
+                value={form.perfil}
+                onChange={(e) => setCampo("perfil", e.target.value)}
+                options={PERFIS}
+                placeholder="Selecione o perfil"
+                required
+              />
+              <Select
+                label="Gerência"
+                value={form.gerencia}
+                onChange={(e) => setCampo("gerencia", e.target.value)}
+                options={GERENCIAS}
+                placeholder="Sem gerência"
+                isClearable
+              />
+              <Select
+                label="Região"
+                value={form.regiao}
+                onChange={(e) => setCampo("regiao", e.target.value)}
+                options={REGIOES}
+                placeholder="Sem região"
+                isClearable
+              />
             </div>
 
             <div className="flex flex-wrap gap-4">

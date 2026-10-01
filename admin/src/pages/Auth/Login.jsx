@@ -356,9 +356,9 @@ export default function Login() {
                     icon={<MdLock className="text-xl" />}
                     iconRight={
                       showPassword ? (
-                        <MdVisibilityOff className="text-xl" />
-                      ) : (
                         <MdVisibility className="text-xl" />
+                      ) : (
+                        <MdVisibilityOff className="text-xl" />
                       )
                     }
                     onIconClick={() => setShowPassword(!showPassword)}

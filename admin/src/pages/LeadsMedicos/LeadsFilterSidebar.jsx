@@ -9,6 +9,7 @@ import {
   MdPeople,
 } from "react-icons/md";
 import DatePicker from "../../components/ui/date-picker";
+import Select from "../../components/ui/Select";
 import { DATE_PRESETS, getPresetDateRange } from "./mockLeads";
 import { LEAD_STATUSES, getLeadStatusMeta } from "./leadStatus";
 
@@ -243,16 +244,13 @@ export default function LeadsFilterSidebar({
                     </button>
                   )}
                 </div>
-                <select
+                <Select
                   value={filters.consultor}
                   onChange={(e) => onChange({ ...filters, consultor: e.target.value })}
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 focus:border-[#1a2f5b] focus:outline-none focus:ring-1 focus:ring-[#1a2f5b]/30 cursor-pointer"
-                >
-                  <option value="">Todos os consultores</option>
-                  {consultores.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
+                  options={consultores}
+                  placeholder="Todos os consultores"
+                  isClearable
+                />
               </section>
             </>
           )}

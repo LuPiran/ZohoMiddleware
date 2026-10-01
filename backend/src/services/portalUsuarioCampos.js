@@ -189,6 +189,16 @@ export function extrairCadastroZoho(usuario = {}) {
   };
 }
 
+function validarPoliticaSenha(senha) {
+  const faltando = [];
+  if (senha.length < 8) faltando.push("no mínimo 8 caracteres");
+  if (!/[A-Z]/.test(senha)) faltando.push("uma letra maiúscula");
+  if (!/\d/.test(senha)) faltando.push("um número");
+  if (!/[^A-Za-z0-9]/.test(senha)) faltando.push("um caractere especial");
+  if (!faltando.length) return "";
+  return `A senha precisa ter ${faltando.join(", ").replace(/, ([^,]+)$/, " e $1")}`;
+}
+
 function exigirLista(valor, permitidos, rotulo) {
   const lista = Array.isArray(valor) ? valor.map((item) => texto(item)).filter(Boolean) : [];
   const invalidos = lista.filter((item) => !permitidos.includes(item));
@@ -233,15 +243,13 @@ export function validarCadastroPortal(body = {}, { exigindoSenha = false } = {})
     err.status = 400;
     throw err;
   }
-  if (exigindoSenha && senha.length < 6) {
-    const err = new Error("A senha precisa ter pelo menos 6 caracteres");
-    err.status = 400;
-    throw err;
-  }
-  if (!exigindoSenha && senha && senha.length < 6) {
-    const err = new Error("A nova senha precisa ter pelo menos 6 caracteres");
-    err.status = 400;
-    throw err;
+  if (exigindoSenha || senha) {
+    const falhaSenha = validarPoliticaSenha(senha);
+    if (falhaSenha) {
+      const err = new Error(falhaSenha);
+      err.status = 400;
+      throw err;
+    }
   }
 
   return {

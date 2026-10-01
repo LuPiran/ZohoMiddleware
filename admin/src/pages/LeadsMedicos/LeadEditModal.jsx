@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { MdClose } from "react-icons/md";
 import Button from "../../components/ui/Button";
+import Select from "../../components/ui/Select";
 import { leadsMedicosService } from "../../services/leadsMedicos";
 import { LEAD_STATUS } from "./leadStatus";
 
@@ -200,19 +201,13 @@ export default function LeadEditModal({ open, leadId, onClose, onSaved }) {
                   required
                 />
               </Field>
-              <Field label="Status">
-                <select
-                  className={inputClass}
-                  value={form.status}
-                  onChange={(event) => setField("status", event.target.value)}
-                >
-                  {statusOptions.map((status) => (
-                    <option key={status} value={status}>
-                      {status}
-                    </option>
-                  ))}
-                </select>
-              </Field>
+              <Select
+                label="Status"
+                value={form.status}
+                onChange={(event) => setField("status", event.target.value)}
+                options={statusOptions}
+                placeholder="Selecione o status"
+              />
               <div className="sm:col-span-2 rounded-lg border border-tegra-gray-medium bg-tegra-gray-light/40 p-3">
                 <label className="flex items-center gap-2 text-sm font-semibold text-tegra-text-primary">
                   <input
@@ -238,20 +233,14 @@ export default function LeadEditModal({ open, leadId, onClose, onSaved }) {
                       onChange={(event) => setField("dataUltimaPrescricao", event.target.value)}
                     />
                   </Field>
-                  <Field label="Status de aquecimento">
-                    <select
-                      className={inputClass}
-                      value={form.statusAquecimento}
-                      onChange={(event) => setField("statusAquecimento", event.target.value)}
-                    >
-                      <option value="">Não informado</option>
-                      {aquecimentoOptions.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
+                  <Select
+                    label="Status de aquecimento"
+                    value={form.statusAquecimento}
+                    onChange={(event) => setField("statusAquecimento", event.target.value)}
+                    options={aquecimentoOptions}
+                    placeholder="Não informado"
+                    isClearable
+                  />
                 </div>
               </div>
               <Field label="E-mail">

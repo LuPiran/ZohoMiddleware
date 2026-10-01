@@ -265,15 +265,15 @@ export default function LeadsMedicos() {
     [filteredLeads],
   );
   const gerenciaData = useMemo(
-    () => (role === "admin" ? aggregateLeadsByGerencia(leads) : []),
-    [leads, role],
+    () => (role === "admin" ? aggregateLeadsByGerencia(filteredLeads) : []),
+    [filteredLeads, role],
   );
   const consultorData = useMemo(
     () =>
       role === "admin" || role === "gerente"
-        ? aggregateLeadsByConsultor(leads)
+        ? aggregateLeadsByConsultor(filteredLeads)
         : [],
-    [leads, role],
+    [filteredLeads, role],
   );
 
   const totalPages = Math.max(1, Math.ceil(filteredLeads.length / PER_PAGE));
