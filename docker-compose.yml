@@ -25,7 +25,9 @@ services:
     volumes:
       - zoho_uploads:/app/uploads
       - zoho_logs:/app/logs
-    # Backend só na rede interna — acesso externo via nginx do admin
+    # Apache (apih-portaldoconsultor) encaminha para esta porta
+    ports:
+      - "127.0.0.1:3335:3000"
     expose:
       - "3000"
     restart: unless-stopped
@@ -61,7 +63,7 @@ services:
       context: ./admin
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: ${VITE_API_URL:-https://hapi-portaldoconsultor.tegrapharma.com}
+        VITE_API_URL: ${VITE_API_URL:-https://apih-portaldoconsultor.tegrapharma.com}
         VITE_ENTRA_CLIENT_ID: ${VITE_ENTRA_CLIENT_ID}
         VITE_ENTRA_TENANT_ID: ${VITE_ENTRA_TENANT_ID}
         VITE_ENTRA_REDIRECT_URI: ${VITE_ENTRA_REDIRECT_URI:-https://h-portaldoconsultor.tegrapharma.com}
@@ -70,12 +72,9 @@ services:
         # true em produção (ver ALLOW_LEAD_TIME_TRAVEL no backend/.env.example)
         VITE_ALLOW_LEAD_TIME_TRAVEL: ${VITE_ALLOW_LEAD_TIME_TRAVEL:-false}
     container_name: zoho-admin
+    # Apache (h-portaldoconsultor) já termina o HTTPS e encaminha para cá
     ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      # Certificado Origin Cloudflare (Full strict)
-      - /etc/ssl/cloudflare:/etc/ssl/cloudflare:ro
+      - "127.0.0.1:8081:80"
     depends_on:
       zoho-backend:
         condition: service_healthy
