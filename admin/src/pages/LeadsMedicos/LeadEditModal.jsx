@@ -10,6 +10,17 @@ const STATUS_OPTIONS = [
   "Lead Já Atribuído",
 ];
 
+const AQUECIMENTO_OPTIONS = [
+  "Últimos 6 meses",
+  "6 meses a 1 ano",
+  "Mais de 1 ano",
+];
+
+function toDateInput(value) {
+  const match = String(value || "").match(/^(\d{4}-\d{2}-\d{2})/);
+  return match ? match[1] : "";
+}
+
 const EMPTY_FORM = {
   nome: "",
   email: "",
@@ -27,6 +38,10 @@ const EMPTY_FORM = {
   cidade: "",
   estado: "",
   cep: "",
+  medicoPrescritor: false,
+  dataUltimaPrescricao: "",
+  statusAquecimento: "",
+  prescritorConsultorNome: "",
 };
 
 function leadToForm(lead) {
@@ -47,6 +62,10 @@ function leadToForm(lead) {
     cidade: lead?.cidade || "",
     estado: lead?.estado || "",
     cep: lead?.cep || "",
+    medicoPrescritor: Boolean(lead?.medicoPrescritor),
+    dataUltimaPrescricao: toDateInput(lead?.dataUltimaPrescricao),
+    statusAquecimento: lead?.statusAquecimento || "",
+    prescritorConsultorNome: lead?.prescritorConsultorNome || "",
   };
 }
 
@@ -113,6 +132,9 @@ export default function LeadEditModal({ open, leadId, onClose, onSaved }) {
   const statusOptions = STATUS_OPTIONS.includes(form.status)
     ? STATUS_OPTIONS
     : [form.status, ...STATUS_OPTIONS].filter(Boolean);
+  const aquecimentoOptions = AQUECIMENTO_OPTIONS.includes(form.statusAquecimento)
+    ? AQUECIMENTO_OPTIONS
+    : [form.statusAquecimento, ...AQUECIMENTO_OPTIONS].filter(Boolean);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -191,6 +213,47 @@ export default function LeadEditModal({ open, leadId, onClose, onSaved }) {
                   ))}
                 </select>
               </Field>
+              <div className="sm:col-span-2 rounded-lg border border-tegra-gray-medium bg-tegra-gray-light/40 p-3">
+                <label className="flex items-center gap-2 text-sm font-semibold text-tegra-text-primary">
+                  <input
+                    type="checkbox"
+                    checked={form.medicoPrescritor}
+                    onChange={(event) => setField("medicoPrescritor", event.target.checked)}
+                  />
+                  Este lead é um médico prescritor
+                </label>
+                <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <Field label="Dono do médico">
+                    <input
+                      className={inputClass}
+                      value={form.prescritorConsultorNome}
+                      onChange={(event) => setField("prescritorConsultorNome", event.target.value)}
+                    />
+                  </Field>
+                  <Field label="Última prescrição">
+                    <input
+                      className={inputClass}
+                      type="date"
+                      value={form.dataUltimaPrescricao}
+                      onChange={(event) => setField("dataUltimaPrescricao", event.target.value)}
+                    />
+                  </Field>
+                  <Field label="Status de aquecimento">
+                    <select
+                      className={inputClass}
+                      value={form.statusAquecimento}
+                      onChange={(event) => setField("statusAquecimento", event.target.value)}
+                    >
+                      <option value="">Não informado</option>
+                      {aquecimentoOptions.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                </div>
+              </div>
               <Field label="E-mail">
                 <input
                   className={inputClass}

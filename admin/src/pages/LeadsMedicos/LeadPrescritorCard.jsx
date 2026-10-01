@@ -48,6 +48,8 @@ function aquecimentoCores(statusAquecimento) {
 
 function formatDate(value) {
   if (!value) return "Não informada";
+  const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) return `${match[3]}/${match[2]}/${match[1]}`;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return String(value);
   return date.toLocaleDateString("pt-BR");

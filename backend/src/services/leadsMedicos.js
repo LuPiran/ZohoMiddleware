@@ -2307,6 +2307,10 @@ const EDITABLE_LEAD_FIELDS = [
   "estado",
   "cep",
   "status",
+  "medicoPrescritor",
+  "dataUltimaPrescricao",
+  "statusAquecimento",
+  "prescritorConsultorNome",
 ];
 
 const EDITABLE_FIELD_LABELS = {
@@ -2326,6 +2330,10 @@ const EDITABLE_FIELD_LABELS = {
   estado: "estado",
   cep: "CEP",
   status: "status",
+  medicoPrescritor: "médico prescritor",
+  dataUltimaPrescricao: "última prescrição",
+  statusAquecimento: "status de aquecimento",
+  prescritorConsultorNome: "dono do médico",
 };
 
 /**
@@ -2344,8 +2352,17 @@ export async function editarLead(leadId, user, body = {}) {
   const updates = {};
   for (const key of EDITABLE_LEAD_FIELDS) {
     if (!Object.prototype.hasOwnProperty.call(body, key)) continue;
-    const text = asString(body[key]) || "";
-    updates[key] = text;
+    if (key === "medicoPrescritor") {
+      updates.medicoPrescritor =
+        body[key] === true || body[key] === "true" || body[key] === 1 || body[key] === "1";
+      continue;
+    }
+    if (key === "dataUltimaPrescricao") {
+      const text = asString(body[key]) || "";
+      updates.dataUltimaPrescricao = text.slice(0, 10);
+      continue;
+    }
+    updates[key] = asString(body[key]) || "";
   }
 
   if (Object.prototype.hasOwnProperty.call(updates, "nome") && !updates.nome) {
@@ -2370,11 +2387,16 @@ export async function editarLead(leadId, user, body = {}) {
     updates.status = canonical;
   }
 
-  const changed = EDITABLE_LEAD_FIELDS.filter(
-    (key) =>
-      Object.prototype.hasOwnProperty.call(updates, key) &&
-      String(updates[key] ?? "") !== String(raw[key] ?? ""),
-  );
+  const changed = EDITABLE_LEAD_FIELDS.filter((key) => {
+    if (!Object.prototype.hasOwnProperty.call(updates, key)) return false;
+    if (key === "medicoPrescritor") {
+      return Boolean(updates.medicoPrescritor) !== Boolean(raw.medicoPrescritor);
+    }
+    if (key === "dataUltimaPrescricao") {
+      return String(updates.dataUltimaPrescricao || "") !== String(raw.dataUltimaPrescricao || "").slice(0, 10);
+    }
+    return String(updates[key] ?? "") !== String(raw[key] ?? "");
+  });
 
   if (changed.length === 0) {
     return toLeadDetail(raw);
