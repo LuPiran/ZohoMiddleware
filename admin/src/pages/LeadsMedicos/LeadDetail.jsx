@@ -9,6 +9,7 @@ import { useToast } from "../../components/feedback/auth/ToastContainer";
 import { ROUTES } from "../../utils/constants";
 import { leadsMedicosService } from "../../services/leadsMedicos";
 import LeadTimeline from "./LeadTimeline";
+import LeadPrescritorCard from "./LeadPrescritorCard";
 import LeadDetailsCard from "./LeadDetailsCard";
 import LeadFirstAttemptCard from "./LeadFirstAttemptCard";
 import LeadHistory from "./LeadHistory";
@@ -486,6 +487,7 @@ export default function LeadDetail() {
               submitting={submitting}
             />
             <LeadTimeline timeline={lead.timeline} />
+            <LeadPrescritorCard lead={lead} />
             <LeadDetailsCard lead={lead} />
             <LeadFirstAttemptCard
               lead={lead}
