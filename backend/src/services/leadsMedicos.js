@@ -2290,6 +2290,119 @@ export async function atribuirLeadManualmente(leadId, user, { consultorId, email
   return toLeadDetail(updated);
 }
 
+const EDITABLE_LEAD_FIELDS = [
+  "nome",
+  "email",
+  "telefone",
+  "celular",
+  "numeroRegistro",
+  "ufCrm",
+  "tipoLead",
+  "evento",
+  "rua",
+  "numero",
+  "complemento",
+  "bairro",
+  "cidade",
+  "estado",
+  "cep",
+  "status",
+];
+
+const EDITABLE_FIELD_LABELS = {
+  nome: "nome",
+  email: "e-mail",
+  telefone: "telefone",
+  celular: "celular",
+  numeroRegistro: "CRM/CRO",
+  ufCrm: "UF do registro",
+  tipoLead: "especialidade",
+  evento: "evento",
+  rua: "rua",
+  numero: "número",
+  complemento: "complemento",
+  bairro: "bairro",
+  cidade: "cidade",
+  estado: "estado",
+  cep: "CEP",
+  status: "status",
+};
+
+/**
+ * Corrige dados cadastrais do lead no Portal. Não altera SLA, consultor
+ * nem o registro no Zoho. Restrito a Admin Painel na rota.
+ */
+export async function editarLead(leadId, user, body = {}) {
+  const raw = await leadsRepo.getById(leadId);
+  if (!raw) {
+    const err = new Error("Lead não encontrado");
+    err.status = 404;
+    err.code = "NOT_FOUND";
+    throw err;
+  }
+
+  const updates = {};
+  for (const key of EDITABLE_LEAD_FIELDS) {
+    if (!Object.prototype.hasOwnProperty.call(body, key)) continue;
+    const text = asString(body[key]) || "";
+    updates[key] = text;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(updates, "nome") && !updates.nome) {
+    const err = new Error("O nome do lead é obrigatório");
+    err.status = 400;
+    err.code = "VALIDATION_ERROR";
+    throw err;
+  }
+
+  if (updates.ufCrm) updates.ufCrm = updates.ufCrm.toUpperCase();
+  if (updates.estado) updates.estado = updates.estado.toUpperCase();
+
+  if (Object.prototype.hasOwnProperty.call(updates, "status")) {
+    const allowed = new Set(Object.values(ZOHO_LEAD_STATUS));
+    const canonical = canonicalizeLeadStatus(updates.status, raw.status);
+    if (!allowed.has(canonical)) {
+      const err = new Error("Status inválido");
+      err.status = 400;
+      err.code = "VALIDATION_ERROR";
+      throw err;
+    }
+    updates.status = canonical;
+  }
+
+  const changed = EDITABLE_LEAD_FIELDS.filter(
+    (key) =>
+      Object.prototype.hasOwnProperty.call(updates, key) &&
+      String(updates[key] ?? "") !== String(raw[key] ?? ""),
+  );
+
+  if (changed.length === 0) {
+    return toLeadDetail(raw);
+  }
+
+  const now = new Date().toISOString();
+  const historico = appendHistorico(raw, {
+    action: "lead_editado",
+    label: "Dados do lead editados",
+    detail: `Campos alterados no Portal: ${changed
+      .map((key) => EDITABLE_FIELD_LABELS[key] || key)
+      .join(", ")}.`,
+    by: user?.email || user?.id || "admin",
+  });
+
+  const updated = await updateLeadItem(leadId, {
+    ...updates,
+    updatedAt: now,
+    historico,
+  });
+
+  console.warn(
+    `[LEADS] Lead ${leadId} editado por ${user?.email || user?.id || "desconhecido"}: ${changed.join(", ")}`,
+  );
+
+  return toLeadDetail(updated);
+}
+
 /**
  * Exclui definitivamente um lead da base do Portal — ação restrita a Admin
  * Painel (ver requireAdmin na rota). Não mexe no registro do Zoho, só some

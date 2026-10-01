@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { MdArrowBack, MdDeleteForever, MdPhoneMissed, MdSchedule, MdThumbDown } from "react-icons/md";
+import { MdArrowBack, MdDeleteForever, MdEdit, MdPhoneMissed, MdSchedule, MdThumbDown } from "react-icons/md";
 import MainLayout from "../../components/layout/MainLayout";
 import Button from "../../components/ui/Button";
 import ConfirmModal from "../../components/ui/ConfirmModal";
@@ -14,6 +14,7 @@ import LeadFirstAttemptCard from "./LeadFirstAttemptCard";
 import LeadHistory from "./LeadHistory";
 import { businessMsRemaining } from "../../utils/businessTime";
 import { hasAdminPanelPermission } from "../../utils/permissions";
+import LeadEditModal from "./LeadEditModal";
 
 function isOfferedStatus(status) {
   return status === "ofertado" || status === "pendente";
@@ -155,6 +156,7 @@ export default function LeadDetail() {
   const [confirmModal, setConfirmModal] = useState(null); // { type: "semContato" | "semInteresse", files, observacao }
   const [showRecusarModal, setShowRecusarModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   const loadLead = useCallback(async () => {
@@ -404,13 +406,24 @@ export default function LeadDetail() {
           </div>
           <div className="flex shrink-0 items-center gap-2">
             {hasAdminPanelPermission() && (
-              <Button
-                variant="danger"
-                onClick={() => setShowDeleteModal(true)}
-                disabled={loading || submitting || deleting}
-              >
-                Excluir lead
-              </Button>
+              <>
+                <Button
+                  variant="secondary"
+                  onClick={() => setShowEditModal(true)}
+                  disabled={loading || submitting || deleting || !lead}
+                  className="inline-flex items-center gap-1.5"
+                >
+                  <MdEdit aria-hidden />
+                  Editar
+                </Button>
+                <Button
+                  variant="danger"
+                  onClick={() => setShowDeleteModal(true)}
+                  disabled={loading || submitting || deleting}
+                >
+                  Excluir lead
+                </Button>
+              </>
             )}
             <Button
               variant="secondary"
@@ -521,6 +534,17 @@ export default function LeadDetail() {
         submitting={submitting}
         onConfirm={executeRefuse}
         onCancel={() => setShowRecusarModal(false)}
+      />
+
+      <LeadEditModal
+        open={showEditModal}
+        leadId={id}
+        onClose={() => setShowEditModal(false)}
+        onSaved={(updated) => {
+          setShowEditModal(false);
+          if (updated) setLead(updated);
+          showToast("Lead atualizado.", "success", 2500);
+        }}
       />
 
       {/* Modal de confirmação — exclusão definitiva (Admin Painel) */}

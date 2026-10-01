@@ -53,6 +53,7 @@ export const API_ENDPOINTS = {
   LEADS_MEDICOS: {
     LIST: "/v1/leads-medicos",
     DETAIL: (id) => `/v1/leads-medicos/${id}`,
+    EDITAR: (id) => `/v1/leads-medicos/${id}`,
     PRIMEIRA_TENTATIVA: (id) => `/v1/leads-medicos/${id}/primeira-tentativa`,
     TENTATIVA: (id, round) => `/v1/leads-medicos/${id}/tentativas/${round}`,
     TENTATIVA_SEM_RETORNO: (id, round) =>

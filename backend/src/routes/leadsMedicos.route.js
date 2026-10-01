@@ -5,6 +5,7 @@ import {
   checkinLead,
   createLeadFromZoho,
   deletarLead,
+  editarLead,
   getLeadForUser,
   listLeadsForUser,
   listPendingOffersForUser,
@@ -637,6 +638,33 @@ router.post(
       return res.status(500).json({
         success: false,
         error: error.message || "Erro ao atribuir o lead",
+      });
+    }
+  },
+);
+
+/**
+ * Corrige dados cadastrais do lead — restrito a Admin Painel.
+ * PATCH /v1/leads-medicos/:id
+ */
+router.patch(
+  "/:id",
+  authenticateToken,
+  requireAdmin,
+  requireSafeResourceId("id"),
+  writeRateLimiter,
+  async (req, res) => {
+    try {
+      const lead = await editarLead(req.params.id, req.user, req.body);
+      return res.json({ success: true, data: lead });
+    } catch (error) {
+      console.error("[LEADS] Erro ao editar lead:", error);
+      const handled = storageErrorResponse(res, error);
+      if (handled) return handled;
+
+      return res.status(500).json({
+        success: false,
+        error: error.message || "Erro ao editar o lead",
       });
     }
   },

@@ -141,6 +141,14 @@ export async function avancarTempo(id) {
   };
 }
 
+export async function editarLead(id, dados) {
+  const response = await api.patch(API_ENDPOINTS.LEADS_MEDICOS.EDITAR(id), dados);
+  return {
+    success: Boolean(response.data?.success),
+    data: response.data?.data || null,
+  };
+}
+
 export async function excluirLead(id) {
   const response = await api.delete(API_ENDPOINTS.LEADS_MEDICOS.DETAIL(id));
   return {
@@ -182,6 +190,7 @@ export const leadsMedicosService = {
   aceitarOferta: confirmarCheckin,
   recusarOferta,
   avancarTempo,
+  editarLead,
   excluirLead,
   listPendingOffers,
   getEquipeKpis,

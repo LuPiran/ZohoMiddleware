@@ -20,6 +20,7 @@ import { useToast } from "../../components/feedback/auth/ToastContainer";
 import { ROUTES } from "../../utils/constants";
 import LeadsDashboard from "./LeadsDashboard";
 import LeadsFilterSidebar from "./LeadsFilterSidebar";
+import LeadRowMenu from "./LeadRowMenu";
 import { leadsMedicosService } from "../../services/leadsMedicos";
 import {
   aggregateLeadsByMonth,
@@ -302,6 +303,17 @@ export default function LeadsMedicos() {
 
   const handleImport = (lead) => {
     showToast(`Importação iniciada: ${lead.nome}`, "success", 2200);
+  };
+
+  const handleLeadUpdated = (updated) => {
+    if (!updated?.id) return;
+    setLeads((current) =>
+      current.map((item) => (item.id === updated.id ? { ...item, ...updated } : item)),
+    );
+  };
+
+  const handleLeadDeleted = (leadId) => {
+    setLeads((current) => current.filter((item) => item.id !== leadId));
   };
 
   const exportToXLSX = () => {
@@ -598,9 +610,14 @@ export default function LeadsMedicos() {
                           </p>
                         )}
                       </div>
-                      <span className="shrink-0">
+                      <div className="flex shrink-0 items-center gap-2">
                         <StatusBadge status={lead.status} />
-                      </span>
+                        <LeadRowMenu
+                          lead={lead}
+                          onUpdated={handleLeadUpdated}
+                          onDeleted={handleLeadDeleted}
+                        />
+                      </div>
                     </div>
                     <dl className="text-xs text-tegra-text-secondary">
                       <div>
@@ -725,6 +742,11 @@ export default function LeadsMedicos() {
                                 Importar
                               </span>
                             </button>
+                            <LeadRowMenu
+                              lead={lead}
+                              onUpdated={handleLeadUpdated}
+                              onDeleted={handleLeadDeleted}
+                            />
                           </div>
                         </td>
                       </tr>
