@@ -1094,8 +1094,20 @@ export async function listLeadsForGerencia(gerenteRecord) {
 
   const collected = new Map();
 
+  // O gerente também é consultor: os leads atribuídos a ele entram na visão.
+  const membros = [...equipe];
+  if (
+    gerenteRecord?.id &&
+    !membros.some((membro) => String(membro.id) === String(gerenteRecord.id))
+  ) {
+    membros.push({
+      ...gerenteRecord,
+      nome: getConsultorDisplayName(gerenteRecord) || gerenteRecord.nome,
+    });
+  }
+
   // Query via GSI (gsi_consultor) por cada membro — evita full scan
-  for (const membro of equipe) {
+  for (const membro of membros) {
     const keys = new Set(
       [membro.id, membro.nome].filter(Boolean).map(String),
     );

@@ -205,6 +205,25 @@ export function aggregateLeadsByStatus(leads) {
   return [...known, ...extras];
 }
 
+function countByLabel(leads, pickLabel, emptyLabel) {
+  const counts = new Map();
+  leads.forEach((lead) => {
+    const name = String(pickLabel(lead) || "").trim() || emptyLabel;
+    counts.set(name, (counts.get(name) || 0) + 1);
+  });
+  return [...counts.entries()]
+    .map(([name, total]) => ({ name, total }))
+    .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name, "pt-BR"));
+}
+
+export function aggregateLeadsByGerencia(leads) {
+  return countByLabel(leads, (lead) => lead.gerencia, "Sem gerência");
+}
+
+export function aggregateLeadsByConsultor(leads) {
+  return countByLabel(leads, (lead) => lead.consultor, "Sem consultor");
+}
+
 export function computeConversionRate(leads) {
   if (!leads.length) return 0;
   const converted = leads.filter((l) => {

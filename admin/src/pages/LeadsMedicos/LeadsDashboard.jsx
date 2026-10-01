@@ -2,8 +2,12 @@ import { useState } from "react";
 import {
   Area,
   AreaChart,
+  Bar,
+  BarChart,
   CartesianGrid,
   Cell,
+  Line,
+  LineChart,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -93,8 +97,13 @@ export default function LeadsDashboard({
   conversionRate,
   totalLeads,
   convertedCount,
+  role = "consultor",
+  gerenciaData = [],
+  consultorData = [],
 }) {
   const totalMensal = monthlyData?.reduce((s, d) => s + (d.total || 0), 0) ?? 0;
+  const showGerencia = role === "admin";
+  const showConsultor = role === "admin" || role === "gerente";
   // Accordion: só um aberto por vez; "mensal" aberto por padrão
   const [openId, setOpenId] = useState("mensal");
   const handleToggle = (id) => setOpenId((cur) => (cur === id ? null : id));
@@ -249,6 +258,118 @@ export default function LeadsDashboard({
           </div>
         </AccordionCard>
       </div>
+
+      {(showGerencia || showConsultor) && (
+        <div
+          className={`xl:col-span-12 grid grid-cols-1 gap-3 sm:gap-5 ${
+            showGerencia && showConsultor ? "xl:grid-cols-2" : ""
+          }`}
+        >
+          {showGerencia && (
+            <AccordionCard
+              id="gerencia"
+              openId={openId}
+              onToggle={handleToggle}
+              title="Leads por gerência"
+              subtitle="Quantidade em cada gerência"
+              badge={gerenciaData.length || undefined}
+            >
+              <div className="h-64 sm:h-72">
+                {gerenciaData.length === 0 ? (
+                  <p className="flex h-full items-center justify-center text-sm text-tegra-text-secondary">
+                    Nenhum lead para agrupar por gerência.
+                  </p>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={gerenciaData}
+                      margin={{ top: 8, right: 8, left: -18, bottom: 28 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" vertical={false} />
+                      <XAxis
+                        dataKey="name"
+                        interval={0}
+                        angle={-28}
+                        textAnchor="end"
+                        height={56}
+                        tick={{ fill: "#666666", fontSize: 11 }}
+                        axisLine={{ stroke: "#e0e0e0" }}
+                        tickLine={false}
+                      />
+                      <YAxis
+                        allowDecimals={false}
+                        tick={{ fill: "#666666", fontSize: 12 }}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <Tooltip content={<ChartTooltip />} />
+                      <Bar dataKey="total" name="Leads" fill="#1a2f5b" radius={[6, 6, 0, 0]} maxBarSize={48} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+            </AccordionCard>
+          )}
+
+          {showConsultor && (
+            <AccordionCard
+              id="consultor"
+              openId={openId}
+              onToggle={handleToggle}
+              title="Leads por consultor"
+              subtitle={
+                role === "gerente"
+                  ? "Sua equipe, incluindo os leads com você"
+                  : "Todos os consultores"
+              }
+              badge={consultorData.length || undefined}
+            >
+              <div className="h-64 sm:h-72">
+                {consultorData.length === 0 ? (
+                  <p className="flex h-full items-center justify-center text-sm text-tegra-text-secondary">
+                    Nenhum lead para agrupar por consultor.
+                  </p>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart
+                      data={consultorData}
+                      margin={{ top: 8, right: 8, left: -18, bottom: 28 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" vertical={false} />
+                      <XAxis
+                        dataKey="name"
+                        interval={0}
+                        angle={-28}
+                        textAnchor="end"
+                        height={56}
+                        tick={{ fill: "#666666", fontSize: 11 }}
+                        axisLine={{ stroke: "#e0e0e0" }}
+                        tickLine={false}
+                      />
+                      <YAxis
+                        allowDecimals={false}
+                        tick={{ fill: "#666666", fontSize: 12 }}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <Tooltip content={<ChartTooltip />} />
+                      <Line
+                        type="monotone"
+                        dataKey="total"
+                        name="Leads"
+                        stroke="#4d6fa9"
+                        strokeWidth={2.25}
+                        dot={{ r: 4, fill: "#1a2f5b", strokeWidth: 0 }}
+                        activeDot={{ r: 6 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+            </AccordionCard>
+          )}
+        </div>
+      )}
     </section>
   );
 }

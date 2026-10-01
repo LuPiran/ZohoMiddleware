@@ -23,6 +23,8 @@ import LeadsFilterSidebar from "./LeadsFilterSidebar";
 import LeadRowMenu from "./LeadRowMenu";
 import { leadsMedicosService } from "../../services/leadsMedicos";
 import {
+  aggregateLeadsByConsultor,
+  aggregateLeadsByGerencia,
   aggregateLeadsByMonth,
   aggregateLeadsByStatus,
   computeConversionRate,
@@ -108,12 +110,6 @@ function countActiveFilters(filters) {
   );
 }
 
-function shortId(id) {
-  if (!id) return "—";
-  const value = String(id);
-  return value.length > 12 ? `${value.slice(0, 8)}…` : value;
-}
-
 /**
  * THESIS: Leads médicos como superfície operacional Tegra — leitura rápida de volume, status e conversão, depois ação na lista.
  * OWN-WORLD: tokens tegra-*, painéis com borda cinza suave, gráficos Recharts em azul-escuro/teal/rosa da marca, sidebar de filtro à direita.
@@ -183,6 +179,9 @@ export default function LeadsMedicos() {
       const matchesSearch =
         !query ||
         String(lead.id || "")
+          .toLowerCase()
+          .includes(query) ||
+        String(lead.protocolo || "")
           .toLowerCase()
           .includes(query) ||
         String(lead.nome || "")
@@ -264,6 +263,17 @@ export default function LeadsMedicos() {
         return isConvertedLeadStatus(lead.status);
       }).length,
     [filteredLeads],
+  );
+  const gerenciaData = useMemo(
+    () => (role === "admin" ? aggregateLeadsByGerencia(leads) : []),
+    [leads, role],
+  );
+  const consultorData = useMemo(
+    () =>
+      role === "admin" || role === "gerente"
+        ? aggregateLeadsByConsultor(leads)
+        : [],
+    [leads, role],
   );
 
   const totalPages = Math.max(1, Math.ceil(filteredLeads.length / PER_PAGE));
@@ -447,6 +457,9 @@ export default function LeadsMedicos() {
           conversionRate={conversionRate}
           totalLeads={filteredLeads.length}
           convertedCount={convertedCount}
+          role={role}
+          gerenciaData={gerenciaData}
+          consultorData={consultorData}
         />
 
         <section
@@ -459,7 +472,7 @@ export default function LeadsMedicos() {
                 type="search"
                 value={draftSearch}
                 onChange={(e) => setDraftSearch(e.target.value)}
-                placeholder="Buscar por ID, nome, e-mail, especialidade..."
+                placeholder="Buscar por protocolo, nome, e-mail, especialidade..."
                 icon={<MdSearch className="text-xl" />}
                 iconRight={<MdSearch className="text-xl" />}
                 onIconClick={(e) => {
@@ -591,10 +604,10 @@ export default function LeadsMedicos() {
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p
-                          className="text-xs font-medium text-tegra-text-secondary tabular-nums"
-                          title={lead.id}
+                          className="text-xs font-semibold tracking-wide text-tegra-blue-dark tabular-nums"
+                          title={lead.protocolo || "Sem protocolo"}
                         >
-                          {shortId(lead.id)}
+                          {lead.protocolo || "—"}
                         </p>
                         <h3 className="text-sm font-semibold text-tegra-text-primary truncate">
                           {lead.nome || "—"}
@@ -604,9 +617,10 @@ export default function LeadsMedicos() {
                             {lead.email || "—"}
                           </p>
                         )}
-                        {isGerente && lead.consultor && (
+                        {isGerente && (lead.consultor || lead.gerencia) && (
                           <p className="text-xs font-medium text-tegra-blue-dark/80 truncate mt-0.5">
-                            👤 {lead.consultor}
+                            {lead.consultor || "Sem consultor"}
+                            {lead.gerencia ? ` · ${lead.gerencia}` : ""}
                           </p>
                         )}
                       </div>
@@ -655,7 +669,7 @@ export default function LeadsMedicos() {
                   <thead className="bg-tegra-blue-dark text-tegra-text-inverse">
                     <tr>
                       <th scope="col" className="px-4 py-3 font-semibold">
-                        ID
+                        Protocolo
                       </th>
                       <th scope="col" className="px-4 py-3 font-semibold">
                         Nome
@@ -675,9 +689,14 @@ export default function LeadsMedicos() {
                         Status
                       </th>
                       {isGerente && (
-                        <th scope="col" className="px-4 py-3 font-semibold whitespace-nowrap">
-                          Consultor
-                        </th>
+                        <>
+                          <th scope="col" className="px-4 py-3 font-semibold whitespace-nowrap">
+                            Consultor
+                          </th>
+                          <th scope="col" className="px-4 py-3 font-semibold whitespace-nowrap">
+                            Gerência
+                          </th>
+                        </>
                       )}
                       <th
                         scope="col"
@@ -694,10 +713,10 @@ export default function LeadsMedicos() {
                         className="hover:bg-tegra-gray-light/60 transition-colors"
                       >
                         <td
-                          className="px-4 py-3 tabular-nums text-tegra-text-secondary whitespace-nowrap"
-                          title={lead.id}
+                          className="px-4 py-3 font-semibold tracking-wide text-tegra-blue-dark whitespace-nowrap"
+                          title={lead.protocolo || "Sem protocolo"}
                         >
-                          {shortId(lead.id)}
+                          {lead.protocolo || "—"}
                         </td>
                         <td className="px-4 py-3 font-medium text-tegra-text-primary whitespace-nowrap">
                           {lead.nome || "—"}
@@ -714,9 +733,14 @@ export default function LeadsMedicos() {
                           <StatusBadge status={lead.status} />
                         </td>
                         {isGerente && (
-                          <td className="px-4 py-3 text-tegra-text-secondary whitespace-nowrap">
-                            {lead.consultor || "—"}
-                          </td>
+                          <>
+                            <td className="px-4 py-3 text-tegra-text-secondary whitespace-nowrap">
+                              {lead.consultor || "—"}
+                            </td>
+                            <td className="px-4 py-3 text-tegra-text-secondary whitespace-nowrap">
+                              {lead.gerencia || "—"}
+                            </td>
+                          </>
                         )}
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-end gap-2">
