@@ -12,6 +12,7 @@ import {
   MdSearch,
   MdFilterList,
   MdEdit,
+  MdPersonAdd,
   MdLock,
   MdLockOpen,
   MdFirstPage,
@@ -20,6 +21,7 @@ import {
   MdChevronRight,
 } from "react-icons/md";
 import { useToast } from "../../components/feedback/auth/ToastContainer";
+import UserFormModal from "./UserFormModal";
 
 export default function Users() {
   const navigate = useNavigate();
@@ -31,6 +33,8 @@ export default function Users() {
   const [buscandoUsuario, setBuscandoUsuario] = useState(false);
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [formAberto, setFormAberto] = useState(false);
+  const [usuarioEdicao, setUsuarioEdicao] = useState(null);
   const [pagination, setPagination] = useState({
     page: 1,
     perPage: 10,
@@ -306,6 +310,17 @@ export default function Users() {
 
           {/* Barra de busca e filtro */}
           <div className="flex items-center gap-2 w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={() => {
+                setUsuarioEdicao(null);
+                setFormAberto(true);
+              }}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-tegra-blue-dark px-3 py-2 text-sm font-medium text-white hover:bg-tegra-blue"
+            >
+              <MdPersonAdd className="text-lg" aria-hidden />
+              Adicionar
+            </button>
             <div className="flex-1 sm:flex-initial sm:w-64">
               <Input
                 label=""
@@ -438,6 +453,11 @@ export default function Users() {
                         {/* Ações */}
                         <div className="flex items-center justify-end gap-2 pt-3 border-t border-tegra-gray-medium">
                           <button
+                            type="button"
+                            onClick={() => {
+                              setUsuarioEdicao(usuario);
+                              setFormAberto(true);
+                            }}
                             className="p-2 text-tegra-blue-dark hover:bg-tegra-blue-light rounded transition"
                             title="Editar"
                             aria-label="Editar usuário"
@@ -584,6 +604,11 @@ export default function Users() {
                             <td className="px-4 md:px-6 py-4">
                               <div className="flex items-center justify-center gap-2">
                                 <button
+                                  type="button"
+                                  onClick={() => {
+                                    setUsuarioEdicao(usuario);
+                                    setFormAberto(true);
+                                  }}
                                   className="p-2 text-tegra-blue-dark hover:bg-tegra-blue-light rounded transition"
                                   title="Editar"
                                   aria-label="Editar usuário"
@@ -670,6 +695,28 @@ export default function Users() {
           )}
         </div>
       </div>
+
+      <UserFormModal
+        open={formAberto}
+        usuario={usuarioEdicao}
+        onClose={() => {
+          if (formAberto) setFormAberto(false);
+        }}
+        onSaved={(response) => {
+          setFormAberto(false);
+          const ignorados = response?.data?.camposIgnorados || [];
+          showToast(
+            ignorados.length
+              ? `Usuário salvo. O Zoho não tem estes campos: ${ignorados.join(", ")}`
+              : usuarioEdicao
+                ? "Usuário atualizado no Zoho e no banco"
+                : "Usuário cadastrado no Zoho e no banco",
+            ignorados.length ? "warning" : "success",
+            3500,
+          );
+          fetchUsers(isSearchActive ? searchTerm.trim() : "", false);
+        }}
+      />
     </MainLayout>
   );
 }

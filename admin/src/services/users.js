@@ -41,6 +41,32 @@ export const usersService = {
    * @param {boolean} currentStatus - Status atual do usuário
    * @returns {Promise<Object>}
    */
+  async createUser(dados) {
+    try {
+      const response = await api.post("/v1/users", dados);
+      return response.data;
+    } catch (error) {
+      throw {
+        error: error.response?.data?.error || error.message,
+        message: error.message,
+        status: error.response?.status,
+      };
+    }
+  },
+
+  async updateUser(userId, dados) {
+    try {
+      const response = await api.put(`/v1/users/${userId}`, dados);
+      return response.data;
+    } catch (error) {
+      throw {
+        error: error.response?.data?.error || error.message,
+        message: error.message,
+        status: error.response?.status,
+      };
+    }
+  },
+
   async toggleUserStatus(userId, currentStatus) {
     try {
       const newStatus = !currentStatus; // Inverte o status

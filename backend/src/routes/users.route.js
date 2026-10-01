@@ -2,6 +2,15 @@ import express from "express";
 import { chamarZohoApi } from "../services/zohoApi.js";
 import { ENV } from "../config/env.js";
 import { removerCamposSenha } from "../services/zohoAuth.js";
+import { extrairCadastroZoho } from "../services/portalUsuarioCampos.js";
+import { mesclarCadastroComBanco } from "../services/consultores.js";
+import {
+  atualizarUsuarioPortal,
+  criarUsuarioPortal,
+  definirUsuarioAtivo,
+} from "../services/portalUsuarios.js";
+import { requireSafeResourceId } from "../middleware/authz.js";
+import { writeRateLimiter } from "../middleware/rateLimiter.js";
 
 const router = express.Router();
 
@@ -224,6 +233,7 @@ router.get("/", async (req, res) => {
         foto: fotoUsuario, // Foto processada do usuário
         criado: usuario.Created_Time || usuario.created_time || null,
         modificado: usuario.Modified_Time || usuario.modified_time || null,
+        cadastro: extrairCadastroZoho(usuario),
         // Mantém dados originais sem campos de senha (anti-vazamento)
         raw: removerCamposSenha({
           ...usuario,
@@ -231,6 +241,15 @@ router.get("/", async (req, res) => {
         }),
       };
     });
+
+    for (const item of usuariosFormatados) {
+      if (!item.cadastro) continue;
+      try {
+        item.cadastro = await mesclarCadastroComBanco(item.cadastro);
+      } catch (error) {
+        console.warn("[USERS API] Falha ao completar cadastro local:", error.message);
+      }
+    }
 
     res.json({
       success: true,
@@ -254,58 +273,80 @@ router.get("/", async (req, res) => {
   }
 });
 
+function responderErroUsuario(res, error, fallback) {
+  const status = error.status || error.response?.status || 500;
+  return res.status(status >= 400 && status < 600 ? status : 500).json({
+    success: false,
+    error: error.message || fallback,
+  });
+}
+
+/**
+ * Cadastra usuário no Zoho e no banco. A senha fica só no Zoho.
+ * POST /v1/users
+ */
+router.post("/", writeRateLimiter, async (req, res) => {
+  try {
+    const data = await criarUsuarioPortal(req.body || {});
+    return res.status(201).json({
+      success: true,
+      message: "Usuário cadastrado no Zoho e no banco",
+      data,
+    });
+  } catch (error) {
+    console.error("[USERS API] Erro ao cadastrar usuário:", error.message);
+    return responderErroUsuario(res, error, "Erro ao cadastrar usuário");
+  }
+});
+
+/**
+ * Atualiza usuário no Zoho e no banco.
+ * PUT /v1/users/:id
+ */
+router.put("/:id", requireSafeResourceId("id"), writeRateLimiter, async (req, res) => {
+  try {
+    const data = await atualizarUsuarioPortal(req.params.id, req.body || {});
+    return res.json({
+      success: true,
+      message: "Usuário atualizado no Zoho e no banco",
+      data,
+    });
+  } catch (error) {
+    console.error("[USERS API] Erro ao atualizar usuário:", error.message);
+    return responderErroUsuario(res, error, "Erro ao atualizar usuário");
+  }
+});
+
 /**
  * Rota para alternar o status do usuário (ativo/inativo)
- * PUT /api/users/:id/toggle-status
+ * PUT /v1/users/:id/toggle-status
  * Body: { status: boolean }
  */
-router.put("/:id/toggle-status", async (req, res) => {
+router.put("/:id/toggle-status", requireSafeResourceId("id"), writeRateLimiter, async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
-    const moduleName = ENV.ZOHO_MODULE_NAME || "CustomModule45";
-    const campoStatus = ENV.ZOHO_STATUS_FIELD || "Ativo";
 
     console.log("[USERS API] Alternando status do usuário:", {
       userId: id,
       newStatus: status,
-      campoStatus,
     });
 
-    // Atualiza o registro no Zoho
-    const updateData = {
-      data: [
-        {
-          id: id,
-          [campoStatus]: status, // true = ativo, false = inativo
-        },
-      ],
-    };
-
-    const endpoint = `/${moduleName}`;
-    const response = await chamarZohoApi("PUT", endpoint, updateData);
-
-    console.log("[USERS API] ✓ Status atualizado com sucesso");
+    const data = await definirUsuarioAtivo(id, Boolean(status));
 
     res.json({
       success: true,
-      message: status
+      message: data.ativo
         ? "Usuário ativado com sucesso"
         : "Usuário desativado com sucesso",
       data: {
-        id,
-        status,
+        id: data.id,
+        status: data.ativo,
       },
     });
   } catch (error) {
     console.error("[USERS API] Erro ao alternar status do usuário:", error);
-    res.status(500).json({
-      success: false,
-      error:
-        error.response?.data?.message ||
-        error.message ||
-        "Erro ao alterar status do usuário",
-    });
+    return responderErroUsuario(res, error, "Erro ao alterar status do usuário");
   }
 });
 

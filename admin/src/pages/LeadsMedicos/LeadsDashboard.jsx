@@ -6,8 +6,6 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
-  Line,
-  LineChart,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -331,7 +329,7 @@ export default function LeadsDashboard({
                   </p>
                 ) : (
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart
+                    <BarChart
                       data={consultorData}
                       margin={{ top: 8, right: 8, left: -18, bottom: 28 }}
                     >
@@ -353,16 +351,8 @@ export default function LeadsDashboard({
                         tickLine={false}
                       />
                       <Tooltip content={<ChartTooltip />} />
-                      <Line
-                        type="monotone"
-                        dataKey="total"
-                        name="Leads"
-                        stroke="#4d6fa9"
-                        strokeWidth={2.25}
-                        dot={{ r: 4, fill: "#1a2f5b", strokeWidth: 0 }}
-                        activeDot={{ r: 6 }}
-                      />
-                    </LineChart>
+                      <Bar dataKey="total" name="Leads" fill="#4d6fa9" radius={[6, 6, 0, 0]} maxBarSize={48} />
+                    </BarChart>
                   </ResponsiveContainer>
                 )}
               </div>

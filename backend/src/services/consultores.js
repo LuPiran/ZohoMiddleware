@@ -1,5 +1,6 @@
 import { geocodeAddress } from "./geocoding.js";
 import * as consultoresRepo from "../db/consultoresRepo.js";
+import { extrairCadastroZoho } from "./portalUsuarioCampos.js";
 
 function asString(value) {
   if (value === undefined || value === null) return undefined;
@@ -250,6 +251,92 @@ export async function listConsultoresForAdmin() {
  * Liga/desliga se o consultor participa da distribuição de leads (fila
  * automática e seletor de atribuição manual).
  */
+/**
+ * Grava o cadastro do portal em `consultores` (payload criptografado).
+ * A senha não entra aqui. O id preferido é o id do registro no Zoho.
+ */
+export async function upsertConsultorFromCadastro(cadastro) {
+  const email = normalizeEmail(cadastro?.email);
+  const zohoId = asString(cadastro?.id);
+  if (!email || !zohoId) {
+    const err = new Error("E-mail e id do Zoho são obrigatórios para gravar o consultor");
+    err.status = 400;
+    throw err;
+  }
+
+  let existing = await consultoresRepo.getById(zohoId);
+  if (!existing) existing = await findConsultorByEmail(email);
+
+  const updates = {
+    email,
+    nome: asString(cadastro.nome) || email,
+    ativo: Boolean(cadastro.ativo),
+    recebeLeads: cadastro.recebeLeads !== false,
+    perfil: asString(cadastro.perfil) || "Consultor",
+    cargo: asString(cadastro.perfil) || "Consultor",
+    permissoesFormularios: Array.isArray(cadastro.permissoesFormularios)
+      ? cadastro.permissoesFormularios
+      : [],
+    parceria: Boolean(cadastro.parceria),
+    parceiros: Array.isArray(cadastro.parceiros) ? cadastro.parceiros : [],
+    gerencia: asString(cadastro.gerencia) || null,
+    regiao: asString(cadastro.regiao) || null,
+    endereco: asString(cadastro.rua ?? cadastro.endereco) || null,
+    bairro: asString(cadastro.bairro) || null,
+    cidade: asString(cadastro.cidade) || null,
+    estado: asString(cadastro.estado) || null,
+    cep: asString(cadastro.cep) || null,
+    syncZohoEm: new Date().toISOString(),
+  };
+
+  if (existing) {
+    return consultoresRepo.update(String(existing.id), updates);
+  }
+
+  const item = { id: zohoId, cargaAceita: 0, ...updates };
+  await consultoresRepo.putIfNotExists(item);
+  return item;
+}
+
+/**
+ * Completa o que o Zoho não devolveu com o que já está no banco.
+ * Valor vindo do Zoho tem prioridade.
+ */
+export async function mesclarCadastroComBanco(cadastro) {
+  if (!cadastro?.email) return cadastro;
+  const local = await findConsultorByEmail(cadastro.email);
+  if (!local) return cadastro;
+
+  const textoOuBanco = (zoho, banco) =>
+    zoho === undefined || zoho === "" ? banco ?? zoho : zoho;
+
+  return {
+    ...cadastro,
+    nome: textoOuBanco(cadastro.nome, local.nome) || cadastro.nome,
+    perfil: textoOuBanco(cadastro.perfil, local.perfil || local.cargo) || "",
+    recebeLeads:
+      cadastro.recebeLeads === undefined
+        ? local.recebeLeads !== false
+        : cadastro.recebeLeads,
+    permissoesFormularios:
+      cadastro.permissoesFormularios === undefined
+        ? local.permissoesFormularios || []
+        : cadastro.permissoesFormularios,
+    parceria:
+      cadastro.parceria === undefined ? Boolean(local.parceria) : cadastro.parceria,
+    parceiros:
+      cadastro.parceiros === undefined ? local.parceiros || [] : cadastro.parceiros,
+    gerencia: textoOuBanco(cadastro.gerencia, local.gerencia) || "",
+    regiao: textoOuBanco(cadastro.regiao, local.regiao) || "",
+    rua: textoOuBanco(cadastro.rua, local.endereco) || "",
+    bairro: textoOuBanco(cadastro.bairro, local.bairro) || "",
+    cidade: textoOuBanco(cadastro.cidade, local.cidade) || "",
+    estado: textoOuBanco(cadastro.estado, local.estado) || "",
+    cep: textoOuBanco(cadastro.cep, local.cep) || "",
+    ativo: cadastro.ativo === undefined ? local.ativo === true || local.ativo === 1 : cadastro.ativo,
+  };
+}
+
 export async function setConsultorRecebeLeads(consultorId, recebeLeads) {
   const id = asString(consultorId);
   if (!id) {
@@ -306,6 +393,7 @@ export async function syncConsultorZohoPerfil(email, dadosZoho) {
   const cep        = zohoField(dadosZoho, "CEP", "Cep", "cep");
   const emailPess  = zohoField(dadosZoho, "E_mail_Pessoal", "Email_Pessoal", "E-mail Pessoal");
   const cargo      = zohoField(dadosZoho, "Cargo", "cargo", "Perfil", "perfil");
+  const cadastroZoho = extrairCadastroZoho(dadosZoho);
   const zohoId     = asString(dadosZoho.id || dadosZoho.ID);
   const agora      = new Date().toISOString();
 
@@ -327,13 +415,17 @@ export async function syncConsultorZohoPerfil(email, dadosZoho) {
         ["gerencia",     gerencia],
         ["regiao",       regiao],
         ["telefone",     telefone],
-        ["endereco",     endereco],
         ["bairro",       bairro],
         ["cidade",       cidade],
         ["estado",       estado],
         ["cep",          cep],
         ["emailPessoal", emailPess],
-        ["cargo",        cargo],
+        ["endereco",     cadastroZoho.rua || endereco],
+        ["cargo",        cadastroZoho.perfil || cargo],
+        ["perfil",       cadastroZoho.perfil],
+        ["permissoesFormularios", cadastroZoho.permissoesFormularios],
+        ["parceria",     cadastroZoho.parceria],
+        ["parceiros",    cadastroZoho.parceiros],
         ["recebeLeads",  recebeLeads],
         ["syncZohoEm",   agora],
       ].filter(([, v]) => v !== undefined);
@@ -358,14 +450,19 @@ export async function syncConsultorZohoPerfil(email, dadosZoho) {
           ["gerencia",     gerencia],
           ["regiao",       regiao],
           ["telefone",     telefone],
-          ["endereco",     endereco],
+          ["endereco",     cadastroZoho.rua || endereco],
           ["bairro",       bairro],
           ["cidade",       cidade],
           ["estado",       estado],
           ["cep",          cep],
           ["emailPessoal", emailPess],
-          ["cargo",        cargo],
-          ["recebeLeads",  recebeLeads],
+          ["cargo",        cadastroZoho.perfil || cargo || "Consultor"],
+          ["perfil",       cadastroZoho.perfil || "Consultor"],
+          ["permissoesFormularios", cadastroZoho.permissoesFormularios || []],
+          ["parceria",     cadastroZoho.parceria === true],
+          ["parceiros",    cadastroZoho.parceiros || []],
+          ["recebeLeads",  recebeLeads === undefined ? true : recebeLeads],
+          ["ativo",        cadastroZoho.ativo === false ? false : true],
           ["syncZohoEm",   agora],
         ].filter(([, v]) => v !== undefined),
       );
