@@ -1,13 +1,5 @@
-import { useEffect, useState, useCallback } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { authService } from "../../services/auth";
-import { usersService } from "../../services/users";
-import MainLayout from "../../components/layout/MainLayout";
-import { ROUTES } from "../../utils/constants";
-import { hasAdminPanelPermission } from "../../utils/permissions";
-import { useLoading } from "../../contexts/LoadingContext";
-import Avatar from "../../components/ui/Avatar";
-import Input from "../../components/ui/Input";
 import {
   MdSearch,
   MdFilterList,
@@ -19,297 +11,195 @@ import {
   MdLastPage,
   MdChevronLeft,
   MdChevronRight,
+  MdRefresh,
 } from "react-icons/md";
+import MainLayout from "../../components/layout/MainLayout";
+import Input from "../../components/ui/Input";
+import Button from "../../components/ui/Button";
+import Avatar from "../../components/ui/Avatar";
+import { authService } from "../../services/auth";
+import { usersService } from "../../services/users";
+import { ROUTES } from "../../utils/constants";
+import { hasAdminPanelPermission } from "../../utils/permissions";
+import { useLoading } from "../../contexts/LoadingContext";
 import { useToast } from "../../components/feedback/auth/ToastContainer";
 import UserFormModal from "./UserFormModal";
+import UsersDashboard from "./UsersDashboard";
+import UsersFilterSidebar, { EMPTY_USER_FILTERS, countUserFilters } from "./UsersFilterSidebar";
+
+const PER_PAGE = 10;
+
+function contarPor(usuarios, pegarNome, vazio) {
+  const mapa = new Map();
+  usuarios.forEach((usuario) => {
+    const nome = String(pegarNome(usuario) || "").trim() || vazio;
+    mapa.set(nome, (mapa.get(nome) || 0) + 1);
+  });
+  return [...mapa.entries()]
+    .map(([name, total]) => ({ name, total }))
+    .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name, "pt-BR"));
+}
+
+function formatDate(dateString) {
+  if (!dateString) return { date: "—", time: "" };
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return { date: "—", time: "" };
+  return {
+    date: date.toLocaleDateString("pt-BR", { day: "numeric", month: "short", year: "numeric" }),
+    time: date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+  };
+}
+
+function StatusBadge({ ativo }) {
+  return (
+    <span
+      className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${
+        ativo ? "bg-tegra-success-light text-tegra-success" : "bg-tegra-error-light text-tegra-error"
+      }`}
+    >
+      {ativo ? "ativo" : "inativo"}
+    </span>
+  );
+}
 
 export default function Users() {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { setLoading } = useLoading();
   const [usuarios, setUsuarios] = useState([]);
-  const [localLoading, setLocalLoading] = useState(true);
+  const [loading, setLocalLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [draftSearch, setDraftSearch] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
-  const [buscandoUsuario, setBuscandoUsuario] = useState(false);
-  const [isSearchActive, setIsSearchActive] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [draftFilters, setDraftFilters] = useState(EMPTY_USER_FILTERS);
+  const [appliedFilters, setAppliedFilters] = useState(EMPTY_USER_FILTERS);
   const [formAberto, setFormAberto] = useState(false);
   const [usuarioEdicao, setUsuarioEdicao] = useState(null);
-  const [pagination, setPagination] = useState({
-    page: 1,
-    perPage: 10,
-    total: 0,
-    totalPages: 1,
-  });
+
+  const loadUsers = useCallback(async (showGlobalLoading = false) => {
+    try {
+      setLocalLoading(true);
+      setLoadError("");
+      if (showGlobalLoading) setLoading(true);
+      const response = await usersService.getUsers({ all: true });
+      setUsuarios(response.data || []);
+    } catch (error) {
+      setLoadError(
+        error?.status === 429
+          ? "Muitas requisições. Aguarde um momento."
+          : error?.error || "Não foi possível carregar os usuários.",
+      );
+    } finally {
+      setLocalLoading(false);
+      if (showGlobalLoading) setLoading(false);
+    }
+  }, [setLoading]);
 
   useEffect(() => {
-    // Verifica autenticação
     if (!authService.isAuthenticated()) {
       navigate(ROUTES.LOGIN);
       return;
     }
-
-    // Verifica permissão de Admin Painel
     if (!hasAdminPanelPermission()) {
-      showToast("❌ Você não tem permissão para acessar esta página", "error");
+      showToast("Você não tem permissão para acessar esta página", "error");
       navigate(ROUTES.DASHBOARD);
       return;
     }
-  }, [navigate, showToast]);
+    loadUsers(true);
+    // A checagem de acesso roda uma vez; recarregar fica no botão Atualizar.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const fetchUsers = useCallback(async (search = "", showGlobalLoading = false) => {
-    try {
-      setLocalLoading(true);
-      // Só ativa loading global se solicitado (não durante busca manual)
-      if (showGlobalLoading) {
-        setLoading(true);
-      }
-      
-      const response = await usersService.getUsers({
-        page: currentPage,
-        perPage: 10, // Sempre 10 itens por página
-        search: search,
-      });
+  const filteredUsers = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+    return usuarios.filter((usuario) => {
+      const cadastro = usuario.cadastro || {};
+      const matchesSearch =
+        !query ||
+        String(usuario.nome || "").toLowerCase().includes(query) ||
+        String(usuario.email || "").toLowerCase().includes(query);
+      const matchesPerfil =
+        appliedFilters.perfis.length === 0 || appliedFilters.perfis.includes(cadastro.perfil);
+      const matchesSituacao =
+        !appliedFilters.situacao ||
+        (appliedFilters.situacao === "ativo" ? usuario.status === "ativo" : usuario.status !== "ativo");
+      const matchesGerencia = !appliedFilters.gerencia || cadastro.gerencia === appliedFilters.gerencia;
+      const matchesRegiao = !appliedFilters.regiao || cadastro.regiao === appliedFilters.regiao;
+      const matchesRecebe =
+        !appliedFilters.recebeLeads ||
+        (appliedFilters.recebeLeads === "sim" ? cadastro.recebeLeads !== false : cadastro.recebeLeads === false);
+      const matchesParceria =
+        !appliedFilters.parceria ||
+        (appliedFilters.parceria === "sim" ? Boolean(cadastro.parceria) : !cadastro.parceria);
+      return matchesSearch && matchesPerfil && matchesSituacao && matchesGerencia && matchesRegiao && matchesRecebe && matchesParceria;
+    });
+  }, [usuarios, searchTerm, appliedFilters]);
 
-      if (response.success) {
-        setUsuarios(response.data || []);
-        setPagination(
-          response.pagination || {
-            page: currentPage,
-            perPage: 10,
-            total: 0,
-            totalPages: 1,
-          },
-        );
+  const perfilData = useMemo(
+    () => contarPor(filteredUsers, (usuario) => usuario.cadastro?.perfil, "Sem perfil"),
+    [filteredUsers],
+  );
+  const gerenciaData = useMemo(
+    () => contarPor(filteredUsers, (usuario) => usuario.cadastro?.gerencia, "Sem gerência"),
+    [filteredUsers],
+  );
+  const regiaoData = useMemo(
+    () => contarPor(filteredUsers, (usuario) => usuario.cadastro?.regiao, "Sem região"),
+    [filteredUsers],
+  );
 
-        // Desativa loading após dados serem processados
-        setLocalLoading(false);
-        // Só desativa loading global se foi ativado
-        if (showGlobalLoading) {
-          requestAnimationFrame(() => {
-            setTimeout(() => {
-              setLoading(false);
-            }, 150);
-          });
-        }
-      }
-    } catch (error) {
-      console.error("Erro ao buscar usuários:", error);
-      if (error.status === 429) {
-        showToast("⏱️ Muitas requisições. Aguarde um momento.", "warning");
-      } else {
-        showToast("❌ Erro ao carregar usuários", "error");
-      }
-      setLocalLoading(false);
-      if (showGlobalLoading) {
-        setLoading(false);
-      }
-    }
-  }, [currentPage, showToast, setLoading]);
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PER_PAGE));
+  const safePage = Math.min(currentPage, totalPages);
+  const pageStart = (safePage - 1) * PER_PAGE;
+  const pageUsers = filteredUsers.slice(pageStart, pageStart + PER_PAGE);
+  const activeFilterCount = countUserFilters(appliedFilters);
 
-  // Carrega usuários apenas quando a página muda (não busca automaticamente)
-  // Este useEffect só carrega usuários quando não há busca ativa
   useEffect(() => {
-    // IMPORTANTE: Não executa se houver busca ativa - a busca manual cuida disso
-    if (isSearchActive) {
-      return; // Sai imediatamente se há busca ativa
-    }
-    
-    // Só busca automaticamente se não houver termo de busca
-    // Usa showGlobalLoading=true apenas no carregamento inicial
-    if (!searchTerm.trim()) {
-      fetchUsers("", true);
-    }
-  }, [currentPage, searchTerm, isSearchActive]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Formata data para exibição
-  const formatDate = (dateString) => {
-    if (!dateString) return "-";
-    try {
-      const date = new Date(dateString);
-      const options = { month: "short", day: "numeric", year: "numeric" };
-      const dateStr = date.toLocaleDateString("pt-BR", options);
-      const timeStr = date.toLocaleTimeString("pt-BR", {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-      return { date: dateStr, time: timeStr };
-    } catch (error) {
-      return { date: "-", time: "" };
-    }
-  };
-
-  // Função para buscar usuário por nome (ao clicar no ícone de lupa)
-  const handleBuscarUsuario = async (e) => {
-    e.preventDefault();
-    
-    if (!searchTerm.trim()) {
-      // Se não há termo de busca, carrega todos os usuários
-      setCurrentPage(1);
-      setIsSearchActive(false); // Remove busca ativa
-      setBuscandoUsuario(true);
-      setLocalLoading(true);
-      try {
-        const response = await usersService.getUsers({
-          page: 1,
-          perPage: 10,
-          search: "",
-        });
-
-        if (response.success) {
-          setUsuarios(response.data || []);
-          setPagination(
-            response.pagination || {
-              page: 1,
-              perPage: 10,
-              total: 0,
-              totalPages: 1,
-            },
-          );
-          setLocalLoading(false);
-        }
-      } catch (error) {
-        console.error("Erro ao carregar usuários:", error);
-        setLocalLoading(false);
-      } finally {
-        setBuscandoUsuario(false);
-      }
-      return;
-    }
-
-    // Marca busca ativa ANTES de mudar a página para evitar que o useEffect execute
-    setIsSearchActive(true);
-    setBuscandoUsuario(true);
     setCurrentPage(1);
-    setLocalLoading(true);
+  }, [searchTerm, appliedFilters]);
 
+  async function handleToggleStatus(usuario) {
+    const atual = usuario.statusBoolean !== undefined ? usuario.statusBoolean : usuario.status === "ativo";
     try {
-      // showGlobalLoading=false para não mostrar splash screen, apenas o overlay
-      const response = await usersService.getUsers({
-        page: 1,
-        perPage: 10,
-        search: searchTerm.trim(),
-      });
-
-      if (response.success) {
-        const usuariosEncontrados = response.data || [];
-        
-        // Atualiza a lista de usuários com os resultados da busca
-        setUsuarios(usuariosEncontrados);
-        setPagination(
-          response.pagination || {
-            page: 1,
-            perPage: 10,
-            total: usuariosEncontrados.length,
-            totalPages: 1,
-          },
-        );
-
-        // Desativa loading
-        setLocalLoading(false);
-        setBuscandoUsuario(false);
-        // Mantém isSearchActive como true para evitar que o useEffect sobrescreva
-
-        // Mostra toast baseado no resultado
-        if (usuariosEncontrados.length > 0) {
-          showToast("✅ Usuário encontrado", "success", 2000);
-        } else {
-          showToast("❌ Usuário não encontrado", "error", 3000);
-        }
-      } else {
-        setUsuarios([]);
-        setLocalLoading(false);
-        setBuscandoUsuario(false);
-        setIsSearchActive(false);
-        showToast("❌ Usuário não encontrado", "error", 3000);
-      }
-    } catch (error) {
-      console.error("Erro ao buscar usuário:", error);
-      setUsuarios([]);
-      setLocalLoading(false);
-      setBuscandoUsuario(false);
-      setIsSearchActive(false);
-      if (error.status === 429) {
-        showToast("⏱️ Muitas requisições. Aguarde um momento.", "warning");
-      } else {
-        showToast("❌ Usuário não encontrado", "error", 3000);
-      }
-    }
-  };
-
-  // Manipula paginação
-  const handlePageChange = (newPage) => {
-    if (newPage >= 1 && newPage <= pagination.totalPages) {
-      setCurrentPage(newPage);
-    }
-  };
-
-  // Alterna o status do usuário
-  const handleToggleStatus = async (usuario) => {
-    try {
-      const currentStatusBoolean =
-        usuario.statusBoolean !== undefined
-          ? usuario.statusBoolean
-          : usuario.status === "ativo";
-
-      const response = await usersService.toggleUserStatus(
-        usuario.id,
-        currentStatusBoolean,
+      const response = await usersService.toggleUserStatus(usuario.id, atual);
+      if (!response.success) return;
+      setUsuarios((lista) =>
+        lista.map((item) =>
+          item.id === usuario.id
+            ? {
+                ...item,
+                status: response.data.status ? "ativo" : "inativo",
+                statusBoolean: response.data.status,
+                cadastro: { ...item.cadastro, ativo: response.data.status },
+              }
+            : item,
+        ),
       );
-
-      if (response.success) {
-        // Atualiza o usuário na lista local
-        setUsuarios((prevUsuarios) =>
-          prevUsuarios.map((u) =>
-            u.id === usuario.id
-              ? {
-                  ...u,
-                  status: response.data.status ? "ativo" : "inativo",
-                  statusBoolean: response.data.status,
-                }
-              : u,
-          ),
-        );
-
-        showToast(
-          response.data.status
-            ? "✅ Usuário ativado com sucesso"
-            : "✅ Usuário desativado com sucesso",
-          "success",
-          2500,
-        );
-      }
+      showToast(response.data.status ? "Usuário ativado" : "Usuário desativado", "success", 2500);
     } catch (error) {
-      console.error("Erro ao alternar status:", error);
-      if (error.status === 429) {
-        showToast("⏱️ Muitas requisições. Aguarde um momento.", "warning");
-      } else {
-        showToast("❌ Erro ao alterar status do usuário", "error");
-      }
+      showToast(error?.error || "Erro ao alterar status do usuário", "error");
     }
-  };
+  }
+
+  function clearFilters() {
+    setDraftFilters(EMPTY_USER_FILTERS);
+    setAppliedFilters(EMPTY_USER_FILTERS);
+    setFilterOpen(false);
+  }
 
   return (
     <MainLayout>
-      {/* Overlay de loading ao buscar usuário */}
-      {buscandoUsuario && (
-        <div className="cpf-loading-overlay" aria-live="polite">
-          <div className="cpf-loading-glass" role="status">
-            <div className="cpf-loading-spinner" />
-            <p className="cpf-loading-text">Buscando usuário...</p>
-          </div>
-        </div>
-      )}
-
       <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
-        {/* Cabeçalho com título e busca */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 mb-4 sm:mb-6">
-          <h1 className="text-xl sm:text-2xl font-bold text-tegra-text-primary">
-            Usuários
-          </h1>
-
-          {/* Barra de busca e filtro */}
-          <div className="flex items-center gap-2 w-full sm:w-auto">
+        <header className="mb-5 sm:mb-6 flex items-start justify-between gap-3">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-tegra-text-primary">Usuários</h1>
+            <p className="mt-1 text-sm text-tegra-text-secondary max-w-2xl">
+              Cadastro do portal. A lista, os gráficos e os filtros usam os usuários gravados no banco.
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
             <button
               type="button"
               onClick={() => {
@@ -321,387 +211,281 @@ export default function Users() {
               <MdPersonAdd className="text-lg" aria-hidden />
               Adicionar
             </button>
-            <div className="flex-1 sm:flex-initial sm:w-64">
+            <button
+              type="button"
+              onClick={() => loadUsers(false)}
+              disabled={loading}
+              title="Atualizar dados"
+              aria-label="Atualizar dados"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-tegra-gray-medium text-tegra-text-secondary hover:bg-tegra-gray-light hover:text-tegra-blue-dark disabled:opacity-40"
+            >
+              <MdRefresh className={`text-xl ${loading ? "animate-spin" : ""}`} />
+            </button>
+          </div>
+        </header>
+
+        <UsersDashboard perfilData={perfilData} gerenciaData={gerenciaData} regiaoData={regiaoData} />
+
+        <section
+          aria-label="Lista de usuários"
+          className="bg-tegra-bg-primary rounded-xl border border-tegra-gray-medium/80 shadow-sm overflow-hidden"
+        >
+          <div className="px-3 sm:px-4 md:px-5 py-3 sm:py-4 border-b border-tegra-gray-medium flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+            <div className="flex-1 min-w-0">
               <Input
-                label=""
-                type="text"
-                value={searchTerm}
-                onChange={(e) => {
-                  // Apenas atualiza o valor, não busca automaticamente
-                  setSearchTerm(e.target.value);
-                }}
-                placeholder="Buscar por nome..."
+                type="search"
+                value={draftSearch}
+                onChange={(event) => setDraftSearch(event.target.value)}
+                placeholder="Buscar por nome ou e-mail..."
                 icon={<MdSearch className="text-xl" />}
                 iconRight={<MdSearch className="text-xl" />}
-                onIconClick={(e) => {
-                  e.preventDefault();
-                  if (!buscandoUsuario) {
-                    handleBuscarUsuario(e);
+                onIconClick={(event) => {
+                  event.preventDefault();
+                  setSearchTerm(draftSearch.trim());
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    setSearchTerm(draftSearch.trim());
                   }
                 }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    if (!buscandoUsuario) {
-                      handleBuscarUsuario(e);
-                    }
-                  }
-                }}
-                disabled={buscandoUsuario}
+                aria-label="Buscar usuários"
               />
             </div>
             <button
-              className="p-2 border-2 border-tegra-blue-dark rounded-lg text-tegra-blue-dark hover:bg-tegra-blue-light transition"
-              title="Filtrar"
+              type="button"
+              onClick={() => setFilterOpen(true)}
+              className="relative inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 border-2 border-tegra-blue-dark rounded-lg text-tegra-blue-dark hover:bg-tegra-blue-dark hover:text-white transition cursor-pointer shrink-0"
+              aria-haspopup="dialog"
+              aria-expanded={filterOpen}
             >
-              <MdFilterList className="text-lg sm:text-xl" />
+              <MdFilterList className="text-xl" aria-hidden />
+              <span className="text-sm font-medium">Filtros</span>
+              {activeFilterCount > 0 && (
+                <span className="absolute -top-2 -right-2 min-w-5 h-5 px-1 rounded-full bg-tegra-teal text-white text-[11px] font-bold flex items-center justify-center">
+                  {activeFilterCount}
+                </span>
+              )}
             </button>
           </div>
-        </div>
 
-        {/* Tabela/Cards */}
-        <div className="bg-tegra-bg-primary rounded-lg shadow-md overflow-hidden">
-          {buscandoUsuario ? (
-            <div className="p-6 sm:p-8 text-center text-tegra-text-secondary text-sm sm:text-base">
-              Buscando usuário...
+          {loading ? (
+            <div className="px-4 py-14 text-center">
+              <p className="text-tegra-text-primary font-medium">Carregando usuários…</p>
+              <p className="mt-1 text-sm text-tegra-text-secondary">Buscando no banco.</p>
             </div>
-          ) : localLoading && usuarios.length === 0 ? (
-            <div className="p-6 sm:p-8 text-center text-tegra-text-secondary text-sm sm:text-base">
-              Carregando usuários...
+          ) : loadError ? (
+            <div className="px-4 py-14 text-center">
+              <p className="text-tegra-text-primary font-medium">Não foi possível carregar</p>
+              <p className="mt-1 text-sm text-tegra-text-secondary">{loadError}</p>
+              <Button className="mt-4" onClick={() => loadUsers(false)}>Tentar novamente</Button>
             </div>
-          ) : usuarios.length === 0 ? (
-            <div className="p-6 sm:p-8 text-center text-tegra-text-secondary text-sm sm:text-base">
-              Nenhum usuário encontrado
+          ) : pageUsers.length === 0 ? (
+            <div className="px-4 py-14 text-center">
+              <p className="text-tegra-text-primary font-medium">Nenhum usuário encontrado</p>
+              <p className="mt-1 text-sm text-tegra-text-secondary">
+                {usuarios.length === 0
+                  ? "Ainda não há usuários gravados no banco."
+                  : "Ajuste a busca ou limpe os filtros para ver resultados."}
+              </p>
+              {(searchTerm || activeFilterCount > 0) && (
+                <Button
+                  variant="secondary"
+                  className="mt-4"
+                  onClick={() => {
+                    setDraftSearch("");
+                    setSearchTerm("");
+                    clearFilters();
+                  }}
+                >
+                  Limpar busca e filtros
+                </Button>
+              )}
             </div>
           ) : (
             <>
-              {/* Versão Mobile: Cards */}
-              <div className="md:hidden">
-                <div className="p-3 space-y-3">
-                  {usuarios.map((usuario) => {
-                    const criado = formatDate(usuario.criado);
-                    const modificado = formatDate(usuario.modificado);
-
-                    // Garante que status seja sempre string
-                    let status = "inativo";
-                    if (typeof usuario.status === "string") {
-                      status =
-                        usuario.status.toLowerCase() === "ativo" ||
-                        usuario.status.toLowerCase() === "active"
-                          ? "ativo"
-                          : "inativo";
-                    } else if (typeof usuario.status === "boolean") {
-                      status = usuario.status ? "ativo" : "inativo";
-                    } else {
-                      status = "inativo";
-                    }
-
-                    return (
-                      <div
-                        key={usuario.id}
-                        className="bg-white border border-tegra-gray-medium rounded-lg p-4 shadow-sm"
-                      >
-                        {/* Cabeçalho do card: Avatar + Nome + Status */}
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex items-center gap-3 flex-1 min-w-0">
-                            <Avatar
-                              user={usuario.raw || usuario}
-                              size="sm"
-                            />
-                            <div className="flex-1 min-w-0">
-                              <h3 className="text-sm font-semibold text-tegra-text-primary truncate">
-                                {usuario.nome || "Sem nome"}
-                              </h3>
-                              <p className="text-xs text-tegra-text-secondary truncate">
-                                {usuario.email || "Sem email"}
-                              </p>
-                            </div>
+              <div className="md:hidden divide-y divide-tegra-gray-medium">
+                {pageUsers.map((usuario) => {
+                  const criado = formatDate(usuario.criado);
+                  const ativo = usuario.status === "ativo";
+                  return (
+                    <article key={usuario.id} className="p-4 space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <Avatar user={usuario.raw || usuario} size="sm" />
+                          <div className="min-w-0">
+                            <h3 className="text-sm font-semibold text-tegra-text-primary truncate">
+                              {usuario.nome || "Sem nome"}
+                            </h3>
+                            <p className="text-xs text-tegra-text-secondary truncate">{usuario.email || "—"}</p>
+                            <p className="text-xs font-medium text-tegra-blue-dark/80 truncate mt-0.5">
+                              {usuario.cadastro?.perfil || "Consultor"}
+                              {usuario.cadastro?.gerencia ? ` · ${usuario.cadastro.gerencia}` : ""}
+                            </p>
                           </div>
-                          <span
-                            className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
-                              status === "ativo"
-                                ? "bg-tegra-success-light text-tegra-success"
-                                : "bg-tegra-error-light text-tegra-error"
-                            }`}
-                          >
-                            {status}
-                          </span>
                         </div>
-
-                        {/* Informações adicionais */}
-                        <div className="space-y-2 mb-3 text-xs text-tegra-text-secondary">
-                          {criado.date !== "-" && (
-                            <div className="flex items-center gap-2">
-                              <span>Criado:</span>
-                              <span className="text-tegra-text-primary">
-                                {criado.date}
-                                {criado.time && ` ${criado.time}`}
-                              </span>
-                            </div>
-                          )}
-                          {modificado.date !== "-" && (
-                            <div className="flex items-center gap-2">
-                              <span>Modificado:</span>
-                              <span className="text-tegra-text-primary">
-                                {modificado.date}
-                                {modificado.time && ` ${modificado.time}`}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Ações */}
-                        <div className="flex items-center justify-end gap-2 pt-3 border-t border-tegra-gray-medium">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setUsuarioEdicao(usuario);
-                              setFormAberto(true);
-                            }}
-                            className="p-2 text-tegra-blue-dark hover:bg-tegra-blue-light rounded transition"
-                            title="Editar"
-                            aria-label="Editar usuário"
-                          >
-                            <MdEdit className="text-lg" />
-                          </button>
-                          <button
-                            onClick={() => handleToggleStatus(usuario)}
-                            className={`p-2 rounded transition ${
-                              status === "ativo"
-                                ? "text-tegra-success hover:bg-tegra-success-light"
-                                : "text-tegra-error hover:bg-tegra-error-light"
-                            }`}
-                            title={
-                              status === "ativo"
-                                ? "Desativar usuário"
-                                : "Ativar usuário"
-                            }
-                            aria-label={
-                              status === "ativo"
-                                ? "Desativar usuário"
-                                : "Ativar usuário"
-                            }
-                          >
-                            {status === "ativo" ? (
-                              <MdLockOpen className="text-lg" />
-                            ) : (
-                              <MdLock className="text-lg" />
-                            )}
-                          </button>
-                        </div>
+                        <StatusBadge ativo={ativo} />
                       </div>
-                    );
-                  })}
-                </div>
+                      <p className="text-xs text-tegra-text-secondary">
+                        Criado em <span className="font-medium text-tegra-text-primary">{criado.date}</span>
+                      </p>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          className="flex-1 inline-flex items-center justify-center gap-1.5"
+                          onClick={() => {
+                            setUsuarioEdicao(usuario);
+                            setFormAberto(true);
+                          }}
+                        >
+                          <MdEdit aria-hidden />
+                          Editar
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="flex-1 inline-flex items-center justify-center gap-1.5"
+                          onClick={() => handleToggleStatus(usuario)}
+                        >
+                          {ativo ? <MdLockOpen aria-hidden /> : <MdLock aria-hidden />}
+                          {ativo ? "Desativar" : "Ativar"}
+                        </Button>
+                      </div>
+                    </article>
+                  );
+                })}
               </div>
 
-              {/* Versão Desktop: Tabela */}
-              <div className="hidden md:block overflow-x-auto -mx-3 sm:mx-0">
-                <div className="inline-block min-w-full align-middle">
-                  <table className="w-full">
-                    {/* Cabeçalho da tabela */}
-                    <thead>
-                      <tr className="bg-tegra-blue-dark text-tegra-text-inverse">
-                        <th className="px-4 md:px-6 py-4 text-left text-sm font-bold">
-                          Usuário
-                        </th>
-                        <th className="px-4 md:px-6 py-4 text-left text-sm font-bold">
-                          Status
-                        </th>
-                        <th className="px-4 md:px-6 py-4 text-left text-sm font-bold">
-                          Criado
-                        </th>
-                        <th className="px-4 md:px-6 py-4 text-left text-sm font-bold hidden lg:table-cell">
-                          Modificado
-                        </th>
-                        <th className="px-4 md:px-6 py-4 text-center text-sm font-bold">
-                          Ações
-                        </th>
-                      </tr>
-                    </thead>
-
-                    {/* Corpo da tabela */}
-                    <tbody>
-                      {usuarios.map((usuario) => {
-                        const criado = formatDate(usuario.criado);
-                        const modificado = formatDate(usuario.modificado);
-
-                        // Garante que status seja sempre string
-                        let status = "inativo";
-                        if (typeof usuario.status === "string") {
-                          status =
-                            usuario.status.toLowerCase() === "ativo" ||
-                            usuario.status.toLowerCase() === "active"
-                              ? "ativo"
-                              : "inativo";
-                        } else if (typeof usuario.status === "boolean") {
-                          status = usuario.status ? "ativo" : "inativo";
-                        } else {
-                          status = "inativo";
-                        }
-
-                        return (
-                          <tr
-                            key={usuario.id}
-                            className="border-b border-tegra-gray-medium hover:bg-tegra-gray-light transition"
-                          >
-                            {/* Usuário com Avatar */}
-                            <td className="px-4 md:px-6 py-4">
-                              <div className="flex items-center gap-3">
-                                <Avatar
-                                  user={usuario.raw || usuario}
-                                  size="sm"
-                                />
-                                <div className="flex flex-col">
-                                  <span className="text-sm font-semibold text-tegra-text-primary">
-                                    {usuario.nome || "Sem nome"}
-                                  </span>
-                                  <span className="text-xs text-tegra-text-secondary">
-                                    {usuario.email || "Sem email"}
-                                  </span>
-                                </div>
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-tegra-blue-dark text-tegra-text-inverse">
+                    <tr>
+                      <th scope="col" className="px-4 py-3 font-semibold">Usuário</th>
+                      <th scope="col" className="px-4 py-3 font-semibold">Perfil</th>
+                      <th scope="col" className="px-4 py-3 font-semibold">Gerência</th>
+                      <th scope="col" className="px-4 py-3 font-semibold">Região</th>
+                      <th scope="col" className="px-4 py-3 font-semibold whitespace-nowrap">Data de criação</th>
+                      <th scope="col" className="px-4 py-3 font-semibold">Status</th>
+                      <th scope="col" className="px-4 py-3 font-semibold text-right">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-tegra-gray-medium">
+                    {pageUsers.map((usuario) => {
+                      const criado = formatDate(usuario.criado);
+                      const ativo = usuario.status === "ativo";
+                      return (
+                        <tr key={usuario.id} className="hover:bg-tegra-gray-light/60 transition-colors">
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-3">
+                              <Avatar user={usuario.raw || usuario} size="sm" />
+                              <div className="min-w-0">
+                                <p className="font-semibold text-tegra-text-primary truncate">{usuario.nome || "Sem nome"}</p>
+                                <p className="text-xs text-tegra-text-secondary truncate">{usuario.email || "—"}</p>
                               </div>
-                            </td>
-
-                            {/* Status */}
-                            <td className="px-4 md:px-6 py-4">
-                              <span
-                                className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${
-                                  status === "ativo"
-                                    ? "bg-tegra-success-light text-tegra-success"
-                                    : "bg-tegra-error-light text-tegra-error"
-                                }`}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-tegra-text-primary whitespace-nowrap">
+                            {usuario.cadastro?.perfil || "—"}
+                          </td>
+                          <td className="px-4 py-3 text-tegra-text-secondary whitespace-nowrap">
+                            {usuario.cadastro?.gerencia || "—"}
+                          </td>
+                          <td className="px-4 py-3 text-tegra-text-secondary whitespace-nowrap">
+                            {usuario.cadastro?.regiao || "—"}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <div className="flex flex-col">
+                              <span className="text-tegra-text-primary">{criado.date}</span>
+                              {criado.time && <span className="text-xs text-tegra-text-secondary">{criado.time}</span>}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <StatusBadge ativo={ativo} />
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setUsuarioEdicao(usuario);
+                                  setFormAberto(true);
+                                }}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-tegra-gray-medium text-tegra-blue-dark hover:bg-tegra-gray-light transition cursor-pointer"
+                                title="Editar"
                               >
-                                {status}
-                              </span>
-                            </td>
-
-                            {/* Criado */}
-                            <td className="px-4 md:px-6 py-4 text-sm text-tegra-text-primary">
-                              <div className="flex flex-col">
-                                <span>{criado.date}</span>
-                                {criado.time && (
-                                  <span className="text-xs text-tegra-text-secondary">
-                                    {criado.time}
-                                  </span>
-                                )}
-                              </div>
-                            </td>
-
-                            {/* Modificado */}
-                            <td className="px-4 md:px-6 py-4 text-sm text-tegra-text-primary hidden lg:table-cell">
-                              <div className="flex flex-col">
-                                <span>{modificado.date}</span>
-                                {modificado.time && (
-                                  <span className="text-xs text-tegra-text-secondary">
-                                    {modificado.time}
-                                  </span>
-                                )}
-                              </div>
-                            </td>
-
-                            {/* Ações */}
-                            <td className="px-4 md:px-6 py-4">
-                              <div className="flex items-center justify-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setUsuarioEdicao(usuario);
-                                    setFormAberto(true);
-                                  }}
-                                  className="p-2 text-tegra-blue-dark hover:bg-tegra-blue-light rounded transition"
-                                  title="Editar"
-                                  aria-label="Editar usuário"
-                                >
-                                  <MdEdit className="text-lg" />
-                                </button>
-                                <button
-                                  onClick={() => handleToggleStatus(usuario)}
-                                  className={`p-2 rounded transition ${
-                                    status === "ativo"
-                                      ? "text-tegra-success hover:bg-tegra-success-light"
-                                      : "text-tegra-error hover:bg-tegra-error-light"
-                                  }`}
-                                  title={
-                                    status === "ativo"
-                                      ? "Desativar usuário"
-                                      : "Ativar usuário"
-                                  }
-                                  aria-label={
-                                    status === "ativo"
-                                      ? "Desativar usuário"
-                                      : "Ativar usuário"
-                                  }
-                                >
-                                  {status === "ativo" ? (
-                                    <MdLockOpen className="text-lg" />
-                                  ) : (
-                                    <MdLock className="text-lg" />
-                                  )}
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                                <MdEdit className="text-lg" aria-hidden />
+                                <span className="text-xs font-medium">Editar</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleToggleStatus(usuario)}
+                                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition cursor-pointer ${
+                                  ativo
+                                    ? "bg-tegra-blue-dark text-white hover:bg-tegra-blue-light"
+                                    : "border border-tegra-gray-medium text-tegra-blue-dark hover:bg-tegra-gray-light"
+                                }`}
+                                title={ativo ? "Desativar usuário" : "Ativar usuário"}
+                              >
+                                {ativo ? <MdLockOpen className="text-lg" aria-hidden /> : <MdLock className="text-lg" aria-hidden />}
+                                <span className="text-xs font-medium">{ativo ? "Desativar" : "Ativar"}</span>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
 
-              {/* Paginação - Sempre exibida quando há dados */}
-              {usuarios.length > 0 && (
-                <div className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 border-t border-tegra-gray-medium flex flex-col sm:flex-row justify-between items-center gap-3 sm:gap-0">
-                  <div className="text-xs sm:text-sm text-tegra-blue-dark font-medium">
-                    Página {pagination.page} de {pagination.totalPages || 1}
-                  </div>
-                  <div className="flex gap-1 sm:gap-2">
-                    <button
-                      onClick={() => handlePageChange(1)}
-                      disabled={currentPage === 1}
-                      className="p-1.5 sm:px-3 sm:py-1 border-2 border-tegra-blue-dark rounded text-tegra-blue-dark disabled:opacity-50 disabled:cursor-not-allowed hover:bg-tegra-blue-light transition"
-                      aria-label="Primeira página"
-                    >
-                      <MdFirstPage className="text-lg sm:text-xl" />
-                    </button>
-                    <button
-                      onClick={() => handlePageChange(currentPage - 1)}
-                      disabled={currentPage === 1}
-                      className="p-1.5 sm:px-3 sm:py-1 border-2 border-tegra-blue-dark rounded text-tegra-blue-dark disabled:opacity-50 disabled:cursor-not-allowed hover:bg-tegra-blue-light transition"
-                      aria-label="Página anterior"
-                    >
-                      <MdChevronLeft className="text-lg sm:text-xl" />
-                    </button>
-                    <button
-                      onClick={() => handlePageChange(currentPage + 1)}
-                      disabled={currentPage === pagination.totalPages}
-                      className="p-1.5 sm:px-3 sm:py-1 border-2 border-tegra-blue-dark rounded text-tegra-blue-dark disabled:opacity-50 disabled:cursor-not-allowed hover:bg-tegra-blue-light transition"
-                      aria-label="Próxima página"
-                    >
-                      <MdChevronRight className="text-lg sm:text-xl" />
-                    </button>
-                    <button
-                      onClick={() => handlePageChange(pagination.totalPages)}
-                      disabled={currentPage === pagination.totalPages}
-                      className="p-1.5 sm:px-3 sm:py-1 border-2 border-tegra-blue-dark rounded text-tegra-blue-dark disabled:opacity-50 disabled:cursor-not-allowed hover:bg-tegra-blue-light transition"
-                      aria-label="Última página"
-                    >
-                      <MdLastPage className="text-lg sm:text-xl" />
-                    </button>
-                  </div>
+              <div className="px-3 sm:px-4 md:px-5 py-3 border-t border-tegra-gray-medium flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <p className="text-xs sm:text-sm text-tegra-text-secondary">
+                  Mostrando{" "}
+                  <span className="font-medium text-tegra-text-primary">
+                    {pageStart + 1}–{pageStart + pageUsers.length}
+                  </span>{" "}
+                  de <span className="font-medium text-tegra-text-primary">{filteredUsers.length}</span>{" "}
+                  usuários · {PER_PAGE} por página
+                </p>
+                <div className="flex items-center gap-1 self-end sm:self-auto">
+                  <PaginationButton label="Primeira página" disabled={safePage <= 1} onClick={() => setCurrentPage(1)}>
+                    <MdFirstPage className="text-xl" />
+                  </PaginationButton>
+                  <PaginationButton label="Página anterior" disabled={safePage <= 1} onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}>
+                    <MdChevronLeft className="text-xl" />
+                  </PaginationButton>
+                  <span className="px-3 text-sm tabular-nums text-tegra-text-primary font-medium">
+                    {safePage} / {totalPages}
+                  </span>
+                  <PaginationButton label="Próxima página" disabled={safePage >= totalPages} onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}>
+                    <MdChevronRight className="text-xl" />
+                  </PaginationButton>
+                  <PaginationButton label="Última página" disabled={safePage >= totalPages} onClick={() => setCurrentPage(totalPages)}>
+                    <MdLastPage className="text-xl" />
+                  </PaginationButton>
                 </div>
-              )}
+              </div>
             </>
           )}
-        </div>
+        </section>
       </div>
+
+      <UsersFilterSidebar
+        open={filterOpen}
+        onClose={() => setFilterOpen(false)}
+        filters={draftFilters}
+        onChange={setDraftFilters}
+        onApply={() => {
+          setAppliedFilters(draftFilters);
+          setFilterOpen(false);
+        }}
+        onClear={clearFilters}
+      />
 
       <UserFormModal
         open={formAberto}
         usuario={usuarioEdicao}
-        onClose={() => {
-          if (formAberto) setFormAberto(false);
-        }}
+        onClose={() => setFormAberto(false)}
         onSaved={(response) => {
           setFormAberto(false);
           const ignorados = response?.data?.camposIgnorados || [];
@@ -714,9 +498,23 @@ export default function Users() {
             ignorados.length ? "warning" : "success",
             3500,
           );
-          fetchUsers(isSearchActive ? searchTerm.trim() : "", false);
+          loadUsers(false);
         }}
       />
     </MainLayout>
+  );
+}
+
+function PaginationButton({ children, label, disabled, onClick }) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      disabled={disabled}
+      onClick={onClick}
+      className="p-2 rounded-lg border border-tegra-gray-medium text-tegra-blue-dark hover:bg-tegra-gray-light disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+    >
+      {children}
+    </button>
   );
 }

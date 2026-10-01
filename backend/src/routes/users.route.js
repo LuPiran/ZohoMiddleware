@@ -16,9 +16,12 @@ const router = express.Router();
  */
 router.get("/", async (req, res) => {
   try {
+    const todos = req.query.all === "1";
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
-    const perPage = Math.min(100, Math.max(1, parseInt(req.query.per_page, 10) || 10));
-    const search = req.query.search?.trim() || "";
+    const perPage = todos
+      ? 100000
+      : Math.min(100, Math.max(1, parseInt(req.query.per_page, 10) || 10));
+    const search = todos ? "" : req.query.search?.trim() || "";
     const resultado = await listUsuariosPortal({ page, perPage, search });
 
     res.json({

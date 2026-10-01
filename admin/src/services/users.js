@@ -13,9 +13,10 @@ export const usersService = {
    * @param {string} params.search - Termo de busca (opcional)
    * @returns {Promise<Object>}
    */
-  async getUsers({ page = 1, perPage = 10, search = "" } = {}) {
+  async getUsers({ page = 1, perPage = 10, search = "", all = false } = {}) {
     try {
       const params = new URLSearchParams();
+      if (all) params.append("all", "1");
       if (page) params.append("page", page);
       if (perPage) params.append("per_page", perPage);
       if (search) params.append("search", search);
