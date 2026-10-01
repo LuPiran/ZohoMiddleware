@@ -1,49 +1,4 @@
 services:
-  zoho-mysql:
-    image: mysql:8.4
-    container_name: zoho-mysql
-    environment:
-      MYSQL_DATABASE: tegrapharma
-      MYSQL_USER: tegrapharma
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-    command:
-      - --character-set-server=utf8mb4
-      - --collation-server=utf8mb4_unicode_ci
-    ports:
-      - "127.0.0.1:3306:3306"
-    volumes:
-      - zoho_mysql:/var/lib/mysql
-      - ./backend/mysql/conf.d:/etc/mysql/conf.d:ro
-      - ./backend/mysql/init:/docker-entrypoint-initdb.d:ro
-    restart: unless-stopped
-    networks:
-      - zoho-network
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
-    cap_add:
-      - CHOWN
-      - SETGID
-      - SETUID
-      - DAC_OVERRIDE
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "mysqladmin ping -h 127.0.0.1 -u$$MYSQL_USER -p$$MYSQL_PASSWORD --silent",
-        ]
-      interval: 5s
-      timeout: 5s
-      retries: 20
-      start_period: 25s
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-
   zoho-backend:
     build:
       context: ./backend
@@ -56,24 +11,23 @@ services:
       PORT: 3000
       SERVE_FRONTEND: "false"
       TRUST_PROXY: "1"
-      FRONTEND_URL: ${FRONTEND_URL:-https://portal.autofullall.com}
+      FRONTEND_URL: ${FRONTEND_URL:-https://h-portaldoconsultor.tegrapharma.com}
       JSON_BODY_LIMIT: 25mb
       UPLOAD_BODY_LIMIT: 25mb
-      MYSQL_HOST: zoho-mysql
+      MYSQL_HOST: host.docker.internal
       MYSQL_PORT: "3306"
-      MYSQL_DATABASE: tegrapharma
-      MYSQL_USER: tegrapharma
+      MYSQL_DATABASE: portaldoconsultor
+      MYSQL_USER: portaluser
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
       DATA_ENCRYPTION_KEY: ${DATA_ENCRYPTION_KEY}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - zoho_uploads:/app/uploads
       - zoho_logs:/app/logs
     # Backend só na rede interna — acesso externo via nginx do admin
     expose:
       - "3000"
-    depends_on:
-      zoho-mysql:
-        condition: service_healthy
     restart: unless-stopped
     networks:
       - zoho-network
@@ -107,11 +61,10 @@ services:
       context: ./admin
       dockerfile: Dockerfile
       args:
-        # Same-origin via nginx proxy /v1 → backend
-        VITE_API_URL: ""
+        VITE_API_URL: ${VITE_API_URL:-https://hapi-portaldoconsultor.tegrapharma.com}
         VITE_ENTRA_CLIENT_ID: ${VITE_ENTRA_CLIENT_ID}
         VITE_ENTRA_TENANT_ID: ${VITE_ENTRA_TENANT_ID}
-        VITE_ENTRA_REDIRECT_URI: ${VITE_ENTRA_REDIRECT_URI:-https://portal.autofullall.com}
+        VITE_ENTRA_REDIRECT_URI: ${VITE_ENTRA_REDIRECT_URI:-https://h-portaldoconsultor.tegrapharma.com}
         VITE_GOOGLE_MAPS_KEY: ${VITE_GOOGLE_MAPS_KEY}
         # Botão "Avançar tempo" na tela do lead — ferramenta de teste, NUNCA
         # true em produção (ver ALLOW_LEAD_TIME_TRAVEL no backend/.env.example)
@@ -157,4 +110,3 @@ networks:
 volumes:
   zoho_uploads:
   zoho_logs:
-  zoho_mysql:

@@ -40,6 +40,7 @@ const shouldServeFrontend =
 
 const allowedOrigins = [
   "https://portaldoconsultor.tegrapharma.com",
+  "https://h-portaldoconsultor.tegrapharma.com",
   "https://portal.autofullall.com",
   "http://localhost:5173",
   "http://localhost:5174",
