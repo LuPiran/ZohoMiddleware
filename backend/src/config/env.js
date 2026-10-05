@@ -181,6 +181,8 @@ export const ENV = {
   MAIL_FROM: process.env.MAIL_FROM || "",
   /** Quando setado, todos os e-mails são redirecionados para este endereço (modo teste). */
   MAIL_REDIRECT_TO: process.env.MAIL_REDIRECT_TO || "",
+  /** Base dos botões dos e-mails. Vazio = produção (portaldoconsultor.tegrapharma.com). */
+  EMAIL_PORTAL_URL: process.env.EMAIL_PORTAL_URL || "",
   GRAPH_MAIL_TENANT_ID:
     process.env.GRAPH_MAIL_TENANT_ID || process.env.ENTRA_TENANT_ID,
   GRAPH_MAIL_CLIENT_ID: process.env.GRAPH_MAIL_CLIENT_ID,

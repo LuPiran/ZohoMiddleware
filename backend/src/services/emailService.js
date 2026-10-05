@@ -14,8 +14,14 @@ const LOGO_DATA_URI =
 
 /* ─── Helpers ──────────────────────────────────────────────────────────── */
 
+// Base dos botões de todos os e-mails. Não usa mais o FRONTEND_URL: em
+// produção ele apontava pro servidor de teste antigo (portal.autofullall.com)
+// e o botão "Aceitar ou Recusar Lead" caía em erro 522. A homolog troca o
+// destino com EMAIL_PORTAL_URL no backend/.env.
+const PORTAL_URL_PRODUCAO = "https://portaldoconsultor.tegrapharma.com";
+
 function portalBaseUrl() {
-  return String(ENV.FRONTEND_URL || "").replace(/\/$/, "") || "http://localhost:8081";
+  return String(ENV.EMAIL_PORTAL_URL || PORTAL_URL_PRODUCAO).replace(/\/$/, "");
 }
 
 function leadPortalUrl(leadId) {
