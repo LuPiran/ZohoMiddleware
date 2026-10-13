@@ -28,7 +28,7 @@ export default {
           gray: {
             DEFAULT: "#666666",
             light: "#F5F5F5",
-            medium: "#E0E0E0",
+            medium: "#B8C4D2",
             dark: "#333333",
           },
           // Cores de Feedback
@@ -62,9 +62,9 @@ export default {
           },
           // Texto
           text: {
-            primary: "#333333",
-            secondary: "#666666",
-            light: "#999999",
+            primary: "#111827",
+            secondary: "#374151",
+            light: "#4B5563",
             inverse: "#FFFFFF",
           },
         },
