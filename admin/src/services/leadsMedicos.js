@@ -149,8 +149,48 @@ export async function editarLead(id, dados) {
   };
 }
 
-export async function excluirLead(id) {
-  const response = await api.delete(API_ENDPOINTS.LEADS_MEDICOS.DETAIL(id));
+export async function excluirLead(id, { devolverAoZoho = true } = {}) {
+  const response = await api.delete(API_ENDPOINTS.LEADS_MEDICOS.DETAIL(id), {
+    params: devolverAoZoho ? {} : { zoho: "0" },
+  });
+  return {
+    success: Boolean(response.data?.success),
+    data: response.data?.data || null,
+  };
+}
+
+export async function atribuirLead(id, consultorId) {
+  const response = await api.post(API_ENDPOINTS.LEADS_MEDICOS.ATRIBUIR(id), { consultorId });
+  return {
+    success: Boolean(response.data?.success),
+    data: response.data?.data || null,
+  };
+}
+
+export async function liberarLead(id) {
+  const response = await api.post(API_ENDPOINTS.LEADS_MEDICOS.LIBERAR(id));
+  return {
+    success: Boolean(response.data?.success),
+    data: response.data?.data || null,
+  };
+}
+
+export async function removerEvento(id, eventoId, { devolverAoZoho = true } = {}) {
+  const response = await api.delete(API_ENDPOINTS.LEADS_MEDICOS.EVENTO(id, eventoId), {
+    params: devolverAoZoho ? {} : { zoho: "0" },
+  });
+  return {
+    success: Boolean(response.data?.success),
+    data: response.data?.data || null,
+  };
+}
+
+export async function limparEvento({ evento, confirmar = false, devolverAoZoho = true }) {
+  const response = await api.post(API_ENDPOINTS.LEADS_MEDICOS.LIMPAR_EVENTO, {
+    evento,
+    confirmar,
+    devolverAoZoho,
+  });
   return {
     success: Boolean(response.data?.success),
     data: response.data?.data || null,
@@ -192,6 +232,10 @@ export const leadsMedicosService = {
   avancarTempo,
   editarLead,
   excluirLead,
+  atribuirLead,
+  liberarLead,
+  removerEvento,
+  limparEvento,
   listPendingOffers,
   getEquipeKpis,
 };

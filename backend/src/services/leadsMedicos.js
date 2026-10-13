@@ -41,11 +41,13 @@ import {
   syncZohoLeadAttemptNoReturn,
   syncZohoLeadAttemptTreated,
   syncZohoLeadDistribuicao,
+  syncZohoLeadDuplicado,
   syncZohoLeadFourthAttemptRequested,
   syncZohoLeadJaAtribuido,
   syncZohoLeadSemContato,
   syncZohoLeadSemInteresse,
   syncZohoLeadProtocolo,
+  syncZohoLeadRemovidoDoPortal,
 } from "./zohoLeadSync.js";
 import {
   ATTEMPT_ROUNDS,
@@ -870,7 +872,26 @@ export async function createLeadFromZoho(payload) {
         statusUpdatesToApply.dataConversao ?? duplicateByRegistro.dataConversao ?? null;
     }
 
+    // Marketing indicou outro consultor na ficha nova: o médico continua com
+    // quem já está tratando (regra do Júlio, 13/10) e fica registrado.
+    const emailTentado = String(lead.prescritorConsultorEmail || "").trim().toLowerCase();
+    const emailAtual = String(duplicateByRegistro.emailConsultor || "").trim().toLowerCase();
+    const consultorTentado =
+      emailTentado && emailTentado !== emailAtual
+        ? lead.prescritorConsultorNome || lead.prescritorConsultorEmail
+        : null;
+
     const historicoEntries = [historicoEntry];
+    if (consultorTentado) {
+      historicoEntries.push({
+        id: randomUUID(),
+        at: now,
+        action: "envio_bloqueado",
+        label: "Envio para outro consultor bloqueado",
+        detail: `A ficha do evento "${novoEvento.nome}" foi direcionada para ${consultorTentado}, mas o médico continua com ${duplicateByRegistro.consultor || "o consultor atual"}.`,
+        by: "sistema",
+      });
+    }
     if (shouldAddStatusHistorico) {
       historicoEntries.push({
         action: "status_zoho_atualizado",
@@ -883,6 +904,12 @@ export async function createLeadFromZoho(payload) {
     updates.historico = appendHistorico(duplicateByRegistro, historicoEntries);
 
     const updated = await updateLeadItem(duplicateByRegistro.id, updates);
+
+    // Sem isso o registro novo fica em "Enviar Lead Portal" para sempre.
+    syncZohoLeadDuplicado(lead.idZoho, updated || duplicateByRegistro, {
+      evento: novoEvento.nome,
+      consultorTentado,
+    });
 
     return {
       created: false,
@@ -1207,9 +1234,11 @@ export async function listLeadsForUser(user = {}) {
     );
   }
 
-  // Retido esperando a data do evento — invisível pra todo mundo (inclusive
-  // admin) até o sweeper liberar a distribuição de verdade.
-  leads = leads.filter((lead) => lead.slaStatus !== "aguardando_evento");
+  // Retido esperando a data do evento — invisível até o sweeper liberar a
+  // distribuição de verdade. O admin vê, para poder liberar ou excluir.
+  if (role !== "admin") {
+    leads = leads.filter((lead) => lead.slaStatus !== "aguardando_evento");
+  }
 
   leads.sort((a, b) => {
     const da = new Date(a.entradaEm || a.dataNovoLead || a.createdAt || 0).getTime();
@@ -2299,6 +2328,9 @@ export async function atribuirLeadManualmente(leadId, user, { consultorId, email
     throw err;
   }
 
+  // Lead que já estava aceito saiu da carteira do consultor anterior.
+  liberarCarteira(raw);
+
   return toLeadDetail(updated);
 }
 
@@ -2437,25 +2469,245 @@ export async function editarLead(leadId, user, body = {}) {
   return toLeadDetail(updated);
 }
 
+function notFoundLead() {
+  const err = new Error("Lead não encontrado");
+  err.status = 404;
+  err.code = "NOT_FOUND";
+  return err;
+}
+
+function quemFez(user) {
+  return user?.email || user?.id || "admin";
+}
+
+/** Todos os idZoho ligados ao lead: a ficha principal e as de cada evento. */
+function idsZohoDoLead(lead) {
+  const ids = [
+    lead?.idZoho,
+    ...(Array.isArray(lead?.eventos) ? lead.eventos : []).map((ev) => ev?.idZoho),
+  ]
+    .map((id) => String(id || "").trim())
+    .filter(Boolean);
+  return [...new Set(ids)];
+}
+
+/**
+ * Eventos do lead. Lead antigo sem `eventos[]` usa o campo `evento`.
+ */
+function eventosDoLead(lead) {
+  const eventos = Array.isArray(lead?.eventos) ? lead.eventos : [];
+  if (eventos.length) return eventos;
+  return lead?.evento
+    ? [{ id: null, nome: lead.evento, idZoho: lead.idZoho || undefined }]
+    : [];
+}
+
+/**
+ * Lead aceito e ainda aberto conta na carteira do consultor (cargaAceita).
+ * Ao sair do Portal, a carteira precisa ser devolvida.
+ */
+function liberarCarteira(raw) {
+  if (isSlaAccepted(raw) && !isLeadClosed(raw) && raw.consultorId) {
+    void decrementCargaAceita(raw.consultorId);
+  }
+}
+
 /**
  * Exclui definitivamente um lead da base do Portal — ação restrita a Admin
- * Painel (ver requireAdmin na rota). Não mexe no registro do Zoho, só some
- * daqui; se o Zoho reenviar o mesmo idZoho depois, entra como lead novo.
+ * Painel (ver requireAdmin na rota). Some de todas as telas, inclusive do
+ * card de oferta do consultor (o polling não acha mais o lead), e devolve a
+ * carteira se o lead estava aceito. Com `devolverAoZoho`, as fichas do Zoho
+ * voltam a "Novo Lead" (sem disparar regras), prontas pra serem enviadas de
+ * novo; se o Zoho reenviar depois, entra como lead novo.
  */
-export async function deletarLead(leadId, user) {
+export async function deletarLead(leadId, user, { devolverAoZoho = true, motivo } = {}) {
   const raw = await leadsRepo.getById(leadId);
-  if (!raw) {
-    const err = new Error("Lead não encontrado");
+  if (!raw) throw notFoundLead();
+
+  await leadsRepo.remove(leadId);
+  liberarCarteira(raw);
+
+  if (devolverAoZoho) {
+    for (const idZoho of idsZohoDoLead(raw)) {
+      syncZohoLeadRemovidoDoPortal(idZoho, {
+        motivo,
+        por: quemFez(user),
+        manterConsultor: Boolean(raw.distribuidoPorMarketing),
+      });
+    }
+  }
+
+  console.warn(
+    `[LEADS] Lead ${leadId} (protocolo ${raw.protocolo || "-"}, idZoho ${raw.idZoho || "-"}) excluído por ${quemFez(user)}` +
+      (devolverAoZoho ? " — fichas devolvidas ao Zoho como Novo Lead" : ""),
+  );
+  return { id: leadId, devolvidoAoZoho: Boolean(devolverAoZoho) };
+}
+
+/**
+ * Tira um evento de um lead que tem mais de um (médico que voltou por outro
+ * evento) sem apagar o atendimento. Se o evento removido era o da ficha
+ * principal, o próximo evento com ficha no Zoho vira a principal.
+ */
+async function removerEventosDoLead(raw, idsEvento, user, { devolverAoZoho = true, motivo } = {}) {
+  const alvo = new Set(idsEvento.map(String));
+  const eventos = Array.isArray(raw.eventos) ? raw.eventos : [];
+  const removidos = eventos.filter((ev) => alvo.has(String(ev?.id)));
+  const restantes = eventos.filter((ev) => !alvo.has(String(ev?.id)));
+
+  if (!removidos.length) {
+    const err = new Error("Evento não encontrado neste lead");
     err.status = 404;
     err.code = "NOT_FOUND";
     throw err;
   }
+  if (!restantes.length) {
+    const err = new Error(
+      "Este é o único evento do lead. Para tirar o lead do Portal, use Excluir.",
+    );
+    err.status = 400;
+    err.code = "VALIDATION_ERROR";
+    throw err;
+  }
 
-  await leadsRepo.remove(leadId);
-  console.warn(
-    `[LEADS] Lead ${leadId} (protocolo ${raw.protocolo || "-"}, idZoho ${raw.idZoho || "-"}) excluído por ${user?.email || user?.id || "desconhecido"}`,
+  const updates = { eventos: restantes };
+  const principalRemovida = removidos.some(
+    (ev) => ev?.idZoho && String(ev.idZoho) === String(raw.idZoho || ""),
   );
-  return { id: leadId };
+  if (principalRemovida) {
+    const novaPrincipal = restantes.find((ev) => ev?.idZoho) || restantes[0];
+    updates.idZoho = novaPrincipal?.idZoho || null;
+    updates.evento = novaPrincipal?.nome || raw.evento;
+  }
+
+  const now = new Date().toISOString();
+  const nomes = removidos.map((ev) => ev?.nome || "Sem evento").join(", ");
+  updates.updatedAt = now;
+  updates.historico = appendHistorico(raw, {
+    action: "evento_removido",
+    label: `Evento removido: ${nomes}`,
+    detail:
+      `O evento foi tirado deste lead pelo administrador. O atendimento continua.` +
+      (motivo ? ` Motivo: ${motivo}` : ""),
+    by: quemFez(user),
+  });
+
+  const updated = await updateLeadItem(raw.id, updates);
+
+  if (devolverAoZoho) {
+    for (const ev of removidos) {
+      if (!ev?.idZoho) continue;
+      syncZohoLeadRemovidoDoPortal(ev.idZoho, {
+        motivo,
+        por: quemFez(user),
+        manterConsultor: false,
+      });
+    }
+  }
+
+  console.warn(
+    `[LEADS] Evento(s) ${nomes} removido(s) do lead ${raw.id} por ${quemFez(user)}`,
+  );
+  return updated;
+}
+
+export async function removerEventoDoLead(leadId, eventoId, user, opcoes = {}) {
+  const raw = await leadsRepo.getById(leadId);
+  if (!raw) throw notFoundLead();
+  const updated = await removerEventosDoLead(raw, [eventoId], user, opcoes);
+  return toLeadDetail(updated);
+}
+
+/**
+ * Admin libera agora um lead retido esperando a data do evento — roda a
+ * distribuição normal (fila/geo/gestão) a partir daqui.
+ */
+export async function liberarLeadRetido(leadId, user) {
+  const raw = await leadsRepo.getById(leadId);
+  if (!raw) throw notFoundLead();
+  if (raw.slaStatus !== "aguardando_evento") {
+    const err = new Error("Este lead não está aguardando a data do evento.");
+    err.status = 400;
+    err.code = "VALIDATION_ERROR";
+    throw err;
+  }
+
+  const liberado = await startOfferCycle(raw, {
+    reason: `Distribuição liberada manualmente por ${quemFez(user)} antes da data do evento.`,
+    by: quemFez(user),
+    waitingStatus: "aguardando_evento",
+  });
+  if (!liberado) {
+    const err = new Error("Não foi possível liberar este lead agora. Tente novamente.");
+    err.status = 409;
+    err.code = "OFFER_GONE";
+    throw err;
+  }
+  return toLeadDetail(liberado);
+}
+
+/**
+ * Tira um evento inteiro do Portal (ex.: o Marketing distribuiu antes da
+ * hora). Para cada lead com esse evento:
+ * - só tem esse evento → o lead é excluído;
+ * - tem outros eventos (médico que já estava no Portal) → sai só o evento,
+ *   o atendimento do consultor continua.
+ * Sem `confirmar`, só devolve o plano (simulação) e não altera nada.
+ */
+export async function limparEvento(user, { evento, confirmar = false, devolverAoZoho = true, motivo } = {}) {
+  const alvo = normalizeText(evento);
+  if (!alvo) {
+    const err = new Error("Informe o evento.");
+    err.status = 400;
+    err.code = "VALIDATION_ERROR";
+    throw err;
+  }
+
+  const plano = [];
+  for (const lead of await scanAllLeads()) {
+    const eventos = eventosDoLead(lead);
+    const doEvento = eventos.filter((ev) => normalizeText(ev?.nome) === alvo);
+    if (!doEvento.length) continue;
+
+    const acao = doEvento.length === eventos.length ? "excluir" : "remover_evento";
+    plano.push({
+      lead,
+      acao,
+      idsEvento: doEvento.map((ev) => ev.id).filter(Boolean),
+    });
+  }
+
+  const resumo = plano.map(({ lead, acao }) => ({
+    id: lead.id,
+    nome: lead.nome || "",
+    protocolo: lead.protocolo || null,
+    status: lead.status || "",
+    consultor: lead.consultor || "",
+    aceito: isSlaAccepted(lead),
+    acao,
+  }));
+
+  if (!confirmar) {
+    return { evento, simulacao: true, itens: resumo };
+  }
+
+  const falhas = [];
+  for (const { lead, acao, idsEvento } of plano) {
+    try {
+      if (acao === "excluir") {
+        await deletarLead(lead.id, user, { devolverAoZoho, motivo });
+      } else {
+        await removerEventosDoLead(lead, idsEvento, user, { devolverAoZoho, motivo });
+      }
+    } catch (error) {
+      falhas.push({ id: lead.id, nome: lead.nome || "", erro: error.message });
+    }
+  }
+
+  console.warn(
+    `[LEADS] Evento "${evento}" limpo por ${quemFez(user)}: ${plano.length - falhas.length} ok, ${falhas.length} falha(s)`,
+  );
+  return { evento, simulacao: false, itens: resumo, falhas };
 }
 
 /**

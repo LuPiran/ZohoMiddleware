@@ -12,6 +12,7 @@ import {
   MdChevronRight,
   MdRefresh,
   MdBarChart,
+  MdEventBusy,
 } from "react-icons/md";
 import MainLayout from "../../components/layout/MainLayout";
 import Input from "../../components/ui/Input";
@@ -21,6 +22,7 @@ import { ROUTES } from "../../utils/constants";
 import LeadsDashboard from "./LeadsDashboard";
 import LeadsFilterSidebar from "./LeadsFilterSidebar";
 import LeadRowMenu from "./LeadRowMenu";
+import LimparEventoModal from "./LimparEventoModal";
 import { leadsMedicosService } from "../../services/leadsMedicos";
 import {
   aggregateLeadsByConsultor,
@@ -46,6 +48,12 @@ const EMPTY_FILTERS = {
   entradaAte: "",
   consultor: "",
 };
+
+const LIST_POLL_MS = 60_000;
+
+function displayStatus(lead) {
+  return lead.slaStatus === "aguardando_evento" ? "Aguardando evento" : lead.status;
+}
 
 function StatusBadge({ status }) {
   const label = getGerenteDisplayStatus(status) || status || "—";
@@ -136,16 +144,23 @@ export default function LeadsMedicos() {
   const isGerente = role === "gerente" || role === "admin";
   // Toggle equipe / meus leads — só usado quando role === "gerente"
   const [teamView, setTeamView] = useState("equipe"); // "equipe" | "meus"
+  const [limparEventoOpen, setLimparEventoOpen] = useState(false);
 
-  const loadLeads = async () => {
-    setLoading(true);
-    setLoadError("");
+  // `silent`: atualização em segundo plano (polling/foco) — sem spinner e sem
+  // toast de erro, só troca a lista. Assim um lead excluído pelo admin some
+  // da tela do consultor sem ele precisar recarregar.
+  const loadLeads = async ({ silent = false } = {}) => {
+    if (!silent) {
+      setLoading(true);
+      setLoadError("");
+    }
     try {
       const result = await leadsMedicosService.list();
       setLeads(result.data);
       setRole(result.role || "consultor");
       setViewer(result.viewer || null);
     } catch (error) {
+      if (silent) return;
       const message =
         error?.response?.data?.error ||
         error?.message ||
@@ -154,12 +169,24 @@ export default function LeadsMedicos() {
       setLeads([]);
       showToast(message, "error", 3500);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => {
     loadLeads();
+    const refresh = () => loadLeads({ silent: true });
+    const id = setInterval(refresh, LIST_POLL_MS);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("sla-offer-changed", refresh);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("sla-offer-changed", refresh);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -438,9 +465,20 @@ export default function LeadsMedicos() {
                 KPIs da equipe
               </Button>
             )}
+            {role === "admin" && (
+              <Button
+                variant="secondary"
+                size="sm"
+                className="inline-flex items-center gap-1.5"
+                onClick={() => setLimparEventoOpen(true)}
+              >
+                <MdEventBusy className="text-lg" aria-hidden />
+                Tirar evento
+              </Button>
+            )}
             <button
               type="button"
-              onClick={loadLeads}
+              onClick={() => loadLeads()}
               disabled={loading}
               title="Atualizar dados"
               aria-label="Atualizar dados"
@@ -568,7 +606,7 @@ export default function LeadsMedicos() {
               <p className="mt-1 text-sm text-tegra-text-secondary max-w-md mx-auto">
                 {loadError}
               </p>
-              <Button className="mt-4" onClick={loadLeads}>
+              <Button className="mt-4" onClick={() => loadLeads()}>
                 Tentar novamente
               </Button>
             </div>
@@ -625,7 +663,7 @@ export default function LeadsMedicos() {
                         )}
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
-                        <StatusBadge status={lead.status} />
+                        <StatusBadge status={displayStatus(lead)} />
                         <LeadRowMenu
                           lead={lead}
                           onUpdated={handleLeadUpdated}
@@ -730,7 +768,7 @@ export default function LeadsMedicos() {
                           {formatDate(lead.criadoEm)}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
-                          <StatusBadge status={lead.status} />
+                          <StatusBadge status={displayStatus(lead)} />
                         </td>
                         {isGerente && (
                           <>
@@ -842,6 +880,25 @@ export default function LeadsMedicos() {
         onClear={clearFilters}
         role={role}
         consultores={consultores}
+      />
+
+      <LimparEventoModal
+        open={limparEventoOpen}
+        leads={leads}
+        onClose={() => setLimparEventoOpen(false)}
+        onDone={(result) => {
+          setLimparEventoOpen(false);
+          const falhas = result?.falhas?.length || 0;
+          const total = (result?.itens?.length || 0) - falhas;
+          showToast(
+            falhas
+              ? `${total} lead(s) ajustados, ${falhas} com erro. Veja o log.`
+              : `Evento "${result?.evento}" tirado do Portal (${total} lead(s)).`,
+            falhas ? "error" : "success",
+            4000,
+          );
+          loadLeads();
+        }}
       />
     </MainLayout>
   );

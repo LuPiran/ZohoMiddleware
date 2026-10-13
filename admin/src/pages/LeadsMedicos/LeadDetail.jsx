@@ -159,6 +159,10 @@ export default function LeadDetail() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [devolverAoZoho, setDevolverAoZoho] = useState(true);
+  const [eventoParaRemover, setEventoParaRemover] = useState(null);
+  const [removendoEvento, setRemovendoEvento] = useState(false);
+  const isAdmin = hasAdminPanelPermission();
 
   const loadLead = useCallback(async () => {
     if (!id) return;
@@ -168,6 +172,12 @@ export default function LeadDetail() {
       const result = await leadsMedicosService.getById(id);
       setLead(result.data);
     } catch (err) {
+      // Lead excluído pelo admin enquanto a tela estava aberta.
+      if (err?.response?.status === 404) {
+        showToast("Este lead foi removido do Portal.", "info", 3500);
+        navigate(ROUTES.LEADS_MEDICOS, { replace: true });
+        return;
+      }
       const message =
         err?.response?.data?.error ||
         err?.message ||
@@ -177,6 +187,7 @@ export default function LeadDetail() {
     } finally {
       setLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   useEffect(() => {
@@ -359,11 +370,32 @@ export default function LeadDetail() {
     }
   };
 
+  const handleRemoverEvento = async () => {
+    if (!eventoParaRemover?.id) return;
+    setRemovendoEvento(true);
+    try {
+      const result = await leadsMedicosService.removerEvento(id, eventoParaRemover.id, {
+        devolverAoZoho,
+      });
+      if (result.data) setLead(result.data);
+      showToast(`Evento "${eventoParaRemover.nome}" tirado deste lead.`, "success", 2800);
+      setEventoParaRemover(null);
+    } catch (err) {
+      showToast(
+        err?.response?.data?.error || err?.message || "Não foi possível tirar o evento.",
+        "error",
+        3500,
+      );
+    } finally {
+      setRemovendoEvento(false);
+    }
+  };
+
   const handleDeleteLead = async () => {
     setDeleting(true);
     try {
-      await leadsMedicosService.excluirLead(id);
-      showToast("Lead excluído.", "success", 2500);
+      await leadsMedicosService.excluirLead(id, { devolverAoZoho });
+      showToast("Lead excluído do Portal.", "success", 2500);
       navigate(ROUTES.LEADS_MEDICOS);
     } catch (err) {
       const message =
@@ -419,7 +451,10 @@ export default function LeadDetail() {
                 </Button>
                 <Button
                   variant="danger"
-                  onClick={() => setShowDeleteModal(true)}
+                  onClick={() => {
+                    setDevolverAoZoho(true);
+                    setShowDeleteModal(true);
+                  }}
                   disabled={loading || submitting || deleting}
                 >
                   Excluir lead
@@ -488,7 +523,17 @@ export default function LeadDetail() {
             />
             <LeadTimeline timeline={lead.timeline} />
             <LeadPrescritorCard lead={lead} />
-            <LeadDetailsCard lead={lead} />
+            <LeadDetailsCard
+              lead={lead}
+              onRemoverEvento={
+                isAdmin
+                  ? (ev) => {
+                      setDevolverAoZoho(true);
+                      setEventoParaRemover(ev);
+                    }
+                  : undefined
+              }
+            />
             <LeadFirstAttemptCard
               lead={lead}
               submitting={submitting}
@@ -553,14 +598,47 @@ export default function LeadDetail() {
       <ConfirmModal
         open={showDeleteModal}
         title="Excluir este lead?"
-        description="Isso apaga o lead definitivamente da base do Portal. Não afeta o registro no Zoho, e não pode ser desfeito por aqui."
+        description="Apaga o lead definitivamente do Portal. Ele some de todas as telas, inclusive do card do consultor, e sai da carteira de quem aceitou. Não pode ser desfeito."
         confirmLabel={deleting ? "Excluindo…" : "Excluir definitivamente"}
         cancelLabel="Cancelar"
         variant="danger"
         icon={<MdDeleteForever className="text-lg" />}
         onConfirm={deleting ? undefined : handleDeleteLead}
         onCancel={() => !deleting && setShowDeleteModal(false)}
-      />
+      >
+        <DevolverAoZohoCheckbox checked={devolverAoZoho} onChange={setDevolverAoZoho} />
+      </ConfirmModal>
+
+      {/* Modal de confirmação — tirar um evento do lead (Admin Painel) */}
+      <ConfirmModal
+        open={Boolean(eventoParaRemover)}
+        title={`Tirar o evento "${eventoParaRemover?.nome || ""}"?`}
+        description="O lead continua no Portal com o consultor e os outros eventos. Só este evento sai do histórico."
+        confirmLabel={removendoEvento ? "Tirando…" : "Tirar evento"}
+        cancelLabel="Cancelar"
+        variant="danger"
+        icon={<MdDeleteForever className="text-lg" />}
+        onConfirm={removendoEvento ? undefined : handleRemoverEvento}
+        onCancel={() => !removendoEvento && setEventoParaRemover(null)}
+      >
+        <DevolverAoZohoCheckbox checked={devolverAoZoho} onChange={setDevolverAoZoho} />
+      </ConfirmModal>
     </MainLayout>
+  );
+}
+
+function DevolverAoZohoCheckbox({ checked, onChange }) {
+  return (
+    <label className="flex items-start gap-2 text-sm text-slate-600">
+      <input
+        type="checkbox"
+        className="mt-0.5"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+      />
+      <span>
+        Voltar a ficha no Zoho para <strong>Novo Lead</strong> (pode ser reenviada depois).
+      </span>
+    </label>
   );
 }

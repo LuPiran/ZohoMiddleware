@@ -12,6 +12,7 @@ import { MdClose } from "react-icons/md";
  *   cancelLabel  string  (default: "Cancelar")
  *   variant      "danger" | "warning" | "default"
  *   icon         ReactNode (opcional)
+ *   children     ReactNode (opcional, conteúdo extra abaixo da descrição)
  *   onConfirm    () => void
  *   onCancel     () => void
  */
@@ -23,6 +24,7 @@ export default function ConfirmModal({
   cancelLabel = "Cancelar",
   variant = "default",
   icon,
+  children,
   onConfirm,
   onCancel,
 }) {
@@ -109,6 +111,8 @@ export default function ConfirmModal({
             <MdClose className="text-lg" />
           </button>
         </div>
+
+        {children && <div className="px-5 pb-4">{children}</div>}
 
         {/* Ações */}
         <div className="flex gap-2 border-t border-slate-100 px-5 py-4">

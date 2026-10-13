@@ -39,6 +39,8 @@ const STATUS_ALIASES = {
   "lead encaminhado a gestao": ZOHO_LEAD_STATUS.ENCAMINHADO_GESTAO,
   "encaminhado à gestão": ZOHO_LEAD_STATUS.ENCAMINHADO_GESTAO,
   "encaminhado gestao": ZOHO_LEAD_STATUS.ENCAMINHADO_GESTAO,
+  // Grafia antiga do Portal (com acento), que o picklist do Zoho não tem.
+  "lead já atribuído": ZOHO_LEAD_STATUS.JA_ATRIBUIDO,
 };
 
 export function canonicalizeLeadStatus(raw, fallback = ZOHO_LEAD_STATUS.NOVO) {
@@ -158,8 +160,11 @@ function attemptFieldMap(round) {
 
 /**
  * PUT no registro do CRM. Falha não derruba a ação do portal.
+ * `limpar`: campos que devem ser apagados no Zoho (vão como null).
+ * `semGatilhos`: manda `trigger: []`, então o Zoho não roda regras de
+ * fluxo/aprovação/blueprint por causa dessa gravação.
  */
-export async function updateZohoLeadRecord(idZoho, fields) {
+export async function updateZohoLeadRecord(idZoho, fields, { limpar = [], semGatilhos = false } = {}) {
   const moduleName = ENV.ZOHO_LEADS_MODULE || "Leads_M_dicos";
   const id = String(idZoho || "").trim();
   if (!id) {
@@ -173,20 +178,31 @@ export async function updateZohoLeadRecord(idZoho, fields) {
       return true;
     }),
   );
+  for (const name of limpar) {
+    if (name && !Object.prototype.hasOwnProperty.call(payload, name)) {
+      payload[name] = null;
+    }
+  }
   if (!Object.keys(payload).length) {
     return { synced: false, reason: "sem campos" };
   }
 
+  if (ENV.ZOHO_LEAD_SYNC_DISABLED) {
+    console.log(`[ZOHO LEAD] Sync DESLIGADO (dev) ${id} → ${JSON.stringify(payload)}`);
+    return { synced: false, reason: "sync desligado" };
+  }
+
   await chamarZohoApi("PUT", `/${moduleName}`, {
     data: [{ id, ...payload }],
+    ...(semGatilhos ? { trigger: [] } : {}),
   });
 
   console.log(`[ZOHO LEAD] Sync ok ${id} → ${JSON.stringify(payload)}`);
   return { synced: true };
 }
 
-export function syncZohoLead(idZoho, fields) {
-  void updateZohoLeadRecord(idZoho, fields).catch((error) => {
+export function syncZohoLead(idZoho, fields, options) {
+  void updateZohoLeadRecord(idZoho, fields, options).catch((error) => {
     console.error(
       "[ZOHO LEAD] Falha ao sincronizar",
       idZoho,
@@ -204,6 +220,162 @@ export function syncZohoLead(idZoho, fields) {
  */
 export function syncZohoLeadJaAtribuido(lead) {
   syncZohoLead(lead.idZoho, field(ENV.ZOHO_LEAD_STATUS_FIELD, ZOHO_LEAD_STATUS.JA_ATRIBUIDO));
+}
+
+/**
+ * Fichas extras do mesmo médico: quando ele volta por outro evento, o Zoho
+ * cria outro registro (outro idZoho), mas no Portal continua um lead só —
+ * o idZoho de cada ficha fica em lead.eventos[]. Devolve os ids das fichas
+ * extras (sem a principal, que já é lead.idZoho).
+ */
+function idsFichasExtras(lead) {
+  const principal = String(lead?.idZoho || "").trim();
+  const ids = (Array.isArray(lead?.eventos) ? lead.eventos : [])
+    .map((evento) => String(evento?.idZoho || "").trim())
+    .filter((id) => id && id !== principal);
+  return [...new Set(ids)];
+}
+
+/**
+ * Consultor que está tratando o médico, para aparecer nas fichas extras:
+ * Consultor Tegra (o campo que o Marketing olha) + Dist_Consultor_*.
+ * Consultor Tegra preenchido dispara a regra EnviarLeadPortalManual, então
+ * toda gravação em ficha extra vai SEM_GATILHOS.
+ */
+function consultorVisivel(lead) {
+  return {
+    ...field(ENV.ZOHO_LEAD_CONSULTOR_FIELD, consultorLookup(lead)),
+    ...field(ENV.ZOHO_LEAD_EMAIL_CONSULTOR_FIELD, lead?.emailConsultor),
+    ...field(ENV.ZOHO_LEAD_DIST_CONSULTOR_NOME_FIELD, lead?.consultor),
+    ...field(ENV.ZOHO_LEAD_DIST_CONSULTOR_EMAIL_FIELD, lead?.emailConsultor),
+  };
+}
+
+const SEM_GATILHOS = { semGatilhos: true };
+
+/**
+ * Tabulação do consultor (aceite, tentativas, sem contato, sem interesse,
+ * venda/marketing, agendamentos): grava na ficha principal e repete nas
+ * fichas extras do mesmo médico, com o consultor que está tratando.
+ */
+function syncZohoLeadTabulacao(lead, fields) {
+  syncZohoLead(lead.idZoho, fields);
+  espelharNasFichasExtras(lead, { ...fields, ...consultorVisivel(lead) });
+}
+
+function espelharNasFichasExtras(lead, fields) {
+  for (const id of idsFichasExtras(lead)) {
+    syncZohoLead(id, fields, SEM_GATILHOS);
+  }
+}
+
+// Status que já são tabulação do consultor: uma ficha extra que chega
+// depois já nasce com ele. Os demais (oferta, gestão, rejeitado, retido)
+// ainda não têm tabulação e a ficha extra fica "Já Atribuído".
+const STATUS_TABULADOS = new Set([
+  ZOHO_LEAD_STATUS.QUALIFICACAO,
+  ZOHO_LEAD_STATUS.COM_INTERESSE,
+  ZOHO_LEAD_STATUS.ENCAMINHADO_MKT,
+  ZOHO_LEAD_STATUS.SEM_CONTATO,
+  ZOHO_LEAD_STATUS.SEM_INTERESSE,
+  ZOHO_LEAD_STATUS.SEM_TRATATIVA,
+  ZOHO_LEAD_STATUS.CONVERTIDO,
+]);
+
+/**
+ * Lead novo do Zoho (outro idZoho) de um médico que já tem lead no Portal
+ * (mesmo registro + UF): o Portal só soma o evento no lead existente e não
+ * distribui de novo. Responde no registro novo do Zoho para ele não ficar
+ * parado em "Enviar Lead Portal": marcado como processado, com o consultor
+ * que está tratando, a tabulação atual (ou "Já Atribuído", se ainda não
+ * houver) e o log apontando para o lead original.
+ */
+export function syncZohoLeadDuplicado(idZohoNovo, original, { evento, consultorTentado } = {}) {
+  if (!idZohoNovo) return;
+  const quando = new Date().toLocaleString("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+    timeZone: "America/Sao_Paulo",
+  });
+  const dono = original.consultor
+    ? `com o consultor ${original.consultor}`
+    : "ainda sem consultor";
+  const bloqueio = consultorTentado
+    ? `[${quando}] Envio bloqueado — Tentaram direcionar este médico para ${consultorTentado}, ` +
+      `mas ele já está ${dono}. O lead foi mantido com o consultor atual.\n`
+    : "";
+  const cabecalho =
+    bloqueio +
+    `[${quando}] Médico já cadastrado no Portal — ` +
+    `Este médico (registro ${original.numeroRegistro}/${original.ufCrm}) já está no Portal ` +
+    `pelo protocolo ${original.protocolo || "—"}, ${dono} (status: ${original.status}). ` +
+    `O evento "${evento || "Sem evento"}" foi adicionado ao histórico desse lead. ` +
+    `Este registro não foi distribuído de novo e recebe as tabulações do consultor.`;
+  const status = STATUS_TABULADOS.has(original.status)
+    ? original.status
+    : ZOHO_LEAD_STATUS.JA_ATRIBUIDO;
+
+  syncZohoLead(idZohoNovo, {
+    ...field(ENV.ZOHO_LEAD_STATUS_FIELD, status),
+    ...field(ENV.ZOHO_LEAD_EVENTO_TRATADO_FIELD, true),
+    ...field(ENV.ZOHO_LEAD_NOME_EVENTO_FIELD, evento),
+    ...consultorVisivel(original),
+    ...field(
+      ENV.ZOHO_LEAD_DIST_ERRO_SYNC_FIELD,
+      `${cabecalho}\n\n${buildZohoLogText(original)}`,
+    ),
+  }, SEM_GATILHOS);
+}
+
+/**
+ * Admin tirou o lead (ou só um evento dele) do Portal: a ficha do Zoho volta
+ * a "Novo Lead", como se nunca tivesse sido enviada, e o log explica quem
+ * tirou e por quê. Vai sem gatilhos, para nenhuma regra do Leads - Médicos
+ * reenviar a ficha ao Portal. O Consultor Tegra só é limpo quando foi o
+ * Portal que preencheu (se o Marketing escolheu o consultor, fica).
+ */
+export function syncZohoLeadRemovidoDoPortal(idZoho, { motivo, por, manterConsultor = false } = {}) {
+  if (!idZoho) return;
+  const quando = new Date().toLocaleString("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+    timeZone: "America/Sao_Paulo",
+  });
+  const limpar = [
+    ENV.ZOHO_LEAD_DIST_CONSULTOR_NOME_FIELD,
+    ENV.ZOHO_LEAD_DIST_CONSULTOR_EMAIL_FIELD,
+    ENV.ZOHO_LEAD_DIST_CONSULTOR_ID_FIELD,
+    ENV.ZOHO_LEAD_DIST_DATA_ATRIBUICAO_FIELD,
+    ENV.ZOHO_LEAD_DIST_DATA_CHECKIN_FIELD,
+    ENV.ZOHO_LEAD_DIST_STATUS_FIELD,
+    ENV.ZOHO_LEAD_DIST_FILA_FIELD,
+    ENV.ZOHO_LEAD_DIST_RODADAS_FIELD,
+    ENV.ZOHO_LEAD_DATA_QUALIFICADO_FIELD,
+    ...(manterConsultor
+      ? []
+      : [ENV.ZOHO_LEAD_CONSULTOR_FIELD, ENV.ZOHO_LEAD_EMAIL_CONSULTOR_FIELD]),
+  ].filter(Boolean);
+
+  void updateZohoLeadRecord(
+    idZoho,
+    {
+      ...field(ENV.ZOHO_LEAD_STATUS_FIELD, ZOHO_LEAD_STATUS.NOVO),
+      ...field(ENV.ZOHO_LEAD_EVENTO_TRATADO_FIELD, false),
+      ...field(
+        ENV.ZOHO_LEAD_DIST_ERRO_SYNC_FIELD,
+        `[${quando}] Removido do Portal por ${por || "um administrador"}` +
+          (motivo ? ` — ${motivo}` : "") +
+          ". A ficha voltou para Novo Lead e pode ser enviada de novo.",
+      ),
+    },
+    { limpar, semGatilhos: true },
+  ).catch((error) => {
+    console.error(
+      "[ZOHO LEAD] Falha ao devolver ficha removida do Portal",
+      idZoho,
+      error.response?.data || error.message,
+    );
+  });
 }
 
 export function syncZohoLeadProtocolo(lead) {
@@ -295,7 +467,7 @@ export function syncZohoLeadAccepted(lead) {
   const qualificationDate = toZohoDate(now);
 
   // Status + data qualificação + Dist checkin no mesmo PUT
-  syncZohoLead(lead.idZoho, {
+  syncZohoLeadTabulacao(lead, {
     ...field(ENV.ZOHO_LEAD_STATUS_FIELD, ZOHO_LEAD_STATUS.QUALIFICACAO),
     ...field(ENV.ZOHO_LEAD_DATA_QUALIFICADO_FIELD, qualificationDate),
     ...field(ENV.ZOHO_LEAD_DIST_DATA_CHECKIN_FIELD, toZohoDateTime(now)),
@@ -314,7 +486,7 @@ export function syncZohoLeadAccepted(lead) {
 }
 
 export function syncZohoLeadAttemptTreated(lead, round, { observacao, at, destino } = {}) {
-  syncZohoLead(lead.idZoho, buildZohoAttemptTreatedFields(lead, round, { observacao, at, destino }));
+  syncZohoLeadTabulacao(lead, buildZohoAttemptTreatedFields(lead, round, { observacao, at, destino }));
 }
 
 export function buildZohoAttemptTreatedFields(lead, round, { observacao, at, destino = "venda" } = {}) {
@@ -345,8 +517,8 @@ export function buildZohoAttemptTreatedFields(lead, round, { observacao, at, des
 }
 
 export function syncZohoLeadAttemptNoReturn(lead, round, { at, observacao, leadTerminal } = {}) {
-  syncZohoLead(
-    lead.idZoho,
+  syncZohoLeadTabulacao(
+    lead,
     buildZohoAttemptNoReturnFields(lead, round, { at, observacao, leadTerminal }),
   );
 }
@@ -380,8 +552,8 @@ export function buildZohoAttemptNoReturnFields(
  * status do lead — continua "Lead Em Qualificação".
  */
 export function syncZohoLeadFourthAttemptRequested(lead, { at, dataQuartaTentativa, motivo } = {}) {
-  syncZohoLead(
-    lead.idZoho,
+  syncZohoLeadTabulacao(
+    lead,
     buildZohoFourthAttemptRequestedFields(lead, { at, dataQuartaTentativa, motivo }),
   );
 }
@@ -410,7 +582,7 @@ const AGENDAMENTO_FIELDS = {
  * de próximo contato previsto (até 4 por lead), sem mexer em status/rodada.
  */
 export function syncZohoLeadAgendamento(lead, { n, data } = {}) {
-  syncZohoLead(lead.idZoho, buildZohoAgendamentoFields(lead, { n, data }));
+  syncZohoLeadTabulacao(lead, buildZohoAgendamentoFields(lead, { n, data }));
 }
 
 export function buildZohoAgendamentoFields(lead, { n, data } = {}) {
@@ -429,7 +601,18 @@ export function buildZohoAgendamentoFields(lead, { n, data } = {}) {
  * foi recusa explícita ou timeout (Dist_Motivo_Rejeicao).
  */
 export function syncZohoLeadRejected(lead, { at } = {}) {
-  syncZohoLead(lead.idZoho, buildZohoRejectedFields(lead, { at }));
+  const fields = buildZohoRejectedFields(lead, { at });
+  syncZohoLead(lead.idZoho, fields);
+  // Recusa vale para todas as fichas do médico (regra do Júlio, 13/10), mas
+  // sem o consultor que recusou: as extras não ficam com o nome dele.
+  const semConsultor = new Set([
+    ENV.ZOHO_LEAD_CONSULTOR_FIELD,
+    ENV.ZOHO_LEAD_EMAIL_CONSULTOR_FIELD,
+  ]);
+  espelharNasFichasExtras(
+    lead,
+    Object.fromEntries(Object.entries(fields).filter(([name]) => !semConsultor.has(name))),
+  );
 }
 
 export function buildZohoRejectedFields(lead, { at } = {}) {
@@ -452,7 +635,7 @@ export function buildZohoRejectedFields(lead, { at } = {}) {
 }
 
 export function syncZohoLeadSemContato(lead, { at } = {}) {
-  syncZohoLead(lead.idZoho, buildZohoSemContatoFields(lead, { at }));
+  syncZohoLeadTabulacao(lead, buildZohoSemContatoFields(lead, { at }));
 }
 
 export function buildZohoSemContatoFields(lead, { at } = {}) {
@@ -464,7 +647,7 @@ export function buildZohoSemContatoFields(lead, { at } = {}) {
 }
 
 export function syncZohoLeadSemInteresse(lead, { at, observacao, round } = {}) {
-  syncZohoLead(lead.idZoho, buildZohoSemInteresseFields(lead, { at, observacao, round }));
+  syncZohoLeadTabulacao(lead, buildZohoSemInteresseFields(lead, { at, observacao, round }));
 }
 
 export function buildZohoSemInteresseFields(lead, { at, observacao, round } = {}) {

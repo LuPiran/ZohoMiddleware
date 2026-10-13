@@ -172,6 +172,9 @@ export const ENV = {
     process.env.ZOHO_WORKDRIVE_API_BASE || "https://www.zohoapis.com/workdrive/api/v1",
   ZOHO_WORKDRIVE_ACCOUNTS_URL: process.env.ZOHO_WORKDRIVE_ACCOUNTS_URL,
   ZOHO_WORKDRIVE_DOWNLOAD_BASE: process.env.ZOHO_WORKDRIVE_DOWNLOAD_BASE,
+  /** Dev local: "true" não grava nada nos Leads - Médicos do Zoho (só loga). */
+  ZOHO_LEAD_SYNC_DISABLED: process.env.ZOHO_LEAD_SYNC_DISABLED === "true",
+
   ZOHO_WORKDRIVE_PREVIEW_BASE:
     process.env.ZOHO_WORKDRIVE_PREVIEW_BASE ||
     "https://previewengine-accl.zohoexternal.com/image/WD",

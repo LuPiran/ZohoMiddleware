@@ -8,7 +8,7 @@ import { LEAD_STATUS } from "./leadStatus";
 const STATUS_OPTIONS = [
   ...Object.values(LEAD_STATUS),
   "Lead Encaminhado à Gestão",
-  "Lead Já Atribuído",
+  "Lead Já Atribuido",
 ];
 
 const AQUECIMENTO_OPTIONS = [

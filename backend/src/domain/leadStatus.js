@@ -10,7 +10,9 @@ export const ZOHO_LEAD_STATUS = {
   SEM_TRATATIVA: "Lead Sem Tratativa",
   ENCAMINHADO_MKT: "Lead Direcionado ao Marketing",
   ENCAMINHADO_GESTAO: "Lead Encaminhado à Gestão",
-  JA_ATRIBUIDO: "Lead Já Atribuído",
+  // Grafia exata do picklist do Zoho (sem acento no "i"). Com acento o valor
+  // não bate com nenhuma opção do campo Status.
+  JA_ATRIBUIDO: "Lead Já Atribuido",
 };
 
 export const ZOHO_ATTEMPT_STATUS = {

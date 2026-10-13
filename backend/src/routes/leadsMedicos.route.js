@@ -7,6 +7,9 @@ import {
   deletarLead,
   editarLead,
   getLeadForUser,
+  liberarLeadRetido,
+  limparEvento,
+  removerEventoDoLead,
   listLeadsForUser,
   listPendingOffersForUser,
   markAttemptSemRetorno,
@@ -227,6 +230,38 @@ router.post("/convertido", authenticateLeadsWebhook, zohoWebhookRateLimiter, asy
  * Detalhe de um lead.
  * GET /v1/leads-medicos/:id
  */
+/**
+ * Tira um evento inteiro do Portal — restrito a Admin Painel. Sem
+ * `confirmar: true` só devolve a simulação (o que seria feito em cada lead).
+ * POST /v1/leads-medicos/limpar-evento
+ */
+router.post(
+  "/limpar-evento",
+  authenticateToken,
+  requireAdmin,
+  writeRateLimiter,
+  async (req, res) => {
+    try {
+      const result = await limparEvento(req.user, {
+        evento: String(req.body?.evento || "").slice(0, 200),
+        confirmar: req.body?.confirmar === true,
+        devolverAoZoho: req.body?.devolverAoZoho !== false,
+        motivo: req.body?.motivo ? String(req.body.motivo).slice(0, 300) : undefined,
+      });
+      return res.json({ success: true, data: result });
+    } catch (error) {
+      console.error("[LEADS] Erro ao limpar evento:", error);
+      const handled = storageErrorResponse(res, error);
+      if (handled) return handled;
+
+      return res.status(500).json({
+        success: false,
+        error: error.message || "Erro ao limpar o evento",
+      });
+    }
+  },
+);
+
 router.get(
   "/:id",
   authenticateToken,
@@ -682,7 +717,10 @@ router.delete(
   writeRateLimiter,
   async (req, res) => {
     try {
-      const result = await deletarLead(req.params.id, req.user);
+      const result = await deletarLead(req.params.id, req.user, {
+        devolverAoZoho: req.query.zoho !== "0",
+        motivo: req.query.motivo ? String(req.query.motivo).slice(0, 300) : undefined,
+      });
       return res.json({ success: true, data: result });
     } catch (error) {
       console.error("[LEADS] Erro ao excluir lead:", error);
@@ -692,6 +730,66 @@ router.delete(
       return res.status(500).json({
         success: false,
         error: error.message || "Erro ao excluir o lead",
+      });
+    }
+  },
+);
+
+/**
+ * Tira um evento do lead sem apagar o atendimento (médico com mais de um
+ * evento) — restrito a Admin Painel. `?zoho=0` não mexe na ficha do Zoho.
+ * DELETE /v1/leads-medicos/:id/eventos/:eventoId
+ */
+router.delete(
+  "/:id/eventos/:eventoId",
+  authenticateToken,
+  requireAdmin,
+  requireSafeResourceId("id"),
+  requireSafeResourceId("eventoId"),
+  writeRateLimiter,
+  async (req, res) => {
+    try {
+      const lead = await removerEventoDoLead(req.params.id, req.params.eventoId, req.user, {
+        devolverAoZoho: req.query.zoho !== "0",
+        motivo: req.query.motivo ? String(req.query.motivo).slice(0, 300) : undefined,
+      });
+      return res.json({ success: true, data: lead });
+    } catch (error) {
+      console.error("[LEADS] Erro ao remover evento do lead:", error);
+      const handled = storageErrorResponse(res, error);
+      if (handled) return handled;
+
+      return res.status(500).json({
+        success: false,
+        error: error.message || "Erro ao remover o evento",
+      });
+    }
+  },
+);
+
+/**
+ * Libera agora a distribuição de um lead retido pela data do evento —
+ * restrito a Admin Painel.
+ * POST /v1/leads-medicos/:id/liberar
+ */
+router.post(
+  "/:id/liberar",
+  authenticateToken,
+  requireAdmin,
+  requireSafeResourceId("id"),
+  writeRateLimiter,
+  async (req, res) => {
+    try {
+      const lead = await liberarLeadRetido(req.params.id, req.user);
+      return res.json({ success: true, data: lead });
+    } catch (error) {
+      console.error("[LEADS] Erro ao liberar lead retido:", error);
+      const handled = storageErrorResponse(res, error);
+      if (handled) return handled;
+
+      return res.status(500).json({
+        success: false,
+        error: error.message || "Erro ao liberar o lead",
       });
     }
   },

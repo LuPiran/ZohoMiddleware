@@ -9,6 +9,7 @@ import {
   MdLocationOn,
   MdCategory,
   MdEvent,
+  MdClose,
   MdExpandMore,
   MdExpandLess,
   MdTag,
@@ -227,7 +228,7 @@ function LeadMapEmbed({ lead }) {
 /* ─────────────────────────────────────────
    Componente principal
 ───────────────────────────────────────── */
-export default function LeadDetailsCard({ lead }) {
+export default function LeadDetailsCard({ lead, onRemoverEvento }) {
   if (!lead) return null;
 
   const [showEndereco, setShowEndereco] = useState(false);
@@ -439,20 +440,31 @@ export default function LeadDetailsCard({ lead }) {
           </div>
         )}
 
-        {/* Outros eventos */}
+        {/* Outros eventos — o admin vê todos e pode tirar um deles */}
         {eventos.length > 1 && (
           <div className="border-t border-tegra-gray-medium/40 pt-4">
             <p className="text-xs font-medium text-tegra-text-secondary mb-2">
-              Outros eventos
+              {onRemoverEvento ? "Eventos deste médico" : "Outros eventos"}
             </p>
             <div className="flex flex-wrap gap-2">
-              {eventos.slice(1).map((ev) => (
+              {(onRemoverEvento ? eventos : eventos.slice(1)).map((ev) => (
                 <span
                   key={ev.id}
                   className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600"
                 >
                   <MdEvent className="text-slate-400 text-xs" />
                   {ev.nome}
+                  {onRemoverEvento && ev.id && (
+                    <button
+                      type="button"
+                      onClick={() => onRemoverEvento(ev)}
+                      className="ml-0.5 rounded-full p-0.5 text-slate-400 hover:bg-red-50 hover:text-tegra-error"
+                      aria-label={`Tirar o evento ${ev.nome} deste lead`}
+                      title="Tirar este evento do lead"
+                    >
+                      <MdClose className="text-xs" />
+                    </button>
+                  )}
                 </span>
               ))}
             </div>
