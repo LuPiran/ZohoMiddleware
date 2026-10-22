@@ -35,7 +35,7 @@ export default function Input({
       )}
       <div className="relative">
         {icon && (
-          <div className="absolute left-2.5 sm:left-3 top-1/2 transform -translate-y-1/2 text-tegra-text-secondary">
+          <div className="pointer-events-none absolute left-2.5 sm:left-3 top-1/2 transform -translate-y-1/2 text-tegra-text-secondary">
             <div className="text-base sm:text-xl">{icon}</div>
           </div>
         )}
@@ -47,7 +47,12 @@ export default function Input({
           required={isRequired}
           aria-required={isRequired}
           disabled={disabled}
-          className={`w-full border rounded-lg py-2 sm:py-2.5 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-tegra-teal transition ${
+          className={`w-full ${
+            // Safari iOS: input de data ignora w-full e fica sem área de toque quando vazio
+            type === "date" || type === "datetime-local" || type === "time"
+              ? "block min-w-0 appearance-none bg-white min-h-[42px] sm:min-h-[46px] text-left"
+              : ""
+          } border rounded-lg py-2 sm:py-2.5 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-tegra-teal transition ${
             icon ? "pl-9 sm:pl-10" : "px-2.5 sm:px-3"
           } ${
             showIconClear && iconClear && iconRight
