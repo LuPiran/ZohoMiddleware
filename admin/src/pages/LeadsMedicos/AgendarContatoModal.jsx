@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { useMemo, useState } from "react";
 import { MdCalendarToday, MdClose, MdEventAvailable } from "react-icons/md";
 import Button from "../../components/ui/Button";
@@ -43,7 +44,9 @@ export default function AgendarContatoModal({ open, onClose, onConfirm, submitti
     resetForm();
   };
 
-  return (
+  // Portal no body: o card pai tem backdrop-filter (.bg-tegra-bg-primary), que prende
+  // o position:fixed dentro dele. No Safari iOS o modal ficava recortado e o input de data não abria.
+  return createPortal(
     <div
       className="fixed inset-0 z-[130] flex items-center justify-center bg-[#0B2340]/55 backdrop-blur-[2px] p-3 sm:p-4"
       role="dialog"
@@ -100,6 +103,7 @@ export default function AgendarContatoModal({ open, onClose, onConfirm, submitti
           </Button>
         </footer>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

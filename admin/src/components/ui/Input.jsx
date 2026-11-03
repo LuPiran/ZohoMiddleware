@@ -21,9 +21,23 @@ export default function Input({
   iconClear,
   onClearClick,
   showIconClear = false,
+  onClick,
   ...props
 }) {
   const isRequired = required && !podeIgnorarCamposObrigatorios(authService.getUser());
+  const isDateLike = type === "date" || type === "datetime-local" || type === "time";
+
+  const handleClick = (e) => {
+    onClick?.(e);
+    // Reforço pro Safari iOS: abre o seletor nativo explicitamente no toque
+    if (isDateLike && !disabled) {
+      try {
+        e.currentTarget.showPicker?.();
+      } catch {
+        // showPicker pode recusar (ex.: já aberto); o comportamento nativo segue valendo
+      }
+    }
+  };
 
   return (
     <div>
@@ -49,7 +63,7 @@ export default function Input({
           disabled={disabled}
           className={`w-full ${
             // Safari iOS: input de data ignora w-full e fica sem área de toque quando vazio
-            type === "date" || type === "datetime-local" || type === "time"
+            isDateLike
               ? "block min-w-0 appearance-none bg-white min-h-[42px] sm:min-h-[46px] text-left"
               : ""
           } border rounded-lg py-2 sm:py-2.5 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-tegra-teal transition ${
@@ -67,6 +81,7 @@ export default function Input({
           } ${
             disabled ? "bg-tegra-gray-light cursor-not-allowed" : ""
           } ${className}`}
+          onClick={handleClick}
           {...props}
         />
         {showIconClear && iconClear && (
