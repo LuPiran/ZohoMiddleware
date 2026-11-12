@@ -623,11 +623,8 @@ function encaminhadoGestaoCondition() {
  * Quem estava com a oferta (consultorId/consultor/emailConsultor) é
  * preservado de propósito: é o registro de quem rejeitou.
  *
- * Se ainda sobra alguém na região (excluindo todo mundo que já recusou),
- * o lead vira "Lead Encaminhado à Gestão" — fica parado aguardando uma
- * ação manual/automação no Zoho (botão, regra) que reenvie o webhook e
- * dispare redistributeLead() pro próximo consultor mais próximo. Se não
- * sobra ninguém, encerra direto como "Lead Rejeitado" (terminal).
+ * Sempre vira "Lead Rejeitado" e fica parado no Zoho. Se o Marketing
+ * reenviar, createLeadFromZoho reabre o lead (reopenRejectedLead).
  */
 export async function rejectLeadOffer(lead, { reason, by, timeout = false } = {}) {
   const now = new Date().toISOString();
@@ -644,21 +641,13 @@ export async function rejectLeadOffer(lead, { reason, by, timeout = false } = {}
   if (lead.consultorId) recusadosSet.add(String(lead.consultorId));
   const slaRecusados = [...recusadosSet];
 
-  // Ainda tem alguém na região pra tentar (excluindo quem já recusou)?
-  // Só verifica pra decidir o status — a oferta de verdade só acontece
-  // quando redistributeLead() for chamado (reenvio do webhook do Zoho).
-  const coords = leadCoords(lead);
-  const hasNext =
-    !isGestaoPhase(lead) &&
-    Boolean(lead.regiao) &&
-    Boolean(await pickConsultorForOffer(lead.regiao, slaRecusados, coords));
-
-  const novoStatus = hasNext
-    ? ZOHO_LEAD_STATUS.ENCAMINHADO_GESTAO
-    : ZOHO_LEAD_STATUS.REJEITADO;
-  const semRotacaoTexto = hasNext
-    ? "Encaminhado à Gestão para redistribuição ao próximo consultor mais próximo."
-    : 'Encerrado no Portal e sincronizado ao Zoho como "Lead Rejeitado" — não há mais consultores disponíveis na região.';
+  // Recusa ou prazo vencido: sempre volta pro Zoho como "Lead Rejeitado" e
+  // fica parado. Quem decide reenviar (e pra quem) é o Marketing — o Portal
+  // não repassa sozinho e não usa mais "Encaminhado à Gestão", que fazia o
+  // Zoho redisparar automaticamente (pedido do Samuel, 12/11).
+  const novoStatus = ZOHO_LEAD_STATUS.REJEITADO;
+  const semRotacaoTexto =
+    'Devolvido ao Zoho como "Lead Rejeitado", aguardando o Marketing decidir o reenvio.';
 
   const updated = await persistOfferSwitch(
     lead,

@@ -682,6 +682,60 @@ async function assignUniqueProtocolo(preferred) {
 }
 
 /**
+ * Reabre um lead rejeitado que o Marketing reenviou pelo Zoho. Limpa a
+ * marca de rejeição e a lista de quem recusou (é um envio novo e
+ * deliberado) e distribui: direto pro "Consultor Tegra" indicado ou pela
+ * fila/geolocalização normal. O histórico antigo fica guardado.
+ */
+async function reopenRejectedLead(existing, incoming) {
+  const now = new Date().toISOString();
+  const historico = appendHistorico(existing, {
+    action: "lead_reaberto_reenvio",
+    label: "Lead reenviado pelo Zoho",
+    detail:
+      "O lead estava rejeitado e foi reenviado pelo Marketing. Rejeição anterior limpa e nova distribuição iniciada.",
+    by: "zoho",
+  });
+
+  const reaberto = await updateLeadItem(existing.id, {
+    slaStatus: "aguardando_reenvio",
+    status: ZOHO_LEAD_STATUS.EM_OFERTA,
+    slaDeadline: null,
+    slaCheckinAt: null,
+    dataLeadRejeitado: null,
+    motivoRejeicao: null,
+    slaRecusados: [],
+    slaFaseGestao: false,
+    slaCicloRegional: null,
+    regiao: incoming.regiao ?? existing.regiao,
+    updatedAt: now,
+    historico,
+  });
+
+  if (incoming.prescritorConsultorEmail) {
+    const usable = await findConsultorByEmail(incoming.prescritorConsultorEmail);
+    if (usable) {
+      const atribuido = await assignLeadToConsultor(reaberto, usable, { by: "zoho" });
+      if (atribuido) return atribuido;
+    }
+  }
+
+  const ofertado = await startOfferCycle(reaberto, {
+    by: "zoho",
+    waitingStatus: "aguardando_reenvio",
+  });
+  // Ninguém disponível pra receber: volta a constar como rejeitado (e pode
+  // ser reenviado de novo depois).
+  if (ofertado && ofertado.slaStatus !== "ofertado") {
+    return updateLeadItem(existing.id, {
+      status: ZOHO_LEAD_STATUS.REJEITADO,
+      dataLeadRejeitado: now,
+    });
+  }
+  return ofertado;
+}
+
+/**
  * Cria lead médico no MySQL a partir do payload Zoho.
  * Idempotente por idZoho. id da tabela = UUID próprio.
  *
@@ -717,6 +771,16 @@ export async function createLeadFromZoho(payload) {
       );
       if (liberado) {
         return { created: false, alreadyExists: true, lead: liberado };
+      }
+    }
+
+    // Lead "Rejeitado" (recusa ou prazo vencido, sem ninguém pra repassar)
+    // reenviado pelo Marketing: reabre e distribui de novo, sem precisar
+    // apagar o lead no Portal e limpar os campos no Zoho.
+    if (existing.status === ZOHO_LEAD_STATUS.REJEITADO) {
+      const reaberto = await reopenRejectedLead(existing, lead);
+      if (reaberto) {
+        return { created: false, alreadyExists: true, reopened: true, lead: reaberto };
       }
     }
 

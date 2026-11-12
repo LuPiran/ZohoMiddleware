@@ -117,7 +117,7 @@ export function SlaOfferProvider({ children }) {
       busyRef.current = true;
       try {
         await leadsMedicosService.recusarOferta(offerId, motivo);
-        showToast("Oferta recusada. O lead segue para o próximo consultor.", "success", 2800);
+        showToast("Oferta recusada. O lead foi devolvido ao Zoho.", "success", 2800);
         notifyChanged(offerId, "recusar");
         void loadOffers();
         return true;
