@@ -323,7 +323,7 @@ export default function LeadDetail() {
     navigate(ROUTES.LEADS_MEDICOS);
     try {
       await leadsMedicosService.recusarOferta(id, motivo);
-      showToast("Oferta recusada. O lead foi devolvido ao Zoho.", "success", 2500);
+      showToast("Oferta recusada. O lead segue para o próximo consultor.", "success", 2500);
       window.dispatchEvent(
         new CustomEvent("sla-offer-changed", { detail: { id, action: "recusar" } }),
       );
