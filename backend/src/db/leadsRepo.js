@@ -114,10 +114,27 @@ export async function findByRegistroUf(numeroRegistro, ufCrm) {
   const uf = String(ufCrm || "").trim().toUpperCase();
   if (!hmac || !uf) return null;
   const rows = await query(
-    "SELECT id, payload FROM leads WHERE registro_hmac = ? AND uf_crm = ? LIMIT 1",
+    "SELECT id, payload FROM leads WHERE registro_hmac = ? AND uf_crm = ?",
     [hmac, uf],
   );
-  return openLead(rows[0]);
+  return pickLeadAtualDoMedico(openRows(rows));
+}
+
+/**
+ * O médico pode ter mais de um lead: um antigo encerrado (sem interesse /
+ * sem tratativa) e um novo de outro evento. As fichas seguem o lead atual:
+ * o que ainda está em atendimento; se nenhum estiver, o mais recente.
+ */
+export function pickLeadAtualDoMedico(leads) {
+  if (!leads.length) return null;
+  const encerrado = (l) =>
+    Boolean(l.dataSemInteresse) ||
+    Boolean(l.dataLeadSemTratativa) ||
+    l.status === "Lead Sem Interesse" ||
+    l.status === "Lead Sem Tratativa";
+  const quando = (l) => String(l.createdAt || l.dataNovoLead || l.entradaEm || "");
+  const ordenados = [...leads].sort((a, b) => quando(b).localeCompare(quando(a)));
+  return ordenados.find((l) => !encerrado(l)) || ordenados[0];
 }
 
 function openRows(rows) {

@@ -7,6 +7,7 @@ const { ENV } = await import("../config/env.js");
 const {
   ZOHO_LEAD_STATUS,
   syncZohoLeadAccepted,
+  syncZohoLeadDistribuicao,
   syncZohoLeadDuplicado,
   syncZohoLeadRejected,
   syncZohoLeadSemInteresse,
@@ -106,13 +107,32 @@ describe("ficha nova de médico que já está no Portal", () => {
     expect(ficha[ENV.ZOHO_LEAD_DIST_ERRO_SYNC_FIELD]).toContain("Beltrano");
   });
 
-  it("fica Já Atribuído enquanto o lead ainda está em oferta", async () => {
+  it("acompanha o status da ficha principal mesmo em oferta", async () => {
     syncZohoLeadDuplicado(
       "333",
       { ...leadComDuasFichas, status: ZOHO_LEAD_STATUS.EM_OFERTA },
       { evento: "Evento C" },
     );
     await flush();
-    expect(putsPorId()["333"][ENV.ZOHO_LEAD_STATUS_FIELD]).toBe("Lead Já Atribuido");
+    expect(putsPorId()["333"][ENV.ZOHO_LEAD_STATUS_FIELD]).toBe(ZOHO_LEAD_STATUS.EM_OFERTA);
+  });
+});
+
+describe("redistribuição chega nas fichas extras", () => {
+  beforeEach(() => chamarZohoApi.mockClear());
+
+  it("nova oferta do médico atualiza status e consultor da 2ª ficha", async () => {
+    syncZohoLeadDistribuicao({
+      ...leadComDuasFichas,
+      status: ZOHO_LEAD_STATUS.EM_OFERTA,
+      consultor: "Beltrano Souza",
+      emailConsultor: "beltrano@tegra.com",
+      slaStatus: "ofertado",
+    });
+    await flush();
+    const extra = putsPorId()["222"];
+    expect(extra[ENV.ZOHO_LEAD_STATUS_FIELD]).toBe(ZOHO_LEAD_STATUS.EM_OFERTA);
+    expect(extra[ENV.ZOHO_LEAD_DIST_CONSULTOR_NOME_FIELD]).toBe("Beltrano Souza");
+    expect(extra[ENV.ZOHO_LEAD_NOME_EVENTO_FIELD]).toBeUndefined();
   });
 });

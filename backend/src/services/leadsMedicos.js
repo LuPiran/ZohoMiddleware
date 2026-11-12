@@ -681,6 +681,49 @@ async function assignUniqueProtocolo(preferred) {
   throw err;
 }
 
+function medicoForaDeAtendimento(lead) {
+  return (
+    Boolean(lead?.dataSemInteresse) ||
+    Boolean(lead?.dataLeadSemTratativa) ||
+    lead?.status === ZOHO_LEAD_STATUS.SEM_INTERESSE ||
+    lead?.status === ZOHO_LEAD_STATUS.SEM_TRATATIVA
+  );
+}
+
+/**
+ * Reenvio do Marketing de um lead que está parado depois de recusa ou prazo
+ * vencido ("Lead Rejeitado" ou "Lead Encaminhado à Gestão"). Devolve o
+ * resultado da redistribuição, ou null se o lead não está parado (aí o
+ * reenvio segue o fluxo normal).
+ * - Rejeitado → reabre e distribui (consultor indicado ou fila/geo).
+ * - Gestão + consultor indicado → vai direto pra ele.
+ * - Gestão sem consultor → próximo consultor da região (redistributeLead).
+ */
+async function reenviarLeadParado(existing, incoming) {
+  const status = existing?.status;
+  const comConsultor = Boolean(incoming?.prescritorConsultorEmail);
+  if (
+    status === ZOHO_LEAD_STATUS.REJEITADO ||
+    (status === ZOHO_LEAD_STATUS.ENCAMINHADO_GESTAO && comConsultor)
+  ) {
+    const reaberto = await reopenRejectedLead(existing, incoming);
+    if (reaberto) {
+      return { created: false, alreadyExists: true, reopened: true, lead: reaberto };
+    }
+    return null;
+  }
+  if (status === ZOHO_LEAD_STATUS.ENCAMINHADO_GESTAO) {
+    const redistributed = await redistributeLead(existing);
+    return {
+      created: false,
+      alreadyExists: true,
+      redistributed: Boolean(redistributed),
+      lead: redistributed || existing,
+    };
+  }
+  return null;
+}
+
 /**
  * Reabre um lead rejeitado que o Marketing reenviou pelo Zoho. Limpa a
  * marca de rejeição e a lista de quem recusou (é um envio novo e
@@ -774,21 +817,16 @@ export async function createLeadFromZoho(payload) {
       }
     }
 
-    // Lead recusado/prazo vencido reenviado pelo Marketing: reabre e
-    // distribui de novo, sem precisar apagar o lead no Portal e limpar os
-    // campos no Zoho.
-    // "Encaminhado à Gestão" com consultor escolhido pelo Marketing também
-    // passa por aqui (senão a escolha era ignorada e ia pela geo). Sem
-    // consultor, segue no redistributeLead lá embaixo.
-    const reenvioParaConsultor =
-      existing.status === ZOHO_LEAD_STATUS.ENCAMINHADO_GESTAO &&
-      Boolean(lead.prescritorConsultorEmail);
-    if (existing.status === ZOHO_LEAD_STATUS.REJEITADO || reenvioParaConsultor) {
-      const reaberto = await reopenRejectedLead(existing, lead);
-      if (reaberto) {
-        return { created: false, alreadyExists: true, reopened: true, lead: reaberto };
-      }
-    }
+    // Lead recusado/prazo vencido reenviado pelo Marketing: redistribui sem
+    // precisar apagar o lead no Portal e limpar os campos no Zoho.
+    // Aviso de conversão (venda) nunca é reenvio: segue pro tratamento de
+    // conversão lá embaixo.
+    const avisoDeConversao =
+      zohoStatusUpdate.dataConversaoProvided ||
+      (zohoStatusUpdate.statusProvided &&
+        zohoStatusUpdate.status === ZOHO_LEAD_STATUS.CONVERTIDO);
+    const reenviado = avisoDeConversao ? null : await reenviarLeadParado(existing, lead);
+    if (reenviado) return reenviado;
 
     // Campo "Consultor Tegra" preenchido no reenvio (botão "Distribuir Lead"
     // ou regra do Zoho) → redireciona direto pro consultor indicado, mesmo
@@ -809,21 +847,6 @@ export async function createLeadFromZoho(payload) {
           };
         }
       }
-    }
-
-    // Reenvio do webhook pra um lead "Encaminhado à Gestão" (botão manual
-    // ou regra automática no Zoho) — redistribui pro próximo consultor mais
-    // próximo em vez de tratar como uma atualização de status qualquer.
-    // redistributeLead() é auto-protegido contra reenvio duplicado (condição
-    // atômica no UPDATE), então não precisa de trava extra aqui.
-    if (existing.status === ZOHO_LEAD_STATUS.ENCAMINHADO_GESTAO) {
-      const redistributed = await redistributeLead(existing);
-      return {
-        created: false,
-        alreadyExists: true,
-        redistributed: Boolean(redistributed),
-        lead: redistributed || existing,
-      };
     }
 
     const updates = {};
@@ -885,7 +908,49 @@ export async function createLeadFromZoho(payload) {
   }
 
   const duplicateByRegistro = await findLeadByRegistroUf(lead.numeroRegistro, lead.ufCrm);
-  if (duplicateByRegistro) {
+  const fichaAvisaConversao =
+    zohoStatusUpdate.dataConversaoProvided ||
+    (zohoStatusUpdate.statusProvided &&
+      zohoStatusUpdate.status === ZOHO_LEAD_STATUS.CONVERTIDO);
+  if (
+    duplicateByRegistro &&
+    !fichaAvisaConversao &&
+    (duplicateByRegistro.status === ZOHO_LEAD_STATUS.REJEITADO ||
+      duplicateByRegistro.status === ZOHO_LEAD_STATUS.ENCAMINHADO_GESTAO)
+  ) {
+    // Médico parado depois de recusa e o Marketing reenviou por outra ficha:
+    // continua um lead só no Portal — soma a ficha como evento e redistribui
+    // o médico. A ficha nova acompanha o lead principal.
+    const jaTemFicha = (duplicateByRegistro.eventos || []).some(
+      (e) => String(e?.idZoho || "") === String(lead.idZoho),
+    );
+    const eventos = jaTemFicha
+      ? duplicateByRegistro.eventos
+      : [
+          ...(duplicateByRegistro.eventos || []),
+          {
+            id: randomUUID(),
+            nome: lead.evento || "Sem evento",
+            idZoho: lead.idZoho,
+            dataEntrada: lead.entradaEm || now,
+            adicionadoEm: now,
+          },
+        ];
+    const comEvento = await updateLeadItem(duplicateByRegistro.id, {
+      eventos,
+      updatedAt: now,
+    });
+    const reenviado = await reenviarLeadParado(comEvento || duplicateByRegistro, lead);
+    if (reenviado) {
+      syncZohoLeadDuplicado(lead.idZoho, reenviado.lead, { evento: lead.evento });
+      return { ...reenviado, eventAdded: !jaTemFicha };
+    }
+  }
+  // Médico que já saiu do atendimento sem venda (sem interesse / sem
+  // tratativa) e voltou por outro evento: a ficha nova é um lead novo,
+  // distribuído normalmente. As fichas antigas ficam como estão — só se
+  // clona ficha enquanto o médico está com um consultor.
+  if (duplicateByRegistro && !medicoForaDeAtendimento(duplicateByRegistro)) {
     const novoEvento = {
       id: randomUUID(),
       nome: lead.evento || "Sem evento",

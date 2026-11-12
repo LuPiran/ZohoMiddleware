@@ -269,19 +269,6 @@ function espelharNasFichasExtras(lead, fields) {
   }
 }
 
-// Status que já são tabulação do consultor: uma ficha extra que chega
-// depois já nasce com ele. Os demais (oferta, gestão, rejeitado, retido)
-// ainda não têm tabulação e a ficha extra fica "Já Atribuído".
-const STATUS_TABULADOS = new Set([
-  ZOHO_LEAD_STATUS.QUALIFICACAO,
-  ZOHO_LEAD_STATUS.COM_INTERESSE,
-  ZOHO_LEAD_STATUS.ENCAMINHADO_MKT,
-  ZOHO_LEAD_STATUS.SEM_CONTATO,
-  ZOHO_LEAD_STATUS.SEM_INTERESSE,
-  ZOHO_LEAD_STATUS.SEM_TRATATIVA,
-  ZOHO_LEAD_STATUS.CONVERTIDO,
-]);
-
 /**
  * Lead novo do Zoho (outro idZoho) de um médico que já tem lead no Portal
  * (mesmo registro + UF): o Portal só soma o evento no lead existente e não
@@ -311,9 +298,9 @@ export function syncZohoLeadDuplicado(idZohoNovo, original, { evento, consultorT
     `pelo protocolo ${original.protocolo || "—"}, ${dono} (status: ${original.status}). ` +
     `O evento "${evento || "Sem evento"}" foi adicionado ao histórico desse lead. ` +
     `Este registro não foi distribuído de novo e recebe as tabulações do consultor.`;
-  const status = STATUS_TABULADOS.has(original.status)
-    ? original.status
-    : ZOHO_LEAD_STATUS.JA_ATRIBUIDO;
+  // Mesmo status da ficha principal (pedido do Samuel, 12/11): o médico é
+  // um lead só, então todas as fichas mostram a mesma situação.
+  const status = original.status || ZOHO_LEAD_STATUS.JA_ATRIBUIDO;
 
   syncZohoLead(idZohoNovo, {
     ...field(ENV.ZOHO_LEAD_STATUS_FIELD, status),
@@ -458,6 +445,14 @@ export function syncZohoLeadDistribuicao(lead) {
     ...(lead.slaOfertaRound != null
       ? field(ENV.ZOHO_LEAD_DIST_RODADAS_FIELD, Number(lead.slaOfertaRound))
       : {}),
+  });
+  // Fichas extras do mesmo médico acompanham a oferta (sem o nome do evento,
+  // que é de cada ficha).
+  espelharNasFichasExtras(lead, {
+    ...field(ENV.ZOHO_LEAD_STATUS_FIELD, lead.status),
+    ...field(ENV.ZOHO_LEAD_DIST_STATUS_FIELD, distStatusForOffer(lead)),
+    ...field(ENV.ZOHO_LEAD_DIST_FILA_FIELD, fila),
+    ...consultorVisivel(lead),
   });
 }
 
