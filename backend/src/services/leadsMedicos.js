@@ -74,6 +74,7 @@ import {
   normalizeProtocolo,
 } from "../domain/leadProtocol.js";
 import { persistLeadEvidencias } from "./leadEvidencias.js";
+import { addLeadNoteToZoho } from "./zohoLeadAttachments.js";
 import { downloadWorkDriveFile, workDrivePreviewUrl } from "./workdrive.js";
 import { geocodeAddress } from "./geocoding.js";
 
@@ -2080,7 +2081,11 @@ export async function requestFourthAttempt(
  * registrada pelo fluxo normal (observação/evidência, ou sem interesse/
  * sem contato) quando o contato de fato acontecer.
  */
-export async function scheduleAgendamento(leadId, user, { data } = {}) {
+export async function scheduleAgendamento(
+  leadId,
+  user,
+  { data, observacao, files } = {},
+) {
   await getLeadForUser(leadId, user);
   const now = new Date().toISOString();
   const raw = (
@@ -2088,16 +2093,58 @@ export async function scheduleAgendamento(leadId, user, { data } = {}) {
   );
 
   const { n, entry, updates } = agendamentoUpdates(raw, { data, at: now });
+  const note = String(observacao || "").trim().slice(0, 2000);
+  // Foto/comprovante é opcional: vai pro WorkDrive + anexo do Zoho como as demais evidências.
+  const evidence = files?.length
+    ? await persistLeadEvidencias(raw, files, {
+        acao: "agendamento",
+        round: null,
+        user,
+        requireEvidence: false,
+      })
+    : {
+        uploaded: [],
+        evidencias: raw.evidencias,
+        workdriveFolderId: raw.workdriveFolderId,
+        workdriveFolderName: raw.workdriveFolderName,
+        protocolo: raw.protocolo,
+      };
   const dataFormatada = new Date(entry.data).toLocaleDateString("pt-BR");
+  const resumo = `Próximo contato previsto para ${dataFormatada}`;
+  const extra = evidenceHistoryDetail(note, evidence.uploaded);
   const historico = appendHistorico(raw, {
     action: "agendamento",
     label: `Agendamento ${n}ª tentativa`,
-    detail: `Próximo contato previsto para ${dataFormatada}`,
+    detail: extra ? `${resumo}
+
+${extra}` : resumo,
     by: user.email || user.id || "usuario",
   });
 
-  const updated = await updateLeadItem(leadId, { ...updates, historico });
+  const updated = await updateLeadItem(leadId, {
+    ...updates,
+    agendamentos: updates.agendamentos.map((item) =>
+      item.n === n ? { ...item, observacao: note || null } : item,
+    ),
+    historico,
+    evidencias: evidence.evidencias,
+    workdriveFolderId: evidence.workdriveFolderId,
+    workdriveFolderName: evidence.workdriveFolderName,
+    protocolo: evidence.protocolo,
+  });
+  if (!raw.protocolo && evidence.protocolo) {
+    syncZohoLeadProtocolo(updated);
+  }
   syncZohoLeadAgendamento(updated, { n, data: entry.data });
+  if (note) {
+    void addLeadNoteToZoho({
+      idZoho: updated.idZoho,
+      title: `Agendamento ${n} — ${dataFormatada}`,
+      content: `${note}
+
+Por ${user.email || user.id || "consultor"} (Portal do Consultor)`,
+    });
+  }
   return toLeadDetail(updated);
 }
 

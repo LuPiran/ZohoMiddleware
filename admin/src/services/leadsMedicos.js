@@ -72,10 +72,14 @@ export async function solicitarQuartaTentativa(id, { dataQuartaTentativa, motivo
   };
 }
 
-export async function agendarContato(id, data) {
-  const response = await api.post(API_ENDPOINTS.LEADS_MEDICOS.AGENDAMENTO(id), {
-    data,
-  });
+export async function agendarContato(id, data, observacao = "", files = []) {
+  const form = buildEvidenceFormData({ observacao, files });
+  form.append("data", data);
+  const response = await api.post(
+    API_ENDPOINTS.LEADS_MEDICOS.AGENDAMENTO(id),
+    form,
+    { timeout: 120000 },
+  );
   return {
     success: Boolean(response.data?.success),
     data: response.data?.data || null,

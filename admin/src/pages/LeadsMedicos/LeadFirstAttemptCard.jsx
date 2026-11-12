@@ -262,8 +262,11 @@ export default function LeadFirstAttemptCard({
   };
 
   const handleScheduleAgendamento = async (payload) => {
-    await onScheduleAgendamento(payload);
+    const ok = await onScheduleAgendamento(payload);
+    if (ok === false) return false;
     setAgendarModalOpen(false);
+    // A observação do card foi levada pro modal e salva junto com o agendamento.
+    setObservacao("");
   };
 
   const handleSemInteresse = async () => {
@@ -654,6 +657,7 @@ export default function LeadFirstAttemptCard({
         onClose={() => !submitting && setAgendarModalOpen(false)}
         onConfirm={handleScheduleAgendamento}
         submitting={submitting}
+        initialObservacao={observacao}
       />
 
       <ContinuarCompraModal

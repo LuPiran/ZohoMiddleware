@@ -3,6 +3,8 @@ import { useMemo, useState } from "react";
 import { MdCalendarToday, MdClose, MdEventAvailable } from "react-icons/md";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
+import Textarea from "../../components/ui/Textarea";
+import EvidenceUploader from "./EvidenceUploader";
 import { useToast } from "../../components/feedback/auth/ToastContainer";
 
 function toDateOnly(date) {
@@ -13,10 +15,25 @@ function toDateOnly(date) {
   return `${y}-${m}-${d}`;
 }
 
-export default function AgendarContatoModal({ open, onClose, onConfirm, submitting }) {
+export default function AgendarContatoModal({
+  open,
+  onClose,
+  onConfirm,
+  submitting,
+  initialObservacao = "",
+}) {
   const { showToast } = useToast();
   const [data, setData] = useState("");
   const [error, setError] = useState("");
+  const [observacao, setObservacao] = useState("");
+  const [files, setFiles] = useState([]);
+  const [wasOpen, setWasOpen] = useState(false);
+
+  // Ao abrir, já traz o que o consultor escreveu na "Observação do contato" do card.
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) setObservacao(initialObservacao || "");
+  }
 
   const minDate = useMemo(() => toDateOnly(new Date()), []);
 
@@ -25,6 +42,8 @@ export default function AgendarContatoModal({ open, onClose, onConfirm, submitti
   const resetForm = () => {
     setData("");
     setError("");
+    setObservacao("");
+    setFiles([]);
   };
 
   const handleClose = () => {
@@ -40,7 +59,8 @@ export default function AgendarContatoModal({ open, onClose, onConfirm, submitti
       showToast(message, "error", 3500);
       return;
     }
-    await onConfirm({ data: `${data}T12:00:00` });
+    const ok = await onConfirm({ data: `${data}T12:00:00`, observacao: observacao.trim(), files });
+    if (ok === false) return; // erro: mantém o que o consultor escreveu
     resetForm();
   };
 
@@ -53,14 +73,14 @@ export default function AgendarContatoModal({ open, onClose, onConfirm, submitti
       aria-modal="true"
       aria-labelledby="agendar-contato-title"
     >
-      <div className="flex max-h-[92vh] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+      <div className="flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
         <header className="shrink-0 flex items-start justify-between gap-4 border-b border-tegra-gray-medium px-5 py-4">
           <div>
             <h2 id="agendar-contato-title" className="text-lg font-bold text-tegra-blue-dark">
               Agendar próximo contato
             </h2>
             <p className="mt-0.5 text-sm text-tegra-text-secondary">
-              Só guarda a data — não conta como tentativa tratada.
+              Não conta como tentativa tratada. A observação e a foto vão pro histórico e pro Zoho.
             </p>
           </div>
           <button
@@ -85,6 +105,21 @@ export default function AgendarContatoModal({ open, onClose, onConfirm, submitti
             required
             error={error}
             disabled={submitting}
+          />
+          <Textarea
+            label="Observação do agendamento"
+            value={observacao}
+            onChange={(e) => setObservacao(e.target.value)}
+            placeholder="Ex.: Falei com o médico, pediu retorno amanhã às 10h..."
+            rows={3}
+            maxLength={2000}
+            disabled={submitting}
+          />
+          <EvidenceUploader
+            files={files}
+            onChange={setFiles}
+            disabled={submitting}
+            required={false}
           />
         </div>
 

@@ -431,8 +431,8 @@ router.post(
 );
 
 /**
- * Agenda um próximo contato (até 4 por lead) — só guarda a data, não exige
- * observação/evidência e não avança a rodada de tentativa aberta.
+ * Agenda um próximo contato (até 4 por lead) — data obrigatória; observação e
+ * foto/comprovante opcionais (histórico + Nota/anexo no Zoho) e não avança a rodada de tentativa aberta.
  * POST /v1/leads-medicos/:id/agendamento
  */
 router.post(
@@ -440,10 +440,13 @@ router.post(
   authenticateToken,
   requireSafeResourceId("id"),
   writeRateLimiter,
+  evidenceUploadMiddleware,
   async (req, res) => {
     try {
       const lead = await scheduleAgendamento(req.params.id, req.user, {
         data: req.body?.data,
+        observacao: req.body?.observacao,
+        files: req.files,
       });
       return res.json({ success: true, data: lead });
     } catch (error) {

@@ -229,18 +229,20 @@ export default function LeadDetail() {
     }
   };
 
-  const handleScheduleAgendamento = async ({ data }) => {
+  const handleScheduleAgendamento = async ({ data, observacao, files }) => {
     setSubmitting(true);
     try {
-      const result = await leadsMedicosService.agendarContato(id, data);
+      const result = await leadsMedicosService.agendarContato(id, data, observacao, files);
       setLead(result.data);
       showToast("Contato agendado", "success", 2500);
+      return true;
     } catch (err) {
       const message =
         err?.response?.data?.error ||
         err?.message ||
         "Erro ao agendar contato";
       showToast(message, "error", 3500);
+      return false;
     } finally {
       setSubmitting(false);
     }

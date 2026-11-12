@@ -59,3 +59,29 @@ export async function uploadLeadAttachmentToZoho({
     throw err;
   }
 }
+
+/**
+ * Cria uma Nota no registro de Leads - Médicos (aba Notas do Zoho).
+ * Usada pela observação do agendamento, que não tem campo próprio no CRM.
+ * Fire-and-forget: falha só loga, não derruba a ação do consultor.
+ */
+export async function addLeadNoteToZoho({ idZoho, title, content }) {
+  const leadId = String(idZoho || "").trim();
+  const text = String(content || "").trim();
+  if (!leadId || !text) return null;
+
+  const moduleName = ENV.ZOHO_LEADS_MODULE || "Leads_M_dicos";
+  try {
+    return await chamarZohoApi(
+      "POST",
+      `/${moduleName}/${encodeURIComponent(leadId)}/Notes`,
+      { data: [{ Note_Title: title || "Observação do Portal", Note_Content: text }] },
+    );
+  } catch (error) {
+    console.error(
+      `[ZOHO] Falha ao criar nota no lead ${leadId}:`,
+      error.response?.data || error.message,
+    );
+    return null;
+  }
+}
