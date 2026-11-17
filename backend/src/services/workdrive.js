@@ -1,7 +1,11 @@
 import axios from "axios";
 import FormData from "form-data";
 import { ENV } from "../config/env.js";
-import { getWorkDriveAccessToken, isWorkDriveConfigured } from "./workdriveAuth.js";
+import {
+  getWorkDriveAccessToken,
+  invalidateWorkDriveToken,
+  isWorkDriveConfigured,
+} from "./workdriveAuth.js";
 import { leadFolderName } from "../domain/leadProtocol.js";
 
 function apiBase() {
@@ -11,7 +15,14 @@ function apiBase() {
   );
 }
 
-async function workdriveRequest(method, path, { data, headers, responseType, timeout } = {}) {
+function isInvalidTokenError(error) {
+  if (error.response?.status === 401) return true;
+  const errors = error.response?.data?.errors;
+  return Array.isArray(errors) && errors.some((e) => e?.id === "F7003");
+}
+
+async function workdriveRequest(method, path, options = {}, { retried = false } = {}) {
+  const { data, headers, responseType, timeout } = options;
   const token = await getWorkDriveAccessToken();
   const url = path.startsWith("http") ? path : `${apiBase()}${path}`;
   try {
@@ -30,6 +41,14 @@ async function workdriveRequest(method, path, { data, headers, responseType, tim
     });
     return response.data;
   } catch (error) {
+    // Token recusado (F7003 / 401): descarta o cache e tenta uma vez com token novo.
+    // Um FormData já consumido não pode ser reenviado, então só repete sem stream.
+    const canRetry = !retried && !(data && typeof data.pipe === "function");
+    if (isInvalidTokenError(error) && canRetry) {
+      console.warn("[WORKDRIVE] token recusado, renovando e repetindo", method, path);
+      invalidateWorkDriveToken();
+      return workdriveRequest(method, path, options, { retried: true });
+    }
     console.error(
       "[WORKDRIVE]",
       method,

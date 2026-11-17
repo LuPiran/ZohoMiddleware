@@ -18,6 +18,18 @@ export async function persistLeadEvidencias(
 ) {
   const validated = assertEvidenceFiles(files, { required: requireEvidence });
   const protocolo = lead.protocolo || generateProtocolo();
+
+  // Sem foto não há o que subir: não depende do WorkDrive para encerrar/encaminhar o lead.
+  if (!validated.length) {
+    return {
+      evidencias: Array.isArray(lead.evidencias) ? lead.evidencias : [],
+      workdriveFolderId: lead.workdriveFolderId,
+      workdriveFolderName: lead.workdriveFolderName,
+      protocolo,
+      uploaded: [],
+    };
+  }
+
   const folderLead = { ...lead, protocolo };
   const { folderId, folderName } = await ensureLeadWorkDriveFolder(folderLead);
   let index = nextEvidenceIndex(lead);

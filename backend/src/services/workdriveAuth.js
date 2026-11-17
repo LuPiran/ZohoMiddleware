@@ -6,6 +6,22 @@ const tokenCache = {
   expiresAt: 0,
 };
 
+// Evita várias renovações simultâneas e respeita o bloqueio do Zoho
+// ("too many requests") por um tempo, em vez de insistir e piorar o pico.
+let refreshInFlight = null;
+let cooldownUntil = 0;
+const RATE_LIMIT_COOLDOWN_MS = 60_000;
+
+export function invalidateWorkDriveToken() {
+  tokenCache.accessToken = null;
+  tokenCache.expiresAt = 0;
+}
+
+function isRateLimitError(data) {
+  const text = JSON.stringify(data || "").toLowerCase();
+  return text.includes("too many requests") || text.includes("access denied");
+}
+
 function accountsUrl() {
   return (
     String(ENV.ZOHO_WORKDRIVE_ACCOUNTS_URL || ENV.ZOHO_ACCOUNTS_URL || "")
@@ -40,6 +56,24 @@ export async function getWorkDriveAccessToken() {
     return tokenCache.accessToken;
   }
 
+  if (Date.now() < cooldownUntil) {
+    const err = new Error(
+      "Zoho WorkDrive limitou as renovações de token; tente novamente em instantes.",
+    );
+    err.status = 503;
+    err.code = "WORKDRIVE_RATE_LIMITED";
+    throw err;
+  }
+
+  if (!refreshInFlight) {
+    refreshInFlight = refreshWorkDriveToken().finally(() => {
+      refreshInFlight = null;
+    });
+  }
+  return refreshInFlight;
+}
+
+async function refreshWorkDriveToken() {
   const url = `${accountsUrl()}/oauth/v2/token`;
 
   try {
@@ -63,6 +97,9 @@ export async function getWorkDriveAccessToken() {
     tokenCache.expiresAt = Date.now() + Math.max(60, expiresIn - 60) * 1000;
     return accessToken;
   } catch (error) {
+    if (isRateLimitError(error.response?.data)) {
+      cooldownUntil = Date.now() + RATE_LIMIT_COOLDOWN_MS;
+    }
     console.error(
       "[WORKDRIVE AUTH] Falha ao obter token (refresh_token):",
       error.response?.data || error.message,
