@@ -115,9 +115,11 @@ export async function buildEquipeKpis(user = {}) {
   // antes de fechar com outra — quem recusou não é mais necessariamente
   // quem está com o lead hoje. Cada evento carrega seu próprio consultorId
   // (a partir desta entrega); eventos antigos sem esse campo ficam de fora
-  // em vez de arriscar atribuir errado.
+  // em vez de arriscar atribuir errado. Usa todos os leads da gerência
+  // (inclusive os que hoje estão com consultor de fora da equipe): a recusa
+  // de um membro continua contando mesmo depois que o lead foi pra outro.
   const recusasPorConsultor = new Map();
-  for (const lead of leads) {
+  for (const lead of leadsDaGerencia) {
     for (const entry of Array.isArray(lead.historico) ? lead.historico : []) {
       if (
         entry?.action !== "lead_rejeitado_timeout" &&

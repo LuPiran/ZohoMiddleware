@@ -6,15 +6,16 @@
  * Só mexe em `gerencia` do lead no Portal (MySQL). Não grava no Zoho e não
  * muda consultor, status nem prazo.
  *
- * Uso (na pasta backend):
- *   node scripts/backfill-gerencia-leads.js            # só mostra (simulação)
- *   node scripts/backfill-gerencia-leads.js --confirm  # grava
+ * Fica em src/ para ir junto na imagem Docker (o Dockerfile só copia src/).
+ * Uso (dentro do container do backend):
+ *   docker exec zoho-backend node src/scripts/backfill-gerencia-leads.js            # simulação
+ *   docker exec zoho-backend node src/scripts/backfill-gerencia-leads.js --confirm  # grava
  */
 import dotenv from "dotenv";
-import { migrateSchema } from "../src/db/migrate.js";
-import * as consultoresRepo from "../src/db/consultoresRepo.js";
-import * as leadsRepo from "../src/db/leadsRepo.js";
-import { closeMysql } from "../src/db/mysql.js";
+import { migrateSchema } from "../db/migrate.js";
+import * as consultoresRepo from "../db/consultoresRepo.js";
+import * as leadsRepo from "../db/leadsRepo.js";
+import { closeMysql } from "../db/mysql.js";
 
 dotenv.config();
 
