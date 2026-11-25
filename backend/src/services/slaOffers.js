@@ -394,7 +394,11 @@ export function applyOfferToLead(lead, consultor, { reason } = {}) {
   lead.consultorIdOferta = String(consultor.id);
   lead.consultor = nome;
   lead.emailConsultor = consultor.email || lead.emailConsultor;
-  lead.gerencia = lead.gerencia || getConsultorGerencia(consultor);
+  // A gerência é a de quem recebe o lead (igual a assign/redistribute/
+  // startOfferCycle). A do payload vem da ficha do Zoho e pode estar velha
+  // (Consultor Tegra antigo, ficha extra sem gatilho) — aí o lead aparecia
+  // na equipe e nos e-mails do gerente errado (chamado #14632).
+  lead.gerencia = getConsultorGerencia(consultor) || lead.gerencia;
   lead.slaStatus = "ofertado";
   lead.status = ZOHO_LEAD_STATUS.EM_OFERTA;
   lead.slaDeadline = offerDeadlineIso();
@@ -417,6 +421,31 @@ export function applyOfferToLead(lead, consultor, { reason } = {}) {
   });
   lead.historico = historico.slice(0, 200);
   return lead;
+}
+
+/**
+ * Oferta montada na criação do lead (offerLeadOnCreate) só vira e-mail e
+ * entra no rodízio depois que o lead é gravado — antes, se a validação ou o
+ * INSERT falhassem, o consultor recebia oferta de um lead que não existe.
+ * WeakMap pra não ir parar no payload gravado do lead.
+ */
+const ofertasPendentes = new WeakMap();
+
+function marcarOfertaPendente(lead, consultor) {
+  ofertasPendentes.set(lead, consultor);
+}
+
+/** Chamar depois de gravar o lead criado: rodízio + e-mail da oferta. */
+export async function confirmarOfertaCriada(lead) {
+  const consultor = ofertasPendentes.get(lead);
+  if (!consultor) return;
+  ofertasPendentes.delete(lead);
+  try {
+    await updateConsultorUltimaAtribuicao(consultor.id, new Date().toISOString());
+  } catch (error) {
+    console.warn("[SLA] Falha ao atualizar última atribuição:", error.message);
+  }
+  void notifyLeadOffer(lead, consultor);
 }
 
 function appendCreateHistory(lead, entry) {
@@ -444,10 +473,9 @@ async function offerLeadToRequestedConsultor(lead) {
     lead.slaFaseGestao = false;
     lead.distribuidoPorMarketing = true;
     applyOfferToLead(lead, usable, {
-      reason: `Consultor "${lead.prescritorConsultorNome || consultorNome(usable)}" indicado no Zoho (campo Consultor Tegra). Lead enviado diretamente, sem passar pela fila.`,
+      reason: `Consultor "${consultorNome(usable)}" indicado no Zoho (campo Consultor Tegra). Lead enviado diretamente, sem passar pela fila.`,
     });
-    await updateConsultorUltimaAtribuicao(usable.id, new Date().toISOString());
-    void notifyLeadOffer(lead, usable);
+    marcarOfertaPendente(lead, usable);
     return lead;
   }
 
@@ -475,8 +503,7 @@ async function offerLeadToRequestedConsultor(lead) {
 
   lead.slaRecusados = gestaoRecusados;
   applyOfferToLead(lead, next);
-  await updateConsultorUltimaAtribuicao(next.id, new Date().toISOString());
-  void notifyLeadOffer(lead, next);
+  marcarOfertaPendente(lead, next);
   return lead;
 }
 
@@ -562,8 +589,8 @@ export async function offerLeadOnCreate(lead) {
   Object.assign(lead, fieldUpdates);
   lead.slaRecusados = recusados;
   applyOfferToLead(lead, next);
-  await updateConsultorUltimaAtribuicao(next.id, new Date().toISOString());
-  void notifyLeadOffer(lead, next);
+  // E-mail e rodízio só depois de gravar (confirmarOfertaCriada).
+  marcarOfertaPendente(lead, next);
   return lead;
 }
 

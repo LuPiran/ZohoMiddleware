@@ -192,23 +192,70 @@ export async function updateZohoLeadRecord(idZoho, fields, { limpar = [], semGat
     return { synced: false, reason: "sync desligado" };
   }
 
-  await chamarZohoApi("PUT", `/${moduleName}`, {
+  const resposta = await chamarZohoApi("PUT", `/${moduleName}`, {
     data: [{ id, ...payload }],
     ...(semGatilhos ? { trigger: [] } : {}),
   });
+
+  // O Zoho responde 200 mesmo quando recusa o registro (ex.: valor fora do
+  // picklist): o erro vem dentro de data[0]. Antes isso saía como "Sync ok".
+  const item = Array.isArray(resposta?.data) ? resposta.data[0] : null;
+  if (item && String(item.status || "").toLowerCase() === "error") {
+    console.error(
+      `[ZOHO LEAD] Zoho recusou a gravação ${id}: ${item.code || "?"} — ${item.message || ""}`,
+      JSON.stringify(item.details || {}),
+    );
+    return { synced: false, reason: item.code || "erro no registro" };
+  }
 
   console.log(`[ZOHO LEAD] Sync ok ${id} → ${JSON.stringify(payload)}`);
   return { synced: true };
 }
 
-export function syncZohoLead(idZoho, fields, options) {
-  void updateZohoLeadRecord(idZoho, fields, options).catch((error) => {
-    console.error(
-      "[ZOHO LEAD] Falha ao sincronizar",
-      idZoho,
-      error.response?.data || error.message,
-    );
-  });
+// Esperas entre as tentativas de gravar no Zoho (ms). Em envio em massa o
+// Zoho recusa rajadas (29/10: 61 de 175 fichas ficaram sem retorno).
+const SYNC_RETRY_DELAYS_MS = [3000, 10000, 30000];
+
+/** Erro que vale tentar de novo: rede, timeout, limite de requisições ou 5xx. */
+export function erroTemporarioZoho(error) {
+  const status = Number(error?.response?.status || 0);
+  if (!status) return true;
+  return status === 429 || status >= 500;
+}
+
+const esperar = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Dispara a gravação no Zoho sem travar a ação do Portal. Tenta de novo
+ * (até 3x, com espera crescente) quando o erro é temporário. Erro de dado
+ * (4xx) não adianta repetir.
+ */
+export function syncZohoLead(
+  idZoho,
+  fields,
+  options,
+  { delays = SYNC_RETRY_DELAYS_MS, gravar = updateZohoLeadRecord } = {},
+) {
+  void (async () => {
+    for (let tentativa = 0; ; tentativa += 1) {
+      try {
+        await gravar(idZoho, fields, options);
+        if (tentativa > 0) {
+          console.log(`[ZOHO LEAD] Sync ok ${idZoho} na tentativa ${tentativa + 1}`);
+        }
+        return;
+      } catch (error) {
+        const podeRepetir = erroTemporarioZoho(error) && tentativa < delays.length;
+        console.error(
+          `[ZOHO LEAD] Falha ao sincronizar ${idZoho} (tentativa ${tentativa + 1})` +
+            (podeRepetir ? ` — tentando de novo em ${delays[tentativa] / 1000}s` : ""),
+          error.response?.data || error.message,
+        );
+        if (!podeRepetir) return;
+        await esperar(delays[tentativa]);
+      }
+    }
+  })();
 }
 
 /**

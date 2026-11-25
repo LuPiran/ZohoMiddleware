@@ -24,6 +24,7 @@ import {
 import {
   aguardandoDataEvento,
   assignLeadToConsultor,
+  confirmarOfertaCriada,
   isSlaAccepted,
   isSlaOffered,
   offerLeadOnCreate,
@@ -87,6 +88,8 @@ const UF_REGIAO = {
   AM: "NORTE", PA: "NORTE", AC: "NORTE", RO: "NORTE", RR: "NORTE", AP: "NORTE", TO: "NORTE",
   MT: "CENTRO-OESTE", MS: "CENTRO-OESTE", GO: "CENTRO-OESTE", DF: "CENTRO-OESTE",
 };
+
+const REGIOES_VALIDAS = new Set(Object.values(UF_REGIAO));
 
 // Nome completo do estado (sem acento, maiúsculo) → sigla. Necessário porque
 // alguns campos do Zoho (ex: "Estado") guardam o nome por extenso em vez da
@@ -418,8 +421,13 @@ export function mapZohoPayloadToLead(payload) {
   const regiaoRaw = asString(
     pick(source, ["regiao", "Regiao", "Dist_Regiao", "dist_regiao", "region"]),
   );
+  // Dist_Regiao é gravado pelo próprio Portal ("Não Identificada" quando o
+  // lead não tinha região). Só vale se for uma das 5 regiões; senão, num
+  // reenvio, "NÃO IDENTIFICADA" virava uma região sem ninguém e o lead ia
+  // direto pra Gestão em vez da geolocalização.
+  const regiaoInformada = regiaoRaw ? String(regiaoRaw).trim().toUpperCase() : null;
   const regiao =
-    (regiaoRaw ? String(regiaoRaw).trim().toUpperCase() : null) ||
+    (REGIOES_VALIDAS.has(regiaoInformada) ? regiaoInformada : null) ||
     resolveRegiaoFromUF(ufCrm || estado) ||
     null;
 
@@ -834,6 +842,17 @@ export async function createLeadFromZoho(payload) {
     // Tem prioridade sobre o redistributeLead automático logo abaixo.
     if (lead.prescritorConsultorEmail && !isLeadClosed(existing)) {
       const usable = await findConsultorByEmail(lead.prescritorConsultorEmail);
+      // Já está com esse mesmo consultor (em oferta ou aceito): não faz nada.
+      // Reatribuir reiniciaria a oferta e o consultor perderia o aceite.
+      // Antes só a trava da EnvarLeadPortalManual (campos Dist) evitava isso.
+      const mesmoConsultor =
+        usable &&
+        String(existing.consultorId || "") === String(usable.id) &&
+        (existing.status === ZOHO_LEAD_STATUS.EM_OFERTA ||
+          existing.status === ZOHO_LEAD_STATUS.QUALIFICACAO);
+      if (mesmoConsultor) {
+        return { created: false, alreadyExists: true, lead: existing };
+      }
       if (usable) {
         const reatribuido = await assignLeadToConsultor(existing, usable, {
           by: "zoho",
@@ -1144,6 +1163,9 @@ export async function createLeadFromZoho(payload) {
     throw error;
   }
 
+  // Só agora (lead gravado) a oferta vira e-mail e entra no rodízio. Espera
+  // o rodízio gravar antes do próximo lead da fila (envio em massa).
+  await confirmarOfertaCriada(lead);
   syncZohoLeadProtocolo(lead);
   // Retido aguardando a data do evento — nada foi distribuído ainda, não
   // sincroniza Dist_Status/Dist_Consultor_* prematuramente (ver sweeper).

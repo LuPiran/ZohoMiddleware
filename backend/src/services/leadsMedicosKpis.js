@@ -66,30 +66,45 @@ export async function buildEquipeKpis(user = {}) {
     throw forbidden("Cadastro de consultor não encontrado para este usuário.");
   }
 
-  const { equipe, leads } = await listLeadsForGerencia(consultorRecord);
+  const { equipe, leads: leadsDaGerencia } = await listLeadsForGerencia(consultorRecord);
 
+  // Só a equipe cadastrada vira linha. Lead da gerência que, numa
+  // redistribuição, ficou com consultor de outra equipe não entra nos KPIs
+  // (antes cada um desses consultores aparecia como membro).
   const buckets = new Map();
-  for (const membro of equipe) {
-    const chave = String(membro.id || membro.nome);
-    buckets.set(chave, {
+  const bucketPorChave = new Map();
+  const norm = (v) => String(v || "").trim().toLowerCase();
+  // O gerente também atende leads: entra como membro (senão os leads dele
+  // viravam uma linha à parte com o nome gravado no lead, ex. "Marcelo Silva").
+  const membros = [...equipe];
+  if (
+    consultorRecord.id &&
+    !membros.some((m) => String(m.id) === String(consultorRecord.id))
+  ) {
+    membros.push(consultorRecord);
+  }
+  for (const membro of membros) {
+    const bucket = {
       id: membro.id || null,
       nome: getConsultorDisplayName(membro) || membro.email || "—",
       email: membro.email || null,
       leads: [],
-    });
+    };
+    buckets.set(String(membro.id || membro.nome), bucket);
+    for (const k of [membro.id, membro.nome, bucket.nome, membro.email]) {
+      if (k) bucketPorChave.set(norm(k), bucket);
+    }
   }
 
-  for (const lead of leads) {
-    const chave = bucketKeyFor(lead);
-    if (!buckets.has(chave)) {
-      buckets.set(chave, {
-        id: lead.consultorId || null,
-        nome: lead.consultor || "Sem consultor identificado",
-        email: lead.emailConsultor || null,
-        leads: [],
-      });
-    }
-    buckets.get(chave).leads.push(lead);
+  const leads = [];
+  for (const lead of leadsDaGerencia) {
+    const bucket =
+      bucketPorChave.get(norm(bucketKeyFor(lead))) ||
+      bucketPorChave.get(norm(lead.consultor)) ||
+      bucketPorChave.get(norm(lead.emailConsultor));
+    if (!bucket) continue;
+    bucket.leads.push(lead);
+    leads.push(lead);
   }
 
   const acoesGeral = new Map();

@@ -136,3 +136,49 @@ describe("redistribuição chega nas fichas extras", () => {
     expect(extra[ENV.ZOHO_LEAD_NOME_EVENTO_FIELD]).toBeUndefined();
   });
 });
+
+describe("syncZohoLead: nova tentativa em erro temporário", () => {
+  const erro = (status) => Object.assign(new Error(`HTTP ${status}`), { response: { status } });
+  const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  it("tenta de novo em 429 e para quando grava", async () => {
+    const { syncZohoLead } = await import("./zohoLeadSync.js");
+    let n = 0;
+    const gravar = vi.fn(async () => {
+      n += 1;
+      if (n === 1) throw erro(429);
+      return { synced: true };
+    });
+    syncZohoLead("123", { Status: "x" }, undefined, { delays: [1, 1, 1], gravar });
+    await esperar(30);
+    expect(gravar).toHaveBeenCalledTimes(2);
+  });
+
+  it("não repete erro de dado (400)", async () => {
+    const { syncZohoLead } = await import("./zohoLeadSync.js");
+    const gravar = vi.fn(async () => {
+      throw erro(400);
+    });
+    syncZohoLead("123", { Status: "x" }, undefined, { delays: [1, 1, 1], gravar });
+    await esperar(30);
+    expect(gravar).toHaveBeenCalledTimes(1);
+  });
+
+  it("desiste depois de 3 novas tentativas", async () => {
+    const { syncZohoLead } = await import("./zohoLeadSync.js");
+    const gravar = vi.fn(async () => {
+      throw erro(502);
+    });
+    syncZohoLead("123", { Status: "x" }, undefined, { delays: [1, 1, 1], gravar });
+    await esperar(50);
+    expect(gravar).toHaveBeenCalledTimes(4);
+  });
+
+  it("registro recusado pelo Zoho (200 com erro) não conta como sync ok", async () => {
+    const { updateZohoLeadRecord } = await import("./zohoLeadSync.js");
+    chamarZohoApi.mockResolvedValueOnce({ data: [{ status: "error", code: "INVALID_DATA", message: "x" }] });
+    const r = await updateZohoLeadRecord("123", { Status: "x" });
+    expect(r.synced).toBe(false);
+    expect(r.reason).toBe("INVALID_DATA");
+  });
+});
